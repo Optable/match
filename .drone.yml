@@ -1,0 +1,11 @@
+kind: pipeline
+name: default
+
+steps:
+- name: test
+  image: golang
+  commands:
+  - go test ./...
+  environment:
+    GOOS: linux
+    GOARCH: amd64

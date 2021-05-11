@@ -1,0 +1,186 @@
+package dhpsi
+
+import (
+	"crypto/rand"
+	"encoding/binary"
+	"fmt"
+	"io"
+	"math/big"
+
+	"github.com/bwesterb/go-ristretto"
+)
+
+const (
+	EncodedLen = 32
+)
+
+var (
+	ErrUnexpectedEncodeByte = fmt.Errorf("received a byte to encode past the configured size")
+)
+
+type Key struct {
+	*ristretto.Scalar
+}
+
+type PermutationEncoder interface {
+	Encode([]byte) (err error)
+	Permutations() []int64
+}
+
+type ShufflerEncoder struct {
+	w              io.Writer
+	seq, sent, max int64
+	r              Ristretto
+	// precomputed order to send things in
+	permutations []int64
+	// buffered in the order received by Encode()
+	b [][EncodedLen]byte
+}
+
+type Reader struct {
+	r        io.Reader
+	seq, max int64
+}
+
+type Encoder struct {
+	w io.Writer
+	n int64
+	r Ristretto
+}
+
+// NewShufflerEncoder returns a dhpsi encoder that hashes, encrypts
+// and shuffles matchable values on n sequences of bytes to be sent out.
+// It first computes a permutation table and subsequently sends out sequences ordered
+// by the precomputed permutation table. This is the first stage of doing a DH exchange.
+func NewShufflerEncoder(w io.Writer, n int64, r Ristretto) (*ShufflerEncoder, error) {
+	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
+		return nil, err
+	}
+	// and create the encoder
+	return &ShufflerEncoder{w: w, max: n, r: r, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
+
+}
+
+// Encode one prefixed matchable. Hashed, encrypted
+// and written out to the underlying writer, following
+// the order of permutations created at NewShufflerEncoder.
+// Returns io.EOF when the whole expected sequence has been sent.
+func (enc *ShufflerEncoder) Encode(matchable []byte) (err error) {
+	// ignore any encode past the max encodes
+	// we're configured for
+	if enc.seq == enc.max {
+		return ErrUnexpectedEncodeByte
+	}
+	// derive/multiply
+	p := enc.r.DeriveMultiply(matchable)
+	// we follow the permutation matrix and send
+	// or cache incoming matchables
+	next := enc.permutations[enc.sent]
+	if next == enc.seq {
+		//  we fall perfectly in sequence, write it out
+		_, err = enc.w.Write(p[:])
+		enc.sent++
+	} else {
+		// cache the current sequence
+		enc.b[enc.seq] = p
+	}
+	enc.seq++
+	// after we processed everything we will very probably
+	// have cached hashes left to send.
+	// flush the buffer, in enc.permutations order
+	if enc.seq == enc.max {
+		for _, pos := range enc.permutations[enc.sent:] {
+			if _, err = enc.w.Write(enc.b[pos][:]); err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+// Permutations returns the permutation matrix
+// that was computed on initialization
+func (enc *ShufflerEncoder) Permutations() []int64 {
+	return enc.permutations
+}
+
+// NewEncoder creates an encoder that does the second stage of the DH exchange,
+// with the same key, this time doing a simple scalar multiplication.
+func NewEncoder(w io.Writer, n int64, r Ristretto) (*Encoder, error) {
+	// send the max value first
+	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
+		return nil, err
+	}
+	return &Encoder{w: w, n: n, r: r}, nil
+}
+
+func (enc *Encoder) Encode(p [EncodedLen]byte) (err error) {
+	// multiply by our scalar
+	b := enc.r.Multiply(p)
+	if _, err = enc.w.Write(b[:]); err != nil {
+		return err
+	}
+	//
+	return
+}
+
+// NewReader makes a simple reader that sits on the other end
+// of the ShufflerEncoder or the Encoder reads encoded ristretto hashes.
+func NewReader(r io.Reader) (*Reader, error) {
+	var max int64
+	// extract the max value
+	if err := binary.Read(r, binary.LittleEndian, &max); err != nil {
+		return nil, err
+	}
+	return &Reader{r: r, max: max}, nil
+}
+
+// Decode a matchable point into p
+func (dec *Reader) Read(p *[EncodedLen]byte) (err error) {
+	// ignore any read past the max size
+	// we're configured for
+	if dec.seq == dec.max {
+		return io.EOF
+	}
+	// read one
+	var b []byte = make([]byte, EncodedLen)
+	if _, err = dec.r.Read(b); err != nil {
+		return
+	}
+	// one done
+	copy(p[:], b)
+	dec.seq++
+	return nil
+}
+
+// Max is the expected number of matchable
+// this decoder will receive
+func (dec *Reader) Max() int64 {
+	return dec.max
+}
+
+// init the permutations slice matrix
+func initP(n int64) []int64 {
+	var p = make([]int64, n)
+	var max = big.NewInt(n - 1)
+	// Chooses a uniform random int64
+	choose := func() int64 {
+		if i, err := rand.Int(rand.Reader, max); err == nil {
+			return i.Int64()
+		} else {
+			return 0
+		}
+	}
+	// Initialize a trivial permutation
+	for i := int64(0); i < n; i++ {
+		p[i] = i
+	}
+	// and then shuffle it by random swaps
+	for i := int64(0); i < n; i++ {
+		if j := choose(); j != i {
+			p[j], p[i] = p[i], p[j]
+		}
+	}
+
+	return p
+}
