@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	MainTestCommonLen = 10
-	MainTestBodyLen   = 90
-	MainTestLen       = MainTestBodyLen + MainTestCommonLen
+	DHPSITestCommonLen = 10
+	DHPSITestBodyLen   = 90
+	DHPSITestLen       = DHPSITestBodyLen + DHPSITestCommonLen
 )
 
 type NilRistretto int
@@ -173,8 +173,8 @@ func TestShufflerEncoder(t *testing.T) {
 	// get an io pipe to read results
 	rcv, snd := io.Pipe()
 	// setup a matchables generator
-	common := emails.Common(MainTestCommonLen)
-	matchables := emails.Mix(common, MainTestBodyLen)
+	common := emails.Common(DHPSITestCommonLen)
+	matchables := emails.Mix(common, DHPSITestBodyLen)
 
 	// save test matchables
 	var sent [][]byte
@@ -191,7 +191,7 @@ func TestShufflerEncoder(t *testing.T) {
 		// Probably advertiser
 		defer ws.Done()
 		defer snd.Close()
-		if mm, pp, err := sender(snd, MainTestLen, gr, matchables, true); err != nil {
+		if mm, pp, err := sender(snd, DHPSITestLen, gr, matchables, true); err != nil {
 			errs <- err
 		} else {
 			sent = mm
@@ -202,7 +202,7 @@ func TestShufflerEncoder(t *testing.T) {
 		// Probably publisher
 		defer ws.Done()
 		defer rcv.Close()
-		if ee, err := receiver(rcv, MainTestLen); err != nil {
+		if ee, err := receiver(rcv, DHPSITestLen); err != nil {
 			errs <- err
 		} else {
 			received = ee
@@ -219,8 +219,8 @@ func TestShufflerEncoder(t *testing.T) {
 	}
 
 	// check that we received the amount anticipated
-	if len(received) != MainTestLen {
-		t.Errorf("expected %d matchables, got %d", MainTestLen, len(received))
+	if len(received) != DHPSITestLen {
+		t.Errorf("expected %d matchables, got %d", DHPSITestLen, len(received))
 	}
 
 	// check that sequences are permutated as expected

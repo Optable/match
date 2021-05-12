@@ -1,6 +1,8 @@
 package dhpsi
 
-import "context"
+import (
+	"context"
+)
 
 func sel(ctx context.Context, f func() error) error {
 	var d = make(chan error)
@@ -14,4 +16,16 @@ func sel(ctx context.Context, f func() error) error {
 	case err := <-d:
 		return err
 	}
+}
+
+func run(f1 func() error, f2 func() error) chan error {
+	var d = make(chan error, 2)
+	go func() {
+		d <- f1()
+	}()
+	go func() {
+		d <- f2()
+	}()
+
+	return d
 }

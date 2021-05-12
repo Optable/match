@@ -6,42 +6,50 @@ import (
 	"io"
 )
 
-// (receiver, publisher: high cardinality) step1: reads the matchables from the receiver, encrypt them and index them in a map
-// (receiver, publisher: high cardinality) step2: permute and write the local matchables to the sender
-// (receiver, publisher: high cardinality) step3: reads back the matchables from the sender and learns the intersection
+// (receiver, publisher: high cardinality) stage1: reads the identifiers from the receiver, encrypt them and index them in a map
+// (receiver, publisher: high cardinality) stage2.1: permute and write the local identifiers to the sender
+// (receiver, publisher: high cardinality) stage2.2: reads back the identifiers from the sender and learns the intersection
 
 // Receiver represents the receiver in a DHPSI operation, often the publisher.
 // The receiver learns the intersection of matchable between its set and the set
 // of the sender
 type Receiver struct {
-	rw       io.ReadWriter
-	receiver map[[EncodedLen]byte]bool
+	rw io.ReadWriter
 }
 
 // NewReceiver returns a receiver initialized to
 // use rw as the communication layer
 func NewReceiver(rw io.ReadWriter) *Receiver {
-	return &Receiver{rw: rw, receiver: make(map[[EncodedLen]byte]bool)}
+	return &Receiver{rw: rw}
+}
+
+type permuted struct {
+	position   int64
+	identifier []byte
 }
 
 // Intersect on n matchables,
 // sourced from r, returning the matching intersection.
 func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
 	// state
-	var matchables [][]byte
-	var matched [][]byte
-	var permutations []int64
+	var remoteIDs = make(map[[EncodedLen]byte]bool) // single routine access from s1
+	var localIDs = make(map[int64][]byte)
+	var receiverIDs = make(chan permuted)
+	var matchedIDs = make(chan int64)
+
+	var intersection [][]byte
+
 	// pick a ristretto implementation
 	gr := NewRistretto(RistrettoTypeGR)
 	// wrap src in a bufio reader
 	src := bufio.NewReader(r)
-	// step1 : reads the matchables from the receiver, encrypt them and index them in a map
-	s1 := func() error {
+	// step1 : reads the identifiers from the receiver, encrypt them and index the encoded ristretto point in a map
+	stage1 := func() error {
 		if r, err := NewReader(s.rw); err != nil {
 			return err
 		} else {
 			for {
-				// read, encrypt & index
+				// read
 				var p [EncodedLen]byte
 				if err := r.Read(&p); err != nil {
 					if err == io.EOF {
@@ -49,26 +57,30 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 					}
 					return err
 				}
+				// encrypt & index
 				p = gr.Multiply(p)
-				s.receiver[p] = true
+				remoteIDs[p] = true
 			}
 		}
 	}
-	// step2 : permute and write the local matchables to the sender
-	s2 := func() error {
-		if s2encoder, err := NewShufflerEncoder(s.rw, n, gr); err != nil {
+	// stage2.1 : permute and write the local identifiers to the sender
+	stage21 := func() error {
+		if s2encoder, err := NewShufflerDirectEncoder(s.rw, n, gr); err != nil {
 			return err
 		} else {
-			// take a snapshot of the permutations
-			permutations = s2encoder.Permutations()
-			// read N matchables from r
-			// and write them to stage1
+			// take a snapshot of the reverse of the permutations
+			permutations := s2encoder.InvertedPermutations()
+			// read n identifiers from src
+			// and
+			//  1. index them locally
+			//  2. write them to the sender
 			for i := int64(0); i < n; i++ {
-				line, err := SafeReadLine(src)
-				if len(line) != 0 {
+				identifier, err := SafeReadLine(src)
+				if len(identifier) != 0 {
 					// save this input
-					matchables = append(matchables, line)
-					if err := s2encoder.Encode(line); err != nil {
+					// method2
+					receiverIDs <- permuted{permutations[i], identifier} // {0, "0"}
+					if err := s2encoder.Encode(identifier); err != nil {
 						return err
 					}
 				}
@@ -79,37 +91,53 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 			return nil
 		}
 	}
-	// step3: reads back the matchables from the sender and learns the intersection
-	s3 := func() error {
+	// step3: reads back the identifiers from the sender and learns the intersection
+	stage22 := func() error {
 		if r, err := NewReader(s.rw); err != nil {
 			return err
 		} else {
 			for i := int64(0); i < r.Max(); i++ {
-				// read, encrypt & index
+				// read
 				var p [EncodedLen]byte
 				if err := r.Read(&p); err != nil {
 					return err
 				}
-				if s.receiver[p] {
-					matched = append(matched, matchables[permutations[i]])
+				if remoteIDs[p] {
+					// we can match this local identifier with one received
+					// from the sender
+					matchedIDs <- i
 				}
 			}
 		}
 		return nil
 	}
 
-	// run step1
-	if err := sel(ctx, s1); err != nil {
-		return matched, err
+	// run stage1
+	if err := sel(ctx, stage1); err != nil {
+		return nil, err
 	}
-	// run step2
-	if err := sel(ctx, s2); err != nil {
-		return matched, err
-	}
-	// run step3
-	if err := sel(ctx, s3); err != nil {
-		return matched, err
+	// run stage2.1/2.2
+	var done = 2
+	var errs = run(stage21, stage22)
+	for done != 0 {
+		select {
+		case err := <-errs:
+			if err == nil {
+				done--
+			} else {
+				return nil, err
+			}
+
+		case <-ctx.Done():
+			return intersection, ctx.Err()
+
+		case pos := <-matchedIDs:
+			intersection = append(intersection, localIDs[pos])
+
+		case p := <-receiverIDs:
+			localIDs[p.position] = p.identifier
+		}
 	}
 
-	return matched, nil
+	return intersection, nil
 }

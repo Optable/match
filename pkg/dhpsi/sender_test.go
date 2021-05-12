@@ -10,17 +10,17 @@ import (
 	"github.com/optable/match/test/emails"
 )
 
-var (
-	TestCardinalityCommon = 101
-	TestCardinalityEmails = 1000
-	TestCardinality       = TestCardinalityEmails - TestCardinalityCommon
+const (
+	SenderTestCommonLen = 1
+	SenderTestBodyLen   = 30000
+	SenderTestLen       = SenderTestBodyLen + SenderTestCommonLen
 )
 
 func initTestDataSource(common []byte) io.ReadCloser {
 	// get an io pipe to read results
 	i, o := io.Pipe()
 	go func() {
-		matchables := emails.Mix(common, TestCardinality)
+		matchables := emails.Mix(common, SenderTestBodyLen)
 		for matchable := range matchables {
 			if _, err := o.Write(matchable); err != nil {
 				return
@@ -51,7 +51,7 @@ func s_receiverInit(common []byte) (addr string, err error) {
 func s_receiverHandle(common []byte, conn net.Conn) {
 	r := initTestDataSource(common)
 	rec := NewReceiver(conn)
-	_, err := rec.Intersect(context.Background(), int64(TestCardinalityEmails), r)
+	_, err := rec.Intersect(context.Background(), int64(SenderTestLen), r)
 	if err != nil {
 		// hmm - send this to the main thread with a channel
 		log.Print(err)
@@ -60,7 +60,7 @@ func s_receiverHandle(common []byte, conn net.Conn) {
 
 func TestSender(t *testing.T) {
 	// generate common data
-	common := emails.Common(TestCardinalityCommon)
+	common := emails.Common(SenderTestCommonLen)
 	addr, err := s_receiverInit(common)
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestSender(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewSender(conn)
-	err = s.Send(context.Background(), int64(TestCardinalityEmails), r)
+	err = s.Send(context.Background(), int64(SenderTestLen), r)
 	if err != nil {
 		t.Error(err)
 	}

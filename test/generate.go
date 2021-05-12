@@ -133,7 +133,7 @@ func output(filename string, common []byte, n int, ws *sync.WaitGroup) {
 	if f, err := os.Create(filename); err == nil {
 		defer f.Close()
 		out := emails.Mix(common, n)
-		// exhaust out while formatting and writing out
+		// exhaust out
 		for matchable := range out {
 			// and write it
 			if _, err := f.Write(matchable); err != nil {

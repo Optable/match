@@ -32,14 +32,14 @@ func NewShufflerDirectEncoder(w io.Writer, n int64, r Ristretto) (*ShufflerDirec
 // and written out to the underlying writer, following
 // the order of permutations created at NewShufflerEncoder.
 // Returns io.EOF when the whole expected sequence has been sent.
-func (enc *ShufflerDirectEncoder) Encode(matchable []byte) (err error) {
+func (enc *ShufflerDirectEncoder) Encode(prefixedID []byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
 		return ErrUnexpectedEncodeByte
 	}
 	// derive/multiply
-	p := enc.r.DeriveMultiply(matchable)
+	p := enc.r.DeriveMultiply(prefixedID)
 	// buffer
 	enc.b[enc.seq] = p
 	enc.seq++
@@ -58,4 +58,14 @@ func (enc *ShufflerDirectEncoder) Encode(matchable []byte) (err error) {
 // that was computed on initialization
 func (enc *ShufflerDirectEncoder) Permutations() []int64 {
 	return enc.permutations
+}
+
+// InvertedPermutations returns the reverse of the permutation matrix
+// that was computed on initialization
+func (enc *ShufflerDirectEncoder) InvertedPermutations() []int64 {
+	var invertedpermutations = make([]int64, len(enc.permutations))
+	for i := 0; i < len(invertedpermutations); i++ {
+		invertedpermutations[enc.permutations[i]] = int64(i)
+	}
+	return invertedpermutations
 }

@@ -7,8 +7,8 @@ import (
 )
 
 // operations
-// (sender, often advertiser: low cardinality) step1: writes the permutated matchables to the receiver
-// (sender, oftem advertiser: low cardinality) step2: reads the matchables from the receiver, encrypt them and send them back
+// (sender, often advertiser: low cardinality) stage1: writes the permutated matchables to the receiver
+// (sender, oftem advertiser: low cardinality) stage2: reads the matchables from the receiver, encrypt them and send them back
 
 // Sender represents the sender in a DHPSI operation, often the advertiser.
 // The sender initiates the transfer and in the case of DHPSI, it learns nothing.
@@ -32,9 +32,9 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 	gr := NewRistretto(RistrettoTypeGR)
 	// wrap src in a bufio reader
 	src := bufio.NewReader(r)
-	// step1 : writes the permutated matchables to the receiver
-	s1 := func() error {
-		if s1encoder, err := NewShufflerEncoder(s.rw, n, gr); err != nil {
+	// stage1 : writes the permutated matchables to the receiver
+	stage1 := func() error {
+		if s1encoder, err := NewShufflerDirectEncoder(s.rw, n, gr); err != nil {
 			return err
 		} else {
 			// read N matchables from r
@@ -54,8 +54,8 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 			return nil
 		}
 	}
-	// step2 : reads the matchables from the receiver, encrypt them and send them back
-	s2 := func() error {
+	// stage2 : reads the matchables from the receiver, encrypt them and send them back
+	stage2 := func() error {
 		step2reader, err := NewReader(s.rw)
 		if err != nil {
 			return err
@@ -79,11 +79,11 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 	}
 
 	// run step1
-	if err := sel(ctx, s1); err != nil {
+	if err := sel(ctx, stage1); err != nil {
 		return err
 	}
 	// run step2
-	if err := sel(ctx, s2); err != nil {
+	if err := sel(ctx, stage2); err != nil {
 		return err
 	}
 

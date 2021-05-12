@@ -11,7 +11,10 @@ import (
 )
 
 const (
+	// EncodedLen is the lenght of one encoded ristretto point
 	EncodedLen = 32
+	// PrefixedLen is the lenght of one prefixed email identifier
+	EmailPrefixedLen = 66
 )
 
 var (
@@ -29,7 +32,7 @@ type PermutationEncoder interface {
 
 type ShufflerEncoder struct {
 	w              io.Writer
-	seq, sent, max int64
+	max, seq, sent int64
 	r              Ristretto
 	// precomputed order to send things in
 	permutations []int64
@@ -37,15 +40,15 @@ type ShufflerEncoder struct {
 	b [][EncodedLen]byte
 }
 
+type Encoder struct {
+	w        io.Writer
+	max, seq int64
+	r        Ristretto
+}
+
 type Reader struct {
 	r        io.Reader
 	seq, max int64
-}
-
-type Encoder struct {
-	w io.Writer
-	n int64
-	r Ristretto
 }
 
 // NewShufflerEncoder returns a dhpsi encoder that hashes, encrypts
@@ -61,18 +64,18 @@ func NewShufflerEncoder(w io.Writer, n int64, r Ristretto) (*ShufflerEncoder, er
 
 }
 
-// Encode one prefixed matchable. Hashed, encrypted
-// and written out to the underlying writer, following
+// Encode one prefixed ID. First derive and then multiply by the
+// precomputed scaler, written out to the underlying writer while following
 // the order of permutations created at NewShufflerEncoder.
-// Returns io.EOF when the whole expected sequence has been sent.
-func (enc *ShufflerEncoder) Encode(matchable []byte) (err error) {
+// Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
+func (enc *ShufflerEncoder) Encode(prefixedID []byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
 		return ErrUnexpectedEncodeByte
 	}
 	// derive/multiply
-	p := enc.r.DeriveMultiply(matchable)
+	p := enc.r.DeriveMultiply(prefixedID)
 	// we follow the permutation matrix and send
 	// or cache incoming matchables
 	next := enc.permutations[enc.sent]
@@ -105,21 +108,30 @@ func (enc *ShufflerEncoder) Permutations() []int64 {
 }
 
 // NewEncoder creates an encoder that does the second stage of the DH exchange,
-// with the same key, this time doing a simple scalar multiplication.
+// this time doing a simple scalar multiplication.
 func NewEncoder(w io.Writer, n int64, r Ristretto) (*Encoder, error) {
 	// send the max value first
 	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
 		return nil, err
 	}
-	return &Encoder{w: w, n: n, r: r}, nil
+	return &Encoder{w: w, max: n, r: r}, nil
 }
 
-func (enc *Encoder) Encode(p [EncodedLen]byte) (err error) {
+// Encode the fixed lenght point by doing a simple multiply
+// and write it out to the underlying writer.
+// Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
+func (enc *Encoder) Encode(point [EncodedLen]byte) (err error) {
+	// ignore any encode past the max encodes
+	// we're configured for
+	if enc.seq == enc.max {
+		return ErrUnexpectedEncodeByte
+	}
 	// multiply by our scalar
-	b := enc.r.Multiply(p)
+	b := enc.r.Multiply(point)
 	if _, err = enc.w.Write(b[:]); err != nil {
 		return err
 	}
+	enc.seq++
 	//
 	return
 }
@@ -135,7 +147,8 @@ func NewReader(r io.Reader) (*Reader, error) {
 	return &Reader{r: r, max: max}, nil
 }
 
-// Decode a matchable point into p
+// Decode a matchable point into p. Returns io.EOF when
+// the sequence has been completely read.
 func (dec *Reader) Read(p *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size
 	// we're configured for

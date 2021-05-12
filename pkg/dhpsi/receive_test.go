@@ -33,7 +33,7 @@ func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []by
 	defer close(intersectionsBus)
 	r := initTestDataSource(common)
 	rec := NewReceiver(conn)
-	ii, err := rec.Intersect(context.Background(), int64(TestCardinalityEmails), r)
+	ii, err := rec.Intersect(context.Background(), int64(SenderTestLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
 	}
@@ -43,9 +43,9 @@ func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []by
 	}
 }
 
-func TestReceive(t *testing.T) {
+func TestReceiver(t *testing.T) {
 	// generate common data
-	common := emails.Common(TestCardinalityCommon)
+	common := emails.Common(SenderTestCommonLen)
 	// setup channels
 	var intersectionsBus = make(chan []byte)
 	var errs = make(chan error, 2)
@@ -62,23 +62,22 @@ func TestReceive(t *testing.T) {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
 		s := NewSender(conn)
-		err = s.Send(context.Background(), int64(TestCardinalityEmails), r)
+		err = s.Send(context.Background(), int64(SenderTestLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
 	}()
 
-	// errors?
-	select {
-	case err := <-errs:
-		t.Error(err)
-	default:
-	}
-
 	// intersection?
 	var intersections [][]byte
 	for i := range intersectionsBus {
 		intersections = append(intersections, i)
+	}
+	// errors?
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	default:
 	}
 	// right amount?
 	if len(common)/emails.HashLen != len(intersections) {
@@ -104,6 +103,8 @@ func TestReceive(t *testing.T) {
 	}
 }
 
+// take the common chunk from the emails generator
+// and turn it into prefixed sha512 hashes
 func parseCommon(b []byte) (out []string) {
 	for i := 0; i < len(b)/emails.HashLen; i++ {
 		// make one
