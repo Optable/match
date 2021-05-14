@@ -3,10 +3,11 @@ package dhpsi
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 )
 
-// (receiver, publisher: high cardinality) stage1: reads the identifiers from the receiver, encrypt them and index them in a map
+// (receiver, publisher: high cardinality) stage1: reads the identifiers from the sender, encrypt them and index them in a map
 // (receiver, publisher: high cardinality) stage2.1: permute and write the local identifiers to the sender
 // (receiver, publisher: high cardinality) stage2.2: reads back the identifiers from the sender and learns the intersection
 
@@ -43,7 +44,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 	gr := NewRistretto(RistrettoTypeGR)
 	// wrap src in a bufio reader
 	src := bufio.NewReader(r)
-	// step1 : reads the identifiers from the receiver, encrypt them and index the encoded ristretto point in a map
+	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
 	stage1 := func() error {
 		if r, err := NewReader(s.rw); err != nil {
 			return err
@@ -65,7 +66,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 	}
 	// stage2.1 : permute and write the local identifiers to the sender
 	stage21 := func() error {
-		if s2encoder, err := NewShufflerDirectEncoder(s.rw, n, gr); err != nil {
+		if s2encoder, err := NewDeriveMultiplyDirectEncoder(s.rw, n, gr); err != nil {
 			return err
 		} else {
 			// take a snapshot of the reverse of the permutations
@@ -100,7 +101,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 				// read
 				var p [EncodedLen]byte
 				if err := r.Read(&p); err != nil {
-					return err
+					return fmt.Errorf("stage2.2: %v", err)
 				}
 				if remoteIDs[p] {
 					// we can match this local identifier with one received
@@ -125,7 +126,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 			if err == nil {
 				done--
 			} else {
-				return nil, err
+				return intersection, err
 			}
 
 		case <-ctx.Done():

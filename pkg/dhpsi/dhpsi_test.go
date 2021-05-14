@@ -52,14 +52,14 @@ func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, direct 
 	// setup stage 1
 	switch direct {
 	case false:
-		if e, err := NewShufflerEncoder(w, n, r); err != nil {
-			return sent, p, fmt.Errorf("error at NewShufflerEncoder: %v", err)
+		if e, err := NewDeriveMultiplyEncoder(w, n, r); err != nil {
+			return sent, p, fmt.Errorf("error at NewDeriveMultiplyEncoder: %v", err)
 		} else {
 			encoder = e
 		}
 	case true:
-		if e, err := NewShufflerDirectEncoder(w, n, r); err != nil {
-			return sent, p, fmt.Errorf("error at NewShufflerDirectEncoder: %v", err)
+		if e, err := NewDeriveMultiplyDirectEncoder(w, n, r); err != nil {
+			return sent, p, fmt.Errorf("error at NewDeriveMultiplyDirectEncoder: %v", err)
 		} else {
 			encoder = e
 		}

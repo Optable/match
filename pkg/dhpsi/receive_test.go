@@ -11,6 +11,11 @@ import (
 	"github.com/optable/match/test/emails"
 )
 
+const (
+	ReceiverTestBodyLen = 3000
+	ReceiverTestLen     = ReceiverTestBodyLen + TestCommonLen
+)
+
 // test receiver and return the addr string
 func r_receiverInit(common []byte, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
@@ -31,9 +36,9 @@ func r_receiverInit(common []byte, intersectionsBus chan<- []byte, errs chan<- e
 
 func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
 	defer close(intersectionsBus)
-	r := initTestDataSource(common)
+	r := initTestDataSource(common, ReceiverTestBodyLen)
 	rec := NewReceiver(conn)
-	ii, err := rec.Intersect(context.Background(), int64(SenderTestLen), r)
+	ii, err := rec.Intersect(context.Background(), int64(ReceiverTestLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
 	}
@@ -45,7 +50,7 @@ func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []by
 
 func TestReceiver(t *testing.T) {
 	// generate common data
-	common := emails.Common(SenderTestCommonLen)
+	common := emails.Common(TestCommonLen)
 	// setup channels
 	var intersectionsBus = make(chan []byte)
 	var errs = make(chan error, 2)
@@ -56,7 +61,7 @@ func TestReceiver(t *testing.T) {
 
 	// send
 	go func() {
-		r := initTestDataSource(common)
+		r := initTestDataSource(common, SenderTestBodyLen)
 		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)

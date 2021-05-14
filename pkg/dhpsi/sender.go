@@ -3,6 +3,7 @@ package dhpsi
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 )
 
@@ -34,7 +35,7 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 	src := bufio.NewReader(r)
 	// stage1 : writes the permutated matchables to the receiver
 	stage1 := func() error {
-		if s1encoder, err := NewShufflerDirectEncoder(s.rw, n, gr); err != nil {
+		if s1encoder, err := NewDeriveMultiplyDirectEncoder(s.rw, n, gr); err != nil {
 			return err
 		} else {
 			// read N matchables from r
@@ -60,10 +61,10 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if step2encoder, err := NewEncoder(s.rw, step2reader.Max(), gr); err != nil {
+		if step2encoder, err := NewMultiplyEncoder(s.rw, step2reader.Max(), gr); err != nil {
 			return err
 		} else {
-			for i := int64(0); i < n; i++ {
+			for i := int64(0); i < step2reader.Max(); i++ {
 				var p [EncodedLen]byte
 				if err := step2reader.Read(&p); err != nil {
 					if err != io.EOF {
@@ -71,18 +72,18 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 					}
 				}
 				if err := step2encoder.Encode(p); err != nil {
-					return err
+					return fmt.Errorf("stage2: %v", err)
 				}
 			}
 			return nil
 		}
 	}
 
-	// run step1
+	// run stage1
 	if err := sel(ctx, stage1); err != nil {
 		return err
 	}
-	// run step2
+	// run stage2
 	if err := sel(ctx, stage2); err != nil {
 		return err
 	}

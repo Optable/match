@@ -30,7 +30,7 @@ type PermutationEncoder interface {
 	Permutations() []int64
 }
 
-type ShufflerEncoder struct {
+type DeriveMultiplyEncoder struct {
 	w              io.Writer
 	max, seq, sent int64
 	r              Ristretto
@@ -40,7 +40,7 @@ type ShufflerEncoder struct {
 	b [][EncodedLen]byte
 }
 
-type Encoder struct {
+type MultiplyEncoder struct {
 	w        io.Writer
 	max, seq int64
 	r        Ristretto
@@ -51,16 +51,22 @@ type Reader struct {
 	seq, max int64
 }
 
-// NewShufflerEncoder returns a dhpsi encoder that hashes, encrypts
+type MultiplyReader struct {
+	r Reader
+}
+
+// NewDeriveMultiplyEncoder returns a dhpsi encoder that hashes, encrypts
 // and shuffles matchable values on n sequences of bytes to be sent out.
 // It first computes a permutation table and subsequently sends out sequences ordered
-// by the precomputed permutation table. This is the first stage of doing a DH exchange.
-func NewShufflerEncoder(w io.Writer, n int64, r Ristretto) (*ShufflerEncoder, error) {
+// by the precomputed permutation table.
+//
+// This is the first stage of doing a DH exchange.
+func NewDeriveMultiplyEncoder(w io.Writer, n int64, r Ristretto) (*DeriveMultiplyEncoder, error) {
 	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
 		return nil, err
 	}
 	// and create the encoder
-	return &ShufflerEncoder{w: w, max: n, r: r, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
+	return &DeriveMultiplyEncoder{w: w, max: n, r: r, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
 
 }
 
@@ -68,14 +74,16 @@ func NewShufflerEncoder(w io.Writer, n int64, r Ristretto) (*ShufflerEncoder, er
 // precomputed scaler, written out to the underlying writer while following
 // the order of permutations created at NewShufflerEncoder.
 // Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
-func (enc *ShufflerEncoder) Encode(prefixedID []byte) (err error) {
+func (enc *DeriveMultiplyEncoder) Encode(prefixedID []byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
 		return ErrUnexpectedEncodeByte
 	}
+
 	// derive/multiply
 	p := enc.r.DeriveMultiply(prefixedID)
+
 	// we follow the permutation matrix and send
 	// or cache incoming matchables
 	next := enc.permutations[enc.sent]
@@ -103,31 +111,49 @@ func (enc *ShufflerEncoder) Encode(prefixedID []byte) (err error) {
 
 // Permutations returns the permutation matrix
 // that was computed on initialization
-func (enc *ShufflerEncoder) Permutations() []int64 {
+func (enc *DeriveMultiplyEncoder) Permutations() []int64 {
 	return enc.permutations
+}
+
+// InvertedPermutations returns the reverse of the permutation matrix
+// that was computed on initialization
+func (enc *DeriveMultiplyEncoder) InvertedPermutations() []int64 {
+	return InvertedPermutations(enc.permutations)
+}
+
+// InvertedPermutations returns the reverse of the permutation matrix
+// that was computed on initialization
+func InvertedPermutations(in []int64) []int64 {
+	var invertedpermutations = make([]int64, len(in))
+	for i := 0; i < len(invertedpermutations); i++ {
+		invertedpermutations[in[i]] = int64(i)
+	}
+	return invertedpermutations
 }
 
 // NewEncoder creates an encoder that does the second stage of the DH exchange,
 // this time doing a simple scalar multiplication.
-func NewEncoder(w io.Writer, n int64, r Ristretto) (*Encoder, error) {
+func NewMultiplyEncoder(w io.Writer, n int64, r Ristretto) (*MultiplyEncoder, error) {
 	// send the max value first
 	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
 		return nil, err
 	}
-	return &Encoder{w: w, max: n, r: r}, nil
+	return &MultiplyEncoder{w: w, max: n, r: r}, nil
 }
 
 // Encode the fixed lenght point by doing a simple multiply
 // and write it out to the underlying writer.
 // Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
-func (enc *Encoder) Encode(point [EncodedLen]byte) (err error) {
+func (enc *MultiplyEncoder) Encode(point [EncodedLen]byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
 		return ErrUnexpectedEncodeByte
 	}
+
 	// multiply by our scalar
 	b := enc.r.Multiply(point)
+
 	if _, err = enc.w.Write(b[:]); err != nil {
 		return err
 	}
@@ -137,7 +163,7 @@ func (enc *Encoder) Encode(point [EncodedLen]byte) (err error) {
 }
 
 // NewReader makes a simple reader that sits on the other end
-// of the ShufflerEncoder or the Encoder reads encoded ristretto hashes.
+// of the ShufflerEncoder or the Encoder and reads encoded ristretto hashes.
 func NewReader(r io.Reader) (*Reader, error) {
 	var max int64
 	// extract the max value

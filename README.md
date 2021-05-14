@@ -3,11 +3,14 @@ A public set intersection algorithms library, written in go, for the adtech indu
 
 # dhpsi
 
-The sender (often a publisher) and the receiver (often an advertiser) each have a target user audience list. Additionally, the Advertiser holds a numerical (or binary) feature associated with each user in its audience list. 
+The Publisher and the Advertiser perform a Private Set Intersection (PSI) of the audience lists, where only the Publisher learns the intersection before serving the ad. 
 
-The sender wants to know the number of users they have in common and the receiver, the aggregate (i.e., sum) of the feature for the common users without revealing any other information about the respective audience lists.  
+After serving the ad, the Publisher can share the (i) impression and all user identifiers (in the intersection); (ii) analytics (aggregates); or (iii) impression and a list of all user identifiers (for whom at least one ad was served over a period of time) with the Advertiser.
 
-# testing
+We focus on the Private Set Intersection (PSI) of the Publisher’s and the Advertiser’s audience list for now.
+
+
+# examples
 
 
 # testing

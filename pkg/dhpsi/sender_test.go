@@ -11,16 +11,16 @@ import (
 )
 
 const (
-	SenderTestCommonLen = 1
-	SenderTestBodyLen   = 30000
-	SenderTestLen       = SenderTestBodyLen + SenderTestCommonLen
+	TestCommonLen     = 10
+	SenderTestBodyLen = 30000
+	SenderTestLen     = SenderTestBodyLen + TestCommonLen
 )
 
-func initTestDataSource(common []byte) io.ReadCloser {
+func initTestDataSource(common []byte, bodyLen int) io.ReadCloser {
 	// get an io pipe to read results
 	i, o := io.Pipe()
 	go func() {
-		matchables := emails.Mix(common, SenderTestBodyLen)
+		matchables := emails.Mix(common, bodyLen)
 		for matchable := range matchables {
 			if _, err := o.Write(matchable); err != nil {
 				return
@@ -49,9 +49,9 @@ func s_receiverInit(common []byte) (addr string, err error) {
 }
 
 func s_receiverHandle(common []byte, conn net.Conn) {
-	r := initTestDataSource(common)
+	r := initTestDataSource(common, ReceiverTestBodyLen)
 	rec := NewReceiver(conn)
-	_, err := rec.Intersect(context.Background(), int64(SenderTestLen), r)
+	_, err := rec.Intersect(context.Background(), int64(ReceiverTestLen), r)
 	if err != nil {
 		// hmm - send this to the main thread with a channel
 		log.Print(err)
@@ -60,14 +60,14 @@ func s_receiverHandle(common []byte, conn net.Conn) {
 
 func TestSender(t *testing.T) {
 	// generate common data
-	common := emails.Common(SenderTestCommonLen)
+	common := emails.Common(TestCommonLen)
 	addr, err := s_receiverInit(common)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// test sender
-	r := initTestDataSource(common)
+	r := initTestDataSource(common, SenderTestBodyLen)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		t.Fatal(err)
