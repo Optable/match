@@ -118,12 +118,12 @@ func (enc *DeriveMultiplyEncoder) Permutations() []int64 {
 // InvertedPermutations returns the reverse of the permutation matrix
 // that was computed on initialization
 func (enc *DeriveMultiplyEncoder) InvertedPermutations() []int64 {
-	return InvertedPermutations(enc.permutations)
+	return invertedPermutations(enc.permutations)
 }
 
 // InvertedPermutations returns the reverse of the permutation matrix
 // that was computed on initialization
-func InvertedPermutations(in []int64) []int64 {
+func invertedPermutations(in []int64) []int64 {
 	var invertedpermutations = make([]int64, len(in))
 	for i := 0; i < len(invertedpermutations); i++ {
 		invertedpermutations[in[i]] = int64(i)

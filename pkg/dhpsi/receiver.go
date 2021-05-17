@@ -34,14 +34,14 @@ type permuted struct {
 func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
 	// state
 	var remoteIDs = make(map[[EncodedLen]byte]bool) // single routine access from s1
-	var localIDs = make(map[int64][]byte)
+	var localIDs = make([][]byte, n)
 	var receiverIDs = make(chan permuted)
 	var matchedIDs = make(chan int64)
 
 	var intersection [][]byte
 
 	// pick a ristretto implementation
-	gr := NewRistretto(RistrettoTypeGR)
+	gr := NewRistretto(RistrettoTypeR255)
 	// wrap src in a bufio reader
 	src := bufio.NewReader(r)
 	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map

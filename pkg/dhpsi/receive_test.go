@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ReceiverTestBodyLen = 3000
+	ReceiverTestBodyLen = 1000
 	ReceiverTestLen     = ReceiverTestBodyLen + TestCommonLen
 )
 

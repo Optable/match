@@ -18,6 +18,8 @@ The receiver will learn of the intersection between `sender-ids.txt` and `receiv
 The sender sends the contents of `sender-ids.txt` to the receiver but learns nothing.
 
 ## 4. verify the intersection
-`comm -12 <(sort receiver-ids.txt) <(sort common-ids.txt) | wc -l`
-`comm -12 <(sort sender-ids.txt) <(sort common-ids.txt) | wc -l`
+```
+comm -12 <(sort receiver-ids.txt) <(sort common-ids.txt) | wc -l
+comm -12 <(sort sender-ids.txt) <(sort common-ids.txt) | wc -l
+```
 

@@ -65,5 +65,5 @@ func (enc *DeriveMultiplyDirectEncoder) Permutations() []int64 {
 // InvertedPermutations returns the reverse of the permutation matrix
 // that was computed on initialization
 func (enc *DeriveMultiplyDirectEncoder) InvertedPermutations() []int64 {
-	return InvertedPermutations(enc.permutations)
+	return invertedPermutations(enc.permutations)
 }

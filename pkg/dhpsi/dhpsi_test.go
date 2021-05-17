@@ -15,6 +15,8 @@ const (
 	DHPSITestLen       = DHPSITestBodyLen + DHPSITestCommonLen
 )
 
+// test loopback ristretto just copies data out
+// and does no treatment
 type NilRistretto int
 
 func (g NilRistretto) DeriveMultiply(matchable []byte) [EncodedLen]byte {
@@ -23,7 +25,6 @@ func (g NilRistretto) DeriveMultiply(matchable []byte) [EncodedLen]byte {
 	copy(out[:], matchable[:32])
 	return out
 }
-
 func (g NilRistretto) Multiply(encoded [EncodedLen]byte) [EncodedLen]byte {
 	// passthrought
 	return encoded
@@ -111,7 +112,7 @@ func receiver(r io.Reader, n int64) ([][EncodedLen]byte, error) {
 	return received, nil
 }
 
-func BenchmarkShufflerEncoder100000(b *testing.B) {
+func BenchmarkDeriveMultiplyEncoder100000(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var ws sync.WaitGroup
 		// pick a ristretto implementation
@@ -138,7 +139,7 @@ func BenchmarkShufflerEncoder100000(b *testing.B) {
 	}
 }
 
-func BenchmarkShufflerDirectEncoder100000(b *testing.B) {
+func BenchmarkDeriveMultiplyDirectEncoder100000(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var ws sync.WaitGroup
 		// pick a ristretto implementation
@@ -166,7 +167,7 @@ func BenchmarkShufflerDirectEncoder100000(b *testing.B) {
 }
 
 // Test the shuffler
-func TestShufflerEncoder(t *testing.T) {
+func TestDeriveMultiplyEncoder(t *testing.T) {
 	var ws sync.WaitGroup
 	// pick a ristretto implementation
 	gr := NilRistretto(0)
@@ -191,7 +192,7 @@ func TestShufflerEncoder(t *testing.T) {
 		// Probably advertiser
 		defer ws.Done()
 		defer snd.Close()
-		if mm, pp, err := sender(snd, DHPSITestLen, gr, matchables, true); err != nil {
+		if mm, pp, err := sender(snd, DHPSITestLen, gr, matchables, false); err != nil {
 			errs <- err
 		} else {
 			sent = mm

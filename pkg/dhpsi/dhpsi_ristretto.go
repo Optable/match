@@ -44,10 +44,10 @@ func NewRistretto(t int) Ristretto {
 }
 
 // "github.com/bwesterb/go-ristretto"
-func (g *GR) DeriveMultiply(matchable []byte) [EncodedLen]byte {
+func (g *GR) DeriveMultiply(identifier []byte) [EncodedLen]byte {
 	var p gr.Point
 	// derive
-	p.DeriveDalek(matchable)
+	p.DeriveDalek(identifier)
 	// multiply
 	var q gr.Point
 	q.ScalarMult(&p, g.key)
@@ -69,16 +69,19 @@ func (g *GR) Multiply(encoded [EncodedLen]byte) [EncodedLen]byte {
 }
 
 // "github.com/gtank/ristretto255"
-func (r *R255) DeriveMultiply(matchable []byte) [EncodedLen]byte {
+func (r *R255) DeriveMultiply(identifier []byte) [EncodedLen]byte {
 	var p = r255.NewElement()
 	// derive
-	hash := sha512.Sum512(matchable)
+	hash := sha512.Sum512(identifier)
 	p.FromUniformBytes(hash[:])
 	// multiply
 	p.ScalarMult(r.key, p)
-	// return
+	// return. this is kind of a big workaround
+	// how Encode works.
+	var tmp []byte
+	tmp = p.Encode(tmp)
 	var out [32]byte
-	p.Encode(out[:])
+	copy(out[:], tmp)
 	return out
 }
 
@@ -87,8 +90,11 @@ func (r *R255) Multiply(encoded [EncodedLen]byte) [EncodedLen]byte {
 	var p = r255.NewElement()
 	p.Decode(encoded[:])
 	p.ScalarMult(r.key, p)
-	// return
+	// return. this is kind of a big workaround
+	// how Encode works.
+	var tmp []byte
+	tmp = p.Encode(tmp)
 	var out [32]byte
-	p.Encode(out[:])
+	copy(out[:], tmp)
 	return out
 }

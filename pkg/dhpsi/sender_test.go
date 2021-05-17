@@ -12,7 +12,7 @@ import (
 
 const (
 	TestCommonLen     = 10
-	SenderTestBodyLen = 30000
+	SenderTestBodyLen = 10000
 	SenderTestLen     = SenderTestBodyLen + TestCommonLen
 )
 
