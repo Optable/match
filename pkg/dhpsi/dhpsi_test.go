@@ -15,6 +15,11 @@ const (
 	DHPSITestLen       = DHPSITestBodyLen + DHPSITestCommonLen
 )
 
+type ShufflerEncoder interface {
+	Shuffle([]byte) (err error)
+	Permutations() []int64
+}
+
 // test loopback ristretto just copies data out
 // and does no treatment
 type NilRistretto int
@@ -49,18 +54,18 @@ func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, direct 
 	var sent [][]byte
 	// save the permutations
 	var p []int64
-	var encoder PermutationEncoder
+	var encoder ShufflerEncoder
 	// setup stage 1
 	switch direct {
 	case false:
-		if e, err := NewDeriveMultiplyEncoder(w, n, r); err != nil {
-			return sent, p, fmt.Errorf("error at NewDeriveMultiplyEncoder: %v", err)
+		if e, err := NewDeriveMultiplyShuffler(w, n, r); err != nil {
+			return sent, p, fmt.Errorf("error at NewDeriveMultiplyShuffler: %v", err)
 		} else {
 			encoder = e
 		}
 	case true:
-		if e, err := NewDeriveMultiplyDirectEncoder(w, n, r); err != nil {
-			return sent, p, fmt.Errorf("error at NewDeriveMultiplyDirectEncoder: %v", err)
+		if e, err := NewDeriveMultiplyDirectShuffler(w, n, r); err != nil {
+			return sent, p, fmt.Errorf("error at NewDeriveMultiplyDirectShuffler: %v", err)
 		} else {
 			encoder = e
 		}
@@ -68,13 +73,13 @@ func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, direct 
 	p = encoder.Permutations()
 	for matchable := range matchables {
 		sent = append(sent, matchable)
-		if err := encoder.Encode(matchable); err != nil {
+		if err := encoder.Shuffle(matchable); err != nil {
 			return sent, p, fmt.Errorf("sender error at Encode: %v", err)
 		}
 	}
 	// another write should return ErrUnexpectedEncodeByte
 	var b = make([]byte, emails.HashLen)
-	if err := encoder.Encode(b); err != ErrUnexpectedEncodeByte {
+	if err := encoder.Shuffle(b); err != ErrUnexpectedEncodeByte {
 		return sent, p, fmt.Errorf("sender expected ErrUnexpectedEncodeByte and got %v", err)
 	}
 

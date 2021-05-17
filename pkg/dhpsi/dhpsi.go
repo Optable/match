@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-
-	"github.com/bwesterb/go-ristretto"
 )
 
 const (
@@ -21,29 +19,31 @@ var (
 	ErrUnexpectedEncodeByte = fmt.Errorf("received a byte to encode past the configured size")
 )
 
-type Key struct {
-	*ristretto.Scalar
-}
-
-type PermutationEncoder interface {
-	Encode([]byte) (err error)
-	Permutations() []int64
-}
-
-type DeriveMultiplyEncoder struct {
+//
+// Writers types
+//
+type DeriveMultiplyShuffler struct {
 	w              io.Writer
 	max, seq, sent int64
-	r              Ristretto
+	gr             Ristretto
 	// precomputed order to send things in
 	permutations []int64
 	// buffered in the order received by Encode()
 	b [][EncodedLen]byte
 }
 
-type MultiplyEncoder struct {
+type Writer struct {
 	w        io.Writer
 	max, seq int64
-	r        Ristretto
+}
+
+//
+// Readers types
+//
+type MultiplyReader struct {
+	r        io.Reader
+	seq, max int64
+	gr       Ristretto
 }
 
 type Reader struct {
@@ -51,30 +51,30 @@ type Reader struct {
 	seq, max int64
 }
 
-type MultiplyReader struct {
-	r Reader
-}
+//
+// Writers
+//
 
-// NewDeriveMultiplyEncoder returns a dhpsi encoder that hashes, encrypts
+// NewDeriveMultiplyShuffler returns a dhpsi encoder that hashes, encrypts
 // and shuffles matchable values on n sequences of bytes to be sent out.
 // It first computes a permutation table and subsequently sends out sequences ordered
 // by the precomputed permutation table.
 //
-// This is the first stage of doing a DH exchange.
-func NewDeriveMultiplyEncoder(w io.Writer, n int64, r Ristretto) (*DeriveMultiplyEncoder, error) {
+// This is the first stage of doing a DHPSI exchange.
+func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMultiplyShuffler, error) {
 	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
 		return nil, err
 	}
 	// and create the encoder
-	return &DeriveMultiplyEncoder{w: w, max: n, r: r, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
+	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
 
 }
 
-// Encode one prefixed ID. First derive and then multiply by the
+// Shuffle one prefixed ID. First derive and then multiply by the
 // precomputed scaler, written out to the underlying writer while following
-// the order of permutations created at NewShufflerEncoder.
+// the order of permutations created at NewDeriveMultiplyShuffler.
 // Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
-func (enc *DeriveMultiplyEncoder) Encode(prefixedID []byte) (err error) {
+func (enc *DeriveMultiplyShuffler) Shuffle(prefixedID []byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
@@ -82,7 +82,7 @@ func (enc *DeriveMultiplyEncoder) Encode(prefixedID []byte) (err error) {
 	}
 
 	// derive/multiply
-	p := enc.r.DeriveMultiply(prefixedID)
+	p := enc.gr.DeriveMultiply(prefixedID)
 
 	// we follow the permutation matrix and send
 	// or cache incoming matchables
@@ -111,13 +111,13 @@ func (enc *DeriveMultiplyEncoder) Encode(prefixedID []byte) (err error) {
 
 // Permutations returns the permutation matrix
 // that was computed on initialization
-func (enc *DeriveMultiplyEncoder) Permutations() []int64 {
+func (enc *DeriveMultiplyShuffler) Permutations() []int64 {
 	return enc.permutations
 }
 
 // InvertedPermutations returns the reverse of the permutation matrix
 // that was computed on initialization
-func (enc *DeriveMultiplyEncoder) InvertedPermutations() []int64 {
+func (enc *DeriveMultiplyShuffler) InvertedPermutations() []int64 {
 	return invertedPermutations(enc.permutations)
 }
 
@@ -131,39 +131,77 @@ func invertedPermutations(in []int64) []int64 {
 	return invertedpermutations
 }
 
-// NewEncoder creates an encoder that does the second stage of the DH exchange,
-// this time doing a simple scalar multiplication.
-func NewMultiplyEncoder(w io.Writer, n int64, r Ristretto) (*MultiplyEncoder, error) {
+// NewWriter creates a writer that first sends out
+// the total number of items that will be sent out
+func NewWriter(w io.Writer, n int64) (*Writer, error) {
 	// send the max value first
 	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
 		return nil, err
 	}
-	return &MultiplyEncoder{w: w, max: n, r: r}, nil
+	return &Writer{w: w, max: n}, nil
 }
 
-// Encode the fixed lenght point by doing a simple multiply
-// and write it out to the underlying writer.
-// Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
-func (enc *MultiplyEncoder) Encode(point [EncodedLen]byte) (err error) {
+// Write out the fixed length point to the underlying writer
+// while sequencing
+func (w *Writer) Write(point [EncodedLen]byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
-	if enc.seq == enc.max {
+	if w.seq == w.max {
 		return ErrUnexpectedEncodeByte
 	}
 
-	// multiply by our scalar
-	b := enc.r.Multiply(point)
-
-	if _, err = enc.w.Write(b[:]); err != nil {
+	if _, err = w.w.Write(point[:]); err != nil {
 		return err
 	}
-	enc.seq++
+	w.seq++
 	//
 	return
 }
 
+//
+// READERS
+//
+
+// NewMultiplyReader makes a ristretto multiplier reader that sits on the other end
+// of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto hashes and
+// multiplies them using gr
+func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
+	var max int64
+	// extract the max value
+	if err := binary.Read(r, binary.LittleEndian, &max); err != nil {
+		return nil, err
+	}
+	return &MultiplyReader{r: r, max: max, gr: gr}, nil
+}
+
+// Multiply a point from the underyling reader with ristretto
+// and write it into p. Returns io.EOF when
+// the sequence has been completely read.
+func (r *MultiplyReader) Multiply(p *[EncodedLen]byte) (err error) {
+	// ignore any read past the max size
+	// we're configured for
+	if r.seq == r.max {
+		return io.EOF
+	}
+	// read one
+	var b [EncodedLen]byte
+	if _, err = r.r.Read(b[:]); err != nil {
+		return
+	}
+	// multiply
+	*p = r.gr.Multiply(b)
+	r.seq++
+	return nil
+}
+
+// Max is the expected number of matchable
+// this decoder will receive
+func (dec *MultiplyReader) Max() int64 {
+	return dec.max
+}
+
 // NewReader makes a simple reader that sits on the other end
-// of the ShufflerEncoder or the Encoder and reads encoded ristretto hashes.
+// of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto hashes
 func NewReader(r io.Reader) (*Reader, error) {
 	var max int64
 	// extract the max value
@@ -173,22 +211,20 @@ func NewReader(r io.Reader) (*Reader, error) {
 	return &Reader{r: r, max: max}, nil
 }
 
-// Decode a matchable point into p. Returns io.EOF when
+// Read a point from the underyling reader and
+// write it into p. Returns io.EOF when
 // the sequence has been completely read.
-func (dec *Reader) Read(p *[EncodedLen]byte) (err error) {
+func (r *Reader) Read(p *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size
 	// we're configured for
-	if dec.seq == dec.max {
+	if r.seq == r.max {
 		return io.EOF
 	}
 	// read one
-	var b []byte = make([]byte, EncodedLen)
-	if _, err = dec.r.Read(b); err != nil {
+	if _, err = r.r.Read(p[:]); err != nil {
 		return
 	}
-	// one done
-	copy(p[:], b)
-	dec.seq++
+	r.seq++
 	return nil
 }
 

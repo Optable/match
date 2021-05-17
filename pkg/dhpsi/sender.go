@@ -35,7 +35,7 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 	src := bufio.NewReader(r)
 	// stage1 : writes the permutated matchables to the receiver
 	stage1 := func() error {
-		if s1encoder, err := NewDeriveMultiplyDirectEncoder(s.rw, n, gr); err != nil {
+		if writer, err := NewDeriveMultiplyShuffler(s.rw, n, gr); err != nil {
 			return err
 		} else {
 			// read N matchables from r
@@ -44,7 +44,7 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 				line, err := SafeReadLine(src)
 				// some data was returned
 				if len(line) != 0 {
-					if err := s1encoder.Encode(line); err != nil {
+					if err := writer.Shuffle(line); err != nil {
 						return err
 					}
 				}
@@ -57,21 +57,21 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 	}
 	// stage2 : reads the matchables from the receiver, encrypt them and send them back
 	stage2 := func() error {
-		step2reader, err := NewReader(s.rw)
+		reader, err := NewMultiplyReader(s.rw, gr)
 		if err != nil {
 			return err
 		}
-		if step2encoder, err := NewMultiplyEncoder(s.rw, step2reader.Max(), gr); err != nil {
+		if writer, err := NewWriter(s.rw, reader.Max()); err != nil {
 			return err
 		} else {
-			for i := int64(0); i < step2reader.Max(); i++ {
+			for i := int64(0); i < reader.Max(); i++ {
 				var p [EncodedLen]byte
-				if err := step2reader.Read(&p); err != nil {
+				if err := reader.Multiply(&p); err != nil {
 					if err != io.EOF {
 						return err
 					}
 				}
-				if err := step2encoder.Encode(p); err != nil {
+				if err := writer.Write(p); err != nil {
 					return fmt.Errorf("stage2: %v", err)
 				}
 			}

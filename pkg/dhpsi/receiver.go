@@ -46,31 +46,30 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 	src := bufio.NewReader(r)
 	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
 	stage1 := func() error {
-		if r, err := NewReader(s.rw); err != nil {
+		if reader, err := NewMultiplyReader(s.rw, gr); err != nil {
 			return err
 		} else {
 			for {
 				// read
 				var p [EncodedLen]byte
-				if err := r.Read(&p); err != nil {
+				if err := reader.Multiply(&p); err != nil {
 					if err == io.EOF {
 						return nil
 					}
 					return err
 				}
-				// encrypt & index
-				p = gr.Multiply(p)
+				// index
 				remoteIDs[p] = true
 			}
 		}
 	}
 	// stage2.1 : permute and write the local identifiers to the sender
 	stage21 := func() error {
-		if s2encoder, err := NewDeriveMultiplyDirectEncoder(s.rw, n, gr); err != nil {
+		if writer, err := NewDeriveMultiplyShuffler(s.rw, n, gr); err != nil {
 			return err
 		} else {
 			// take a snapshot of the reverse of the permutations
-			permutations := s2encoder.InvertedPermutations()
+			permutations := writer.InvertedPermutations()
 			// read n identifiers from src
 			// and
 			//  1. index them locally
@@ -81,7 +80,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 					// save this input
 					// method2
 					receiverIDs <- permuted{permutations[i], identifier} // {0, "0"}
-					if err := s2encoder.Encode(identifier); err != nil {
+					if err := writer.Shuffle(identifier); err != nil {
 						return err
 					}
 				}
@@ -94,13 +93,13 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 	}
 	// step3: reads back the identifiers from the sender and learns the intersection
 	stage22 := func() error {
-		if r, err := NewReader(s.rw); err != nil {
+		if reader, err := NewReader(s.rw); err != nil {
 			return err
 		} else {
-			for i := int64(0); i < r.Max(); i++ {
+			for i := int64(0); i < reader.Max(); i++ {
 				// read
 				var p [EncodedLen]byte
-				if err := r.Read(&p); err != nil {
+				if err := reader.Read(&p); err != nil {
 					return fmt.Errorf("stage2.2: %v", err)
 				}
 				if remoteIDs[p] {

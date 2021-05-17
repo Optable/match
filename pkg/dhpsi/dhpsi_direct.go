@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-type DeriveMultiplyDirectEncoder struct {
+type DeriveMultiplyDirectShuffler struct {
 	w        io.Writer
 	seq, max int64
 	r        Ristretto
@@ -19,20 +19,20 @@ type DeriveMultiplyDirectEncoder struct {
 // and shuffles matchable values on n sequences of bytes to be sent out.
 // It first computes a permutation table and subsequently sends out sequences ordered
 // by the precomputed permutation table. This is the first stage of doing a DH exchange.
-func NewDeriveMultiplyDirectEncoder(w io.Writer, n int64, r Ristretto) (*DeriveMultiplyDirectEncoder, error) {
+func NewDeriveMultiplyDirectShuffler(w io.Writer, n int64, r Ristretto) (*DeriveMultiplyDirectShuffler, error) {
 	// send the max value first
 	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
 		return nil, err
 	}
 	// and create the encoder
-	return &DeriveMultiplyDirectEncoder{w: w, max: n, r: r, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
+	return &DeriveMultiplyDirectShuffler{w: w, max: n, r: r, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
 }
 
-// Encode one prefixed matchable. Hashed, encrypted
-// and written out to the underlying writer, following
-// the order of permutations created at NewShufflerEncoder.
-// Returns io.EOF when the whole expected sequence has been sent.
-func (enc *DeriveMultiplyDirectEncoder) Encode(prefixedID []byte) (err error) {
+// Shuffle one prefixed ID. First derive and then multiply by the
+// precomputed scaler, written out to the underlying writer while following
+// the order of permutations created at NewDeriveMultiplyShuffler.
+// Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
+func (enc *DeriveMultiplyDirectShuffler) Shuffle(prefixedID []byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
@@ -58,12 +58,12 @@ func (enc *DeriveMultiplyDirectEncoder) Encode(prefixedID []byte) (err error) {
 
 // Permutations returns the permutation matrix
 // that was computed on initialization
-func (enc *DeriveMultiplyDirectEncoder) Permutations() []int64 {
+func (enc *DeriveMultiplyDirectShuffler) Permutations() []int64 {
 	return enc.permutations
 }
 
 // InvertedPermutations returns the reverse of the permutation matrix
 // that was computed on initialization
-func (enc *DeriveMultiplyDirectEncoder) InvertedPermutations() []int64 {
+func (enc *DeriveMultiplyDirectShuffler) InvertedPermutations() []int64 {
 	return invertedPermutations(enc.permutations)
 }
