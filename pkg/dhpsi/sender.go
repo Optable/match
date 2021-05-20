@@ -8,8 +8,8 @@ import (
 )
 
 // operations
-// (sender, often advertiser: low cardinality) stage1: writes the permutated matchables to the receiver
-// (sender, oftem advertiser: low cardinality) stage2: reads the matchables from the receiver, encrypt them and send them back
+// (sender, often advertiser: low cardinality) stage1: writes the permutated identifiers to the receiver
+// (sender, oftem advertiser: low cardinality) stage2: reads the identifiers from the receiver, encrypt them and send them back
 
 // Sender represents the sender in a DHPSI operation, often the advertiser.
 // The sender initiates the transfer and in the case of DHPSI, it learns nothing.
@@ -23,19 +23,19 @@ func NewSender(rw io.ReadWriter) *Sender {
 	return &Sender{rw: rw}
 }
 
-// Send initiates a DHPSI exchange with n matchables
-// that are read from r. The format of a matchable is
+// Send initiates a DHPSI exchange with n identifiers
+// that are read from r. The format of an indentifier is
 //  PREFIX:MATCHABLE\r\n
 // example:
 //  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e\r\n
 func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 	// pick a ristretto implementation
-	gr := NewRistretto(RistrettoTypeR255)
+	gr, _ := NewRistretto(RistrettoTypeR255)
 	// wrap src in a bufio reader
 	src := bufio.NewReader(r)
-	// stage1 : writes the permutated matchables to the receiver
+	// stage1 : writes the permutated identifiers to the receiver
 	stage1 := func() error {
-		if writer, err := NewDeriveMultiplyShuffler(s.rw, n, gr); err != nil {
+		if writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr); err != nil {
 			return err
 		} else {
 			// read N matchables from r
@@ -55,7 +55,7 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 			return nil
 		}
 	}
-	// stage2 : reads the matchables from the receiver, encrypt them and send them back
+	// stage2 : reads the identifiers from the receiver, encrypt them and send them back
 	stage2 := func() error {
 		reader, err := NewMultiplyReader(s.rw, gr)
 		if err != nil {

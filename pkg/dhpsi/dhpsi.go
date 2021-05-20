@@ -16,19 +16,21 @@ const (
 )
 
 var (
-	ErrUnexpectedEncodeByte = fmt.Errorf("received a byte to encode past the configured size")
+	ErrUnexpectedEncodeByte = fmt.Errorf("received a byte to encode past the configured encoder size")
 )
 
 //
-// Writers types
+// Writers
 //
+
+// types
 type DeriveMultiplyShuffler struct {
 	w              io.Writer
 	max, seq, sent int64
 	gr             Ristretto
 	// precomputed order to send things in
 	permutations []int64
-	// buffered in the order received by Encode()
+	// buffered in the order received by Shuffle()
 	b [][EncodedLen]byte
 }
 
@@ -36,24 +38,6 @@ type Writer struct {
 	w        io.Writer
 	max, seq int64
 }
-
-//
-// Readers types
-//
-type MultiplyReader struct {
-	r        io.Reader
-	seq, max int64
-	gr       Ristretto
-}
-
-type Reader struct {
-	r        io.Reader
-	seq, max int64
-}
-
-//
-// Writers
-//
 
 // NewDeriveMultiplyShuffler returns a dhpsi encoder that hashes, encrypts
 // and shuffles matchable values on n sequences of bytes to be sent out.
@@ -70,11 +54,11 @@ func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMulti
 
 }
 
-// Shuffle one prefixed ID. First derive and then multiply by the
+// Shuffle one identifier. First derive and then multiply by the
 // precomputed scaler, written out to the underlying writer while following
 // the order of permutations created at NewDeriveMultiplyShuffler.
 // Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
-func (enc *DeriveMultiplyShuffler) Shuffle(prefixedID []byte) (err error) {
+func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
@@ -82,18 +66,18 @@ func (enc *DeriveMultiplyShuffler) Shuffle(prefixedID []byte) (err error) {
 	}
 
 	// derive/multiply
-	p := enc.gr.DeriveMultiply(prefixedID)
+	point := enc.gr.DeriveMultiply(identifier)
 
 	// we follow the permutation matrix and send
 	// or cache incoming matchables
 	next := enc.permutations[enc.sent]
 	if next == enc.seq {
 		//  we fall perfectly in sequence, write it out
-		_, err = enc.w.Write(p[:])
+		_, err = enc.w.Write(point[:])
 		enc.sent++
 	} else {
 		// cache the current sequence
-		enc.b[enc.seq] = p
+		enc.b[enc.seq] = point
 	}
 	enc.seq++
 	// after we processed everything we will very probably
@@ -149,7 +133,7 @@ func (w *Writer) Write(point [EncodedLen]byte) (err error) {
 	if w.seq == w.max {
 		return ErrUnexpectedEncodeByte
 	}
-
+	//
 	if _, err = w.w.Write(point[:]); err != nil {
 		return err
 	}
@@ -162,42 +146,46 @@ func (w *Writer) Write(point [EncodedLen]byte) (err error) {
 // READERS
 //
 
+// types
+type MultiplyReader struct {
+	r  *Reader
+	gr Ristretto
+}
+
+type Reader struct {
+	r        io.Reader
+	seq, max int64
+}
+
 // NewMultiplyReader makes a ristretto multiplier reader that sits on the other end
 // of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto hashes and
 // multiplies them using gr
 func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
-	var max int64
-	// extract the max value
-	if err := binary.Read(r, binary.LittleEndian, &max); err != nil {
+	if r, err := NewReader(r); err != nil {
 		return nil, err
+	} else {
+		return &MultiplyReader{r: r, gr: gr}, nil
 	}
-	return &MultiplyReader{r: r, max: max, gr: gr}, nil
 }
 
 // Multiply a point from the underyling reader with ristretto
 // and write it into p. Returns io.EOF when
 // the sequence has been completely read.
-func (r *MultiplyReader) Multiply(p *[EncodedLen]byte) (err error) {
-	// ignore any read past the max size
-	// we're configured for
-	if r.seq == r.max {
-		return io.EOF
-	}
-	// read one
+func (r *MultiplyReader) Multiply(point *[EncodedLen]byte) (err error) {
 	var b [EncodedLen]byte
-	if _, err = r.r.Read(b[:]); err != nil {
-		return
+	if err := r.r.Read(&b); err != nil {
+		return err
+	} else {
+		*point = r.gr.Multiply(b)
+		return nil
 	}
-	// multiply
-	*p = r.gr.Multiply(b)
-	r.seq++
-	return nil
+
 }
 
 // Max is the expected number of matchable
 // this decoder will receive
 func (dec *MultiplyReader) Max() int64 {
-	return dec.max
+	return dec.r.max
 }
 
 // NewReader makes a simple reader that sits on the other end
@@ -214,14 +202,14 @@ func NewReader(r io.Reader) (*Reader, error) {
 // Read a point from the underyling reader and
 // write it into p. Returns io.EOF when
 // the sequence has been completely read.
-func (r *Reader) Read(p *[EncodedLen]byte) (err error) {
+func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size
 	// we're configured for
 	if r.seq == r.max {
 		return io.EOF
 	}
 	// read one
-	if _, err = r.r.Read(p[:]); err != nil {
+	if _, err = r.r.Read(point[:]); err != nil {
 		return
 	}
 	r.seq++

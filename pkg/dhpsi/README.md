@@ -1,6 +1,6 @@
 # dhpsi implementation
 
-The sequence for encoding and decoding is
+This is an implementation of the DHPSI 
 
 ## sender
     stage 1: (read identifier) -> (derive/multiply,shuffle/write remote)

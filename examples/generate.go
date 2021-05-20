@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -18,6 +19,7 @@ const (
 
 func main() {
 	var ws sync.WaitGroup
+	fmt.Printf("generating %d sender(s) and %d receiver(s) emails with %d in common\r\n", senderCardinality, receiverCardinality, commonCardinality)
 	// make the common part
 	common := emails.Common(commonCardinality)
 	// do advertisers & publishers in parallel
@@ -31,9 +33,8 @@ func output(filename string, common []byte, n int, ws *sync.WaitGroup) {
 	defer ws.Done()
 	if f, err := os.Create(filename); err == nil {
 		defer f.Close()
-		out := emails.Mix(common, n)
 		// exhaust out
-		for matchable := range out {
+		for matchable := range emails.Mix(common, n) {
 			// and write it
 			if _, err := f.Write(matchable); err != nil {
 				log.Fatal(err)

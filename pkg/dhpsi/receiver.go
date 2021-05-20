@@ -33,15 +33,15 @@ type permuted struct {
 // sourced from r, returning the matching intersection.
 func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
 	// state
-	var remoteIDs = make(map[[EncodedLen]byte]bool) // single routine access from s1
+	var remoteIDs = make(map[[EncodedLen]byte]bool) // single write goroutine access from stage1
 	var localIDs = make([][]byte, n)
 	var receiverIDs = make(chan permuted)
 	var matchedIDs = make(chan int64)
-
+	// the final intersection
 	var intersection [][]byte
 
 	// pick a ristretto implementation
-	gr := NewRistretto(RistrettoTypeR255)
+	gr, _ := NewRistretto(RistrettoTypeR255)
 	// wrap src in a bufio reader
 	src := bufio.NewReader(r)
 	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
@@ -65,7 +65,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 	}
 	// stage2.1 : permute and write the local identifiers to the sender
 	stage21 := func() error {
-		if writer, err := NewDeriveMultiplyShuffler(s.rw, n, gr); err != nil {
+		if writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr); err != nil {
 			return err
 		} else {
 			// take a snapshot of the reverse of the permutations
@@ -78,7 +78,6 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 				identifier, err := SafeReadLine(src)
 				if len(identifier) != 0 {
 					// save this input
-					// method2
 					receiverIDs <- permuted{permutations[i], identifier} // {0, "0"}
 					if err := writer.Shuffle(identifier); err != nil {
 						return err

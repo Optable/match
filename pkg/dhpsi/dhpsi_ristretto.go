@@ -3,6 +3,7 @@ package dhpsi
 import (
 	"crypto/rand"
 	"crypto/sha512"
+	"fmt"
 	"log"
 
 	gr "github.com/bwesterb/go-ristretto"
@@ -27,19 +28,21 @@ type R255 struct {
 	key *r255.Scalar
 }
 
-func NewRistretto(t int) Ristretto {
+func NewRistretto(t int) (Ristretto, error) {
 	switch t {
 	case RistrettoTypeGR:
 		var key gr.Scalar
-		return &GR{key: key.Rand()}
-	default:
+		return &GR{key: key.Rand()}, nil
+	case RistrettoTypeR255:
 		var key = r255.NewScalar()
 		var uniformBytes = make([]byte, 64)
 		if _, err := rand.Read(uniformBytes); err != nil {
 			log.Fatalf("could not generate uniform bytes to seed r255")
 		}
 		key.FromUniformBytes(uniformBytes)
-		return &R255{key: key}
+		return &R255{key: key}, nil
+	default:
+		return nil, fmt.Errorf("unsupported ristretto type %d", t)
 	}
 }
 

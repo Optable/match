@@ -18,7 +18,7 @@ func sel(ctx context.Context, f func() error) error {
 	}
 }
 
-func run(f1 func() error, f2 func() error) chan error {
+func _run(f1 func() error, f2 func() error) chan error {
 	var d = make(chan error, 2)
 	go func() {
 		d <- f1()
@@ -27,5 +27,16 @@ func run(f1 func() error, f2 func() error) chan error {
 		d <- f2()
 	}()
 
+	return d
+}
+
+func run(fs ...func() error) chan error {
+	var d = make(chan error, len(fs))
+	for _, f := range fs {
+		f := f
+		go func() {
+			d <- f()
+		}()
+	}
 	return d
 }

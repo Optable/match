@@ -37,7 +37,7 @@ func TestInterOperability(t *testing.T) {
 
 func BenchmarkGRDeriveMultiply(b *testing.B) {
 	// get a gr
-	gr := NewRistretto(RistrettoTypeGR)
+	gr, _ := NewRistretto(RistrettoTypeGR)
 
 	for i := 0; i < b.N; i++ {
 		gr.DeriveMultiply([]byte(xxx))
@@ -46,7 +46,7 @@ func BenchmarkGRDeriveMultiply(b *testing.B) {
 
 func BenchmarkGRMultiply(b *testing.B) {
 	// get a gr
-	gr := NewRistretto(RistrettoTypeGR)
+	gr, _ := NewRistretto(RistrettoTypeGR)
 	m := gr.DeriveMultiply(xxx)
 
 	for i := 0; i < b.N; i++ {
@@ -56,7 +56,7 @@ func BenchmarkGRMultiply(b *testing.B) {
 
 func BenchmarkR255DeriveMultiply(b *testing.B) {
 	// get a r255
-	r255 := NewRistretto(RistrettoTypeR255)
+	r255, _ := NewRistretto(RistrettoTypeR255)
 
 	for i := 0; i < b.N; i++ {
 		r255.DeriveMultiply([]byte(xxx))
@@ -65,7 +65,7 @@ func BenchmarkR255DeriveMultiply(b *testing.B) {
 
 func Benchmark255Multiply(b *testing.B) {
 	// get a r255
-	r255 := NewRistretto(RistrettoTypeR255)
+	r255, _ := NewRistretto(RistrettoTypeR255)
 	m := r255.DeriveMultiply(xxx)
 
 	for i := 0; i < b.N; i++ {

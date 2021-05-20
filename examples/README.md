@@ -1,5 +1,7 @@
 # examples
 
+Explain the concepts of sender and receiver
+
 ## 1. generate some data
 `go run generate.go`
 

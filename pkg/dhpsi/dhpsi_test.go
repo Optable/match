@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	DHPSITestCommonLen = 10
-	DHPSITestBodyLen   = 90
+	DHPSITestCommonLen = 1
+	DHPSITestBodyLen   = 15
 	DHPSITestLen       = DHPSITestBodyLen + DHPSITestCommonLen
 )
 
@@ -49,14 +49,14 @@ func compare(b1 [EncodedLen]byte, b2 []byte) bool {
 }
 
 // emulate probably an advertiser
-func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, direct bool) ([][]byte, []int64, error) {
+func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, parallel bool) ([][]byte, []int64, error) {
 	// save test matchables
 	var sent [][]byte
 	// save the permutations
 	var p []int64
 	var encoder ShufflerEncoder
 	// setup stage 1
-	switch direct {
+	switch parallel {
 	case false:
 		if e, err := NewDeriveMultiplyShuffler(w, n, r); err != nil {
 			return sent, p, fmt.Errorf("error at NewDeriveMultiplyShuffler: %v", err)
@@ -64,8 +64,8 @@ func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, direct 
 			encoder = e
 		}
 	case true:
-		if e, err := NewDeriveMultiplyDirectShuffler(w, n, r); err != nil {
-			return sent, p, fmt.Errorf("error at NewDeriveMultiplyDirectShuffler: %v", err)
+		if e, err := NewDeriveMultiplyParallelShuffler(w, n, r); err != nil {
+			return sent, p, fmt.Errorf("error at NewDeriveMultiplyParallelShuffler: %v", err)
 		} else {
 			encoder = e
 		}
@@ -74,7 +74,7 @@ func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, direct 
 	for matchable := range matchables {
 		sent = append(sent, matchable)
 		if err := encoder.Shuffle(matchable); err != nil {
-			return sent, p, fmt.Errorf("sender error at Encode: %v", err)
+			return sent, p, fmt.Errorf("sender error at Shuffle: %v", err)
 		}
 	}
 	// another write should return ErrUnexpectedEncodeByte
@@ -144,7 +144,7 @@ func BenchmarkDeriveMultiplyEncoder100000(b *testing.B) {
 	}
 }
 
-func BenchmarkDeriveMultiplyDirectEncoder100000(b *testing.B) {
+func BenchmarkDeriveMultiplyParallelEncoder100000(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var ws sync.WaitGroup
 		// pick a ristretto implementation
@@ -172,7 +172,7 @@ func BenchmarkDeriveMultiplyDirectEncoder100000(b *testing.B) {
 }
 
 // Test the shuffler
-func TestDeriveMultiplyEncoder(t *testing.T) {
+func TestDeriveMultiplyShuffler(t *testing.T) {
 	var ws sync.WaitGroup
 	// pick a ristretto implementation
 	gr := NilRistretto(0)
@@ -197,11 +197,11 @@ func TestDeriveMultiplyEncoder(t *testing.T) {
 		// Probably advertiser
 		defer ws.Done()
 		defer snd.Close()
-		if mm, pp, err := sender(snd, DHPSITestLen, gr, matchables, false); err != nil {
+		mm, pp, err := sender(snd, DHPSITestLen, gr, matchables, true)
+		sent = mm
+		permutations = pp
+		if err != nil {
 			errs <- err
-		} else {
-			sent = mm
-			permutations = pp
 		}
 	}()
 	go func() {
