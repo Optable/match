@@ -16,8 +16,8 @@ const (
 )
 
 type Ristretto interface {
-	DeriveMultiply([]byte) [EncodedLen]byte
-	Multiply([EncodedLen]byte) [EncodedLen]byte
+	DeriveMultiply(dst *[EncodedLen]byte, src []byte)
+	Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte)
 }
 
 type GR struct {
@@ -47,57 +47,45 @@ func NewRistretto(t int) (Ristretto, error) {
 }
 
 // "github.com/bwesterb/go-ristretto"
-func (g *GR) DeriveMultiply(identifier []byte) [EncodedLen]byte {
+func (g *GR) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	var p gr.Point
 	// derive
-	p.DeriveDalek(identifier)
+	p.DeriveDalek(src)
 	// multiply
 	var q gr.Point
 	q.ScalarMult(&p, g.key)
-	// return
-	var out [32]byte
-	q.BytesInto(&out)
-	return out
+	q.BytesInto(dst)
 }
 
-func (g *GR) Multiply(encoded [EncodedLen]byte) [EncodedLen]byte {
+func (g *GR) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	// multiply
 	var p gr.Point
-	p.SetBytes(&encoded)
+	p.SetBytes(&src)
 	p.ScalarMult(&p, g.key)
-	// return
-	var out [32]byte
-	p.BytesInto(&out)
-	return out
+	p.BytesInto(dst)
 }
 
 // "github.com/gtank/ristretto255"
-func (r *R255) DeriveMultiply(identifier []byte) [EncodedLen]byte {
+func (r *R255) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	var p = r255.NewElement()
 	// derive
-	hash := sha512.Sum512(identifier)
+	hash := sha512.Sum512(src)
 	p.FromUniformBytes(hash[:])
 	// multiply
 	p.ScalarMult(r.key, p)
-	// return. this is kind of a big workaround
-	// how Encode works.
+	// return.
 	var tmp []byte
 	tmp = p.Encode(tmp)
-	var out [32]byte
-	copy(out[:], tmp)
-	return out
+	copy(dst[:], tmp)
 }
 
-func (r *R255) Multiply(encoded [EncodedLen]byte) [EncodedLen]byte {
+func (r *R255) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	// multiply
 	var p = r255.NewElement()
-	p.Decode(encoded[:])
+	p.Decode(src[:])
 	p.ScalarMult(r.key, p)
-	// return. this is kind of a big workaround
-	// how Encode works.
+	// return.
 	var tmp []byte
 	tmp = p.Encode(tmp)
-	var out [32]byte
-	copy(out[:], tmp)
-	return out
+	copy(dst[:], tmp)
 }

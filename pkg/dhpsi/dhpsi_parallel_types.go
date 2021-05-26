@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	batchSize = 128
+	batchSize = 8
 )
 
 var (
@@ -15,8 +15,8 @@ var (
 )
 
 type dmOp struct {
-	r Ristretto
-	b dmBatch
+	gr Ristretto
+	b  dmBatch
 	// closure
 	f func(dmBatch)
 }
@@ -26,28 +26,28 @@ type dmBatch struct {
 	seq int64
 	// size of this batch
 	s int64
-	// buffer in
+	// buffer indentifiers in
 	batch [][]byte
-	// points out
-	points [][EncodedLen]byte
-}
-
-type mBatch struct {
-	// start sequence of this batch
-	seq int64
-	// size of this batch
-	s int64
-	// points in
-	batch [][EncodedLen]byte
-	// points out
+	// buffer points out
 	points [][EncodedLen]byte
 }
 
 type mOp struct {
-	r Ristretto
-	b mBatch
+	gr Ristretto
+	b  mBatch
 	// closure
 	f func(mBatch)
+}
+
+type mBatch struct {
+	// batch number
+	n int
+	// size of this batch
+	s int64
+	// buffer points in
+	batch [][EncodedLen]byte
+	// buffer points out
+	points [][EncodedLen]byte
 }
 
 func init() {
@@ -67,7 +67,7 @@ func parallelH(dm chan dmOp, m chan mOp) {
 			b := op.b
 			// derive/multiply the identifiers into points
 			for k, v := range b.batch {
-				b.points[k] = op.r.DeriveMultiply(v)
+				op.gr.DeriveMultiply(&b.points[k], v)
 			}
 			// closure
 			op.f(b)
@@ -76,7 +76,7 @@ func parallelH(dm chan dmOp, m chan mOp) {
 			b := op.b
 			// multiply the points into points
 			for k, v := range b.batch {
-				b.points[k] = op.r.Multiply(v)
+				op.gr.Multiply(&b.points[k], v)
 			}
 			// closure
 			op.f(b)
@@ -84,14 +84,15 @@ func parallelH(dm chan dmOp, m chan mOp) {
 	}
 }
 
-func makeDMBatch(max, seq, batchSize int64) (dmBatch, bool) {
-	// next batch size is min (batchSize, max-seq)
-	s := min(batchSize, max-seq)
-	if s == 0 {
-		return dmBatch{}, false
-	} else {
-		return dmBatch{seq: seq, s: s, batch: make([][]byte, s), points: make([][EncodedLen]byte, s)}, true
-	}
+// make a new batch for the DM operation
+func makeDMBatch(seq, batchSize int64) dmBatch {
+	return dmBatch{seq: seq, s: batchSize, batch: make([][]byte, batchSize), points: make([][EncodedLen]byte, batchSize)}
+}
+
+// make a new mBatch of exacly the right size needed
+// so that readers do not block or return EOF
+func makeMBatch(n int, batchSize int64) mBatch {
+	return mBatch{n: n, s: batchSize, batch: make([][EncodedLen]byte, batchSize), points: make([][EncodedLen]byte, batchSize)}
 }
 
 func min(a, b int64) int64 {

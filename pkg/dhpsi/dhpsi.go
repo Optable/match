@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	ErrUnexpectedEncodeByte = fmt.Errorf("received a byte to encode past the configured encoder size")
+	ErrUnexpectedPoint = fmt.Errorf("received a point to encode past the configured encoder size")
 )
 
 //
@@ -55,18 +55,19 @@ func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMulti
 }
 
 // Shuffle one identifier. First derive and then multiply by the
-// precomputed scaler, written out to the underlying writer while following
+// precomputed scalar, then write out to the underlying writer while following
 // the order of permutations created at NewDeriveMultiplyShuffler.
-// Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
+// Returns ErrUnexpectedPoint when the whole expected sequence has been sent.
 func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if enc.seq == enc.max {
-		return ErrUnexpectedEncodeByte
+		return ErrUnexpectedPoint
 	}
 
 	// derive/multiply
-	point := enc.gr.DeriveMultiply(identifier)
+	var point [EncodedLen]byte
+	enc.gr.DeriveMultiply(&point, identifier)
 
 	// we follow the permutation matrix and send
 	// or cache incoming matchables
@@ -126,12 +127,13 @@ func NewWriter(w io.Writer, n int64) (*Writer, error) {
 }
 
 // Write out the fixed length point to the underlying writer
-// while sequencing
+// while sequencing. Returns ErrUnexpectedPoint if called past
+// the configured encoder size
 func (w *Writer) Write(point [EncodedLen]byte) (err error) {
 	// ignore any encode past the max encodes
 	// we're configured for
 	if w.seq == w.max {
-		return ErrUnexpectedEncodeByte
+		return ErrUnexpectedPoint
 	}
 	//
 	if _, err = w.w.Write(point[:]); err != nil {
@@ -169,17 +171,16 @@ func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
 }
 
 // Multiply a point from the underyling reader with ristretto
-// and write it into p. Returns io.EOF when
+// and write it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (r *MultiplyReader) Multiply(point *[EncodedLen]byte) (err error) {
 	var b [EncodedLen]byte
 	if err := r.r.Read(&b); err != nil {
 		return err
 	} else {
-		*point = r.gr.Multiply(b)
+		r.gr.Multiply(point, b)
 		return nil
 	}
-
 }
 
 // Max is the expected number of matchable

@@ -11,7 +11,7 @@ import (
 
 const (
 	DHPSITestCommonLen = 1
-	DHPSITestBodyLen   = 15
+	DHPSITestBodyLen   = 5
 	DHPSITestLen       = DHPSITestBodyLen + DHPSITestCommonLen
 )
 
@@ -24,15 +24,13 @@ type ShufflerEncoder interface {
 // and does no treatment
 type NilRistretto int
 
-func (g NilRistretto) DeriveMultiply(matchable []byte) [EncodedLen]byte {
+func (g NilRistretto) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	// return first 32 bytes of matchable
-	var out [EncodedLen]byte
-	copy(out[:], matchable[:32])
-	return out
+	copy(dst[:], src[:32])
 }
-func (g NilRistretto) Multiply(encoded [EncodedLen]byte) [EncodedLen]byte {
+func (g NilRistretto) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	// passthrought
-	return encoded
+	copy(dst[:], src[:])
 }
 
 // returns true if b1 and b2 have the same bytes
@@ -49,27 +47,14 @@ func compare(b1 [EncodedLen]byte, b2 []byte) bool {
 }
 
 // emulate probably an advertiser
-func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, parallel bool) ([][]byte, []int64, error) {
+func sender(e ShufflerEncoder, r Ristretto, matchables <-chan []byte) ([][]byte, []int64, error) {
 	// save test matchables
 	var sent [][]byte
 	// save the permutations
 	var p []int64
 	var encoder ShufflerEncoder
 	// setup stage 1
-	switch parallel {
-	case false:
-		if e, err := NewDeriveMultiplyShuffler(w, n, r); err != nil {
-			return sent, p, fmt.Errorf("error at NewDeriveMultiplyShuffler: %v", err)
-		} else {
-			encoder = e
-		}
-	case true:
-		if e, err := NewDeriveMultiplyParallelShuffler(w, n, r); err != nil {
-			return sent, p, fmt.Errorf("error at NewDeriveMultiplyParallelShuffler: %v", err)
-		} else {
-			encoder = e
-		}
-	}
+	encoder = e
 	p = encoder.Permutations()
 	for matchable := range matchables {
 		sent = append(sent, matchable)
@@ -77,10 +62,10 @@ func sender(w io.Writer, n int64, r Ristretto, matchables <-chan []byte, paralle
 			return sent, p, fmt.Errorf("sender error at Shuffle: %v", err)
 		}
 	}
-	// another write should return ErrUnexpectedEncodeByte
+	// another write should return ErrUnexpectedPoint
 	var b = make([]byte, emails.HashLen)
-	if err := encoder.Shuffle(b); err != ErrUnexpectedEncodeByte {
-		return sent, p, fmt.Errorf("sender expected ErrUnexpectedEncodeByte and got %v", err)
+	if err := encoder.Shuffle(b); err != ErrUnexpectedPoint {
+		return sent, p, fmt.Errorf("sender expected ErrUnexpectedPoint and got %v", err)
 	}
 
 	return sent, p, nil
@@ -133,7 +118,8 @@ func BenchmarkDeriveMultiplyEncoder100000(b *testing.B) {
 		go func() {
 			// Probably advertiser
 			defer ws.Done()
-			sender(snd, 100000, gr, matchables, false)
+			e, _ := NewDeriveMultiplyShuffler(snd, 100000, gr)
+			sender(e, gr, matchables)
 		}()
 		go func() {
 			// Probably publisher
@@ -160,7 +146,8 @@ func BenchmarkDeriveMultiplyParallelEncoder100000(b *testing.B) {
 		go func() {
 			// Probably advertiser
 			defer ws.Done()
-			sender(snd, 100000, gr, matchables, true)
+			e, _ := NewDeriveMultiplyParallelShuffler(snd, 100000, gr)
+			sender(e, gr, matchables)
 		}()
 		go func() {
 			// Probably publisher
@@ -197,7 +184,13 @@ func TestDeriveMultiplyShuffler(t *testing.T) {
 		// Probably advertiser
 		defer ws.Done()
 		defer snd.Close()
-		mm, pp, err := sender(snd, DHPSITestLen, gr, matchables, true)
+		// make the encoder
+		e, err := NewDeriveMultiplyShuffler(snd, DHPSITestLen, gr)
+		if err != nil {
+			errs <- err
+			return
+		}
+		mm, pp, err := sender(e, gr, matchables)
 		sent = mm
 		permutations = pp
 		if err != nil {
@@ -236,12 +229,4 @@ func TestDeriveMultiplyShuffler(t *testing.T) {
 			t.Fatalf("shuffle sequence is broken")
 		}
 	}
-}
-
-// test the encoder
-func TestEncoder(t *testing.T) {
-}
-
-func TestReader(t *testing.T) {
-
 }

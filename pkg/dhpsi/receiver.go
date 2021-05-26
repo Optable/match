@@ -46,7 +46,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 	src := bufio.NewReader(r)
 	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
 	stage1 := func() error {
-		if reader, err := NewMultiplyReader(s.rw, gr); err != nil {
+		if reader, err := NewMultiplyParallelReader(s.rw, gr); err != nil {
 			return err
 		} else {
 			for {

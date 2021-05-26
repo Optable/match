@@ -35,40 +35,78 @@ func TestInterOperability(t *testing.T) {
 	}
 }
 
+func TestInterInterfaceOperability(t *testing.T) {
+	// gr
+	gr, _ := NewRistretto(RistrettoTypeGR)
+	var point1 [EncodedLen]byte
+	gr.DeriveMultiply(&point1, xxx)
+
+	// r255
+	r255, _ := NewRistretto(RistrettoTypeR255)
+	var point2 [EncodedLen]byte
+	r255.DeriveMultiply(&point2, xxx)
+
+	if point1 != point1 {
+		t.Fatal("RistrettoTypeGR and RistrettoTypeR255 DeriveMultiply not producing the same output")
+	}
+
+	// todo: this second test needs the same key set on both ristretto implementation
+	/*
+		// gr
+		var point3 [EncodedLen]byte
+		gr.Multiply(&point3, point1)
+
+		// r255
+		var point4 [EncodedLen]byte
+		r255.Multiply(&point4, point2)
+
+		if point3 != point4 {
+			t.Fatalf("RistrettoTypeGR and RistrettoTypeR255 Multiply not producing the same output (%s : %s", string(point3[:]), string(point4[:]))
+		}
+	*/
+
+}
+
 func BenchmarkGRDeriveMultiply(b *testing.B) {
 	// get a gr
 	gr, _ := NewRistretto(RistrettoTypeGR)
+	var point [EncodedLen]byte
 
 	for i := 0; i < b.N; i++ {
-		gr.DeriveMultiply([]byte(xxx))
+		gr.DeriveMultiply(&point, xxx)
 	}
 }
 
 func BenchmarkGRMultiply(b *testing.B) {
 	// get a gr
 	gr, _ := NewRistretto(RistrettoTypeGR)
-	m := gr.DeriveMultiply(xxx)
+	var src [EncodedLen]byte
+	gr.DeriveMultiply(&src, xxx)
+	var dst [EncodedLen]byte
 
 	for i := 0; i < b.N; i++ {
-		gr.Multiply(m)
+		gr.Multiply(&dst, src)
 	}
 }
 
 func BenchmarkR255DeriveMultiply(b *testing.B) {
 	// get a r255
 	r255, _ := NewRistretto(RistrettoTypeR255)
+	var point [EncodedLen]byte
 
 	for i := 0; i < b.N; i++ {
-		r255.DeriveMultiply([]byte(xxx))
+		r255.DeriveMultiply(&point, xxx)
 	}
 }
 
 func Benchmark255Multiply(b *testing.B) {
 	// get a r255
 	r255, _ := NewRistretto(RistrettoTypeR255)
-	m := r255.DeriveMultiply(xxx)
+	var src [EncodedLen]byte
+	r255.DeriveMultiply(&src, xxx)
+	var dst [EncodedLen]byte
 
 	for i := 0; i < b.N; i++ {
-		r255.Multiply(m)
+		r255.Multiply(&dst, src)
 	}
 }

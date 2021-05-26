@@ -57,7 +57,7 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 	}
 	// stage2 : reads the identifiers from the receiver, encrypt them and send them back
 	stage2 := func() error {
-		reader, err := NewMultiplyReader(s.rw, gr)
+		reader, err := NewMultiplyParallelReader(s.rw, gr)
 		if err != nil {
 			return err
 		}
@@ -90,3 +90,28 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 
 	return nil
 }
+
+/*
+	for {
+		// read one batch
+		var points = make([][EncodedLen]byte, batchSize)
+		n, err := reader.Multiplies(points)
+		// process data
+		if n != 0 {
+			for i := 0; i < n; i++ {
+				if err := writer.Write(points[i]); err != nil {
+					return fmt.Errorf("stage2: %v", err)
+				}
+			}
+		}
+		// process errors
+		if err != nil {
+			if err != io.EOF {
+				return fmt.Errorf("stage2: %v", err)
+			} else if n == 0 {
+				break
+			}
+		}
+	}
+	return nil
+*/
