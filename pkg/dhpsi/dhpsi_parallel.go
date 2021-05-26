@@ -148,6 +148,24 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 		totalBatches++
 	}
 
+	// left batches counter
+	var lb = make(chan int64)
+	go func() {
+		defer close(lb)
+		left := totalBatches - 1
+		for {
+			select {
+			case lb <- left:
+				left--
+				if left == 0 {
+					return
+				}
+			case <-closed:
+				return
+			}
+		}
+	}()
+
 	// closure to process finishes
 	// batches while also blocking
 	// the worker
@@ -159,8 +177,8 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 
 		// if this is the last batch,
 		// close batches
-		totalBatches--
-		if totalBatches == 0 {
+		left := <-lb
+		if left == 0 {
 			close(batches)
 		}
 	}
@@ -187,6 +205,7 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 			// is full
 			mBus <- mOp{gr: gr, b: b, f: f}
 		}
+		return
 	}()
 
 	// signal downstream errors or EOF

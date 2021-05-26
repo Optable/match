@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	DHPSITestCommonLen = 1
-	DHPSITestBodyLen   = 5
+	DHPSITestCommonLen = 1000
+	DHPSITestBodyLen   = 100000
 	DHPSITestLen       = DHPSITestBodyLen + DHPSITestCommonLen
 )
 
