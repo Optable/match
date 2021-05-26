@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	"github.com/optable/match/pkg/dhpsi"
 )
@@ -32,8 +33,10 @@ func showUsageAndExit(exitcode int) {
 var out *string
 
 func main() {
+	var wg sync.WaitGroup
 	var port = flag.String("p", defaultPort, "The receiver port")
 	var file = flag.String("in", defaultSenderFileName, "A list of prefixed IDs terminated with a newline")
+	var once = flag.Bool("once", false, "Exit after processing one receiver")
 	out = flag.String("out", defaultCommonFileName, "A list of IDs that intersect between the receiver and the sender")
 
 	var showHelp = flag.Bool("h", false, "Show help message")
@@ -71,11 +74,20 @@ func main() {
 			log.Fatal(err)
 		} else {
 			log.Printf("handling sender %s", c.RemoteAddr())
+			wg.Add(1)
 			f, err := os.Open(*file)
 			if err != nil {
 				log.Fatal(err)
 			}
-			go handle(c, n, f)
+			go func() {
+				defer wg.Done()
+				handle(c, n, f)
+			}()
+
+			if *once {
+				wg.Wait()
+				return
+			}
 		}
 	}
 }
