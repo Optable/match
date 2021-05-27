@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package optable.kkrt.v1;
+
+// The protocol is divided into 3 phases to perform a KKRT Private Set
+// Intersection exchange, also known as Batched-OPRF PSI.
+//
+// Phase 1
+// TBD
+
+service PSI {
+    rpc RunKkrtPsi() returns () {}
+}
