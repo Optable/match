@@ -9,7 +9,7 @@ const (
 )
 
 var (
-	parallelism = runtime.NumCPU()
+	parallelism = runtime.GOMAXPROCS(0)
 	dmBus       chan dmOp
 	mBus        chan mOp
 )

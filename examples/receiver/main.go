@@ -21,7 +21,7 @@ const (
 )
 
 func usage() {
-	log.Printf("Usage: receiver [-p port] [-in file] [-out file]\n")
+	log.Printf("Usage: receiver [-p port] [-in file] [-out file] [-once false]\n")
 	flag.PrintDefaults()
 }
 
@@ -36,8 +36,8 @@ func main() {
 	var wg sync.WaitGroup
 	var port = flag.String("p", defaultPort, "The receiver port")
 	var file = flag.String("in", defaultSenderFileName, "A list of prefixed IDs terminated with a newline")
-	var once = flag.Bool("once", false, "Exit after processing one receiver")
 	out = flag.String("out", defaultCommonFileName, "A list of IDs that intersect between the receiver and the sender")
+	var once = flag.Bool("once", false, "Exit after processing one receiver")
 
 	var showHelp = flag.Bool("h", false, "Show help message")
 
