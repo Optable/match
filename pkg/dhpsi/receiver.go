@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 )
 
 // (receiver, publisher: high cardinality) stage1: reads the identifiers from the sender, encrypt them and index them in a map
@@ -29,9 +30,36 @@ type permuted struct {
 	identifier []byte
 }
 
+// IntersectWithReader on n matchables,
+// sourced from r,
+// returning the matching intersection.
+func (s *Receiver) IntersectWithReader(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
+	// wrap r in a bufio reader
+	var src = bufio.NewReader(r)
+	var identifiers = make(chan []byte)
+	// exhaust src
+	go func() {
+		defer close(identifiers)
+		for i := int64(0); i < n; i++ {
+			identifier, err := SafeReadLine(src)
+			if len(identifier) != 0 {
+				identifiers <- identifier
+			}
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("error reading identifiers: %v", err)
+				}
+				return
+			}
+		}
+	}()
+	return s.Intersect(ctx, n, identifiers)
+}
+
 // Intersect on n matchables,
-// sourced from r, returning the matching intersection.
-func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
+// sourced from identifiers,
+// returning the matching intersection.
+func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// state
 	var remoteIDs = make(map[[EncodedLen]byte]bool) // single write goroutine access from stage1
 	var localIDs = make([][]byte, n)
@@ -42,8 +70,6 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 
 	// pick a ristretto implementation
 	gr, _ := NewRistretto(RistrettoTypeR255)
-	// wrap src in a bufio reader
-	src := bufio.NewReader(r)
 	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
 	stage1 := func() error {
 		if reader, err := NewMultiplyParallelReader(s.rw, gr); err != nil {
@@ -52,7 +78,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 			for {
 				// read
 				var p [EncodedLen]byte
-				if err := reader.Multiply(&p); err != nil {
+				if err := reader.Read(&p); err != nil {
 					if err == io.EOF {
 						return nil
 					}
@@ -74,19 +100,16 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, r io.Reader) ([][]byt
 			// and
 			//  1. index them locally
 			//  2. write them to the sender
-			for i := int64(0); i < n; i++ {
-				identifier, err := SafeReadLine(src)
-				if len(identifier) != 0 {
-					// save this input
-					receiverIDs <- permuted{permutations[i], identifier} // {0, "0"}
-					if err := writer.Shuffle(identifier); err != nil {
-						return err
-					}
-				}
-				if err != nil {
+			var i int64
+			for identifier := range identifiers {
+				// save this input
+				receiverIDs <- permuted{permutations[i], identifier} // {0, "0"}
+				if err := writer.Shuffle(identifier); err != nil {
 					return err
 				}
+				i++
 			}
+
 			return nil
 		}
 	}

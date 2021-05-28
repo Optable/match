@@ -151,6 +151,12 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 	// left batches counter
 	var lb = make(chan int64)
 	go func() {
+		// TODO: catch the cancel
+		// signal here and close LB,
+		// that will return 0 in the batch closure
+		// and actually close "closed"
+		// as it stands a cancelled context
+		// on Read wont stop anything until the sockets are closed
 		defer close(lb)
 		left := totalBatches - 1
 		for {
@@ -245,9 +251,9 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 }
 
 func copy_out(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
-	for i := int64(0); i < b.s; i++ {
+	for _, point := range b.points {
 		select {
-		case c <- b.points[i]:
+		case c <- point:
 			n++
 		case <-done:
 			return
@@ -256,10 +262,10 @@ func copy_out(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
 	return
 }
 
-// Multiply a point from the underyling reader with ristretto
+// Read a point from the underyling reader with ristretto
 // and write it into point. Returns io.EOF when
 // the sequence has been completely read.
-func (dec *MultiplyParallelReader) Multiply(point *[EncodedLen]byte) (err error) {
+func (dec *MultiplyParallelReader) Read(point *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size
 	// we're configured for
 	if dec.seq == dec.r.max {
@@ -283,7 +289,3 @@ func (dec *MultiplyParallelReader) Multiply(point *[EncodedLen]byte) (err error)
 func (dec *MultiplyParallelReader) Max() int64 {
 	return dec.r.max
 }
-
-// approach 3.
-// fill buffers to process
-// on read

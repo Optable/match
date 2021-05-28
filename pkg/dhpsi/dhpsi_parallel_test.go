@@ -130,7 +130,7 @@ func TestMultiplyParallelReader(t *testing.T) {
 		}
 		for i := int64(0); i < r.Max(); i++ {
 			var point [EncodedLen]byte
-			err := r.Multiply(&point)
+			err := r.Read(&point)
 			if err != nil {
 				errs <- fmt.Errorf("Multiply: %v", err)
 				break

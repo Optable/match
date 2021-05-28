@@ -63,7 +63,7 @@ func main() {
 	}
 	defer c.Close()
 	s := dhpsi.NewSender(c)
-	err = s.Send(context.Background(), n, f)
+	err = s.SendWithReader(context.Background(), n, f)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -51,7 +51,7 @@ func s_receiverInit(common []byte) (addr string, err error) {
 func s_receiverHandle(common []byte, conn net.Conn) {
 	r := initTestDataSource(common, ReceiverTestBodyLen)
 	rec := NewReceiver(conn)
-	_, err := rec.Intersect(context.Background(), int64(ReceiverTestLen), r)
+	_, err := rec.IntersectWithReader(context.Background(), int64(ReceiverTestLen), r)
 	if err != nil {
 		// hmm - send this to the main thread with a channel
 		log.Print(err)
@@ -73,7 +73,7 @@ func TestSender(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewSender(conn)
-	err = s.Send(context.Background(), int64(SenderTestLen), r)
+	err = s.SendWithReader(context.Background(), int64(SenderTestLen), r)
 	if err != nil {
 		t.Error(err)
 	}

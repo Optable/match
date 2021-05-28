@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 )
 
 // operations
@@ -23,16 +24,42 @@ func NewSender(rw io.ReadWriter) *Sender {
 	return &Sender{rw: rw}
 }
 
-// Send initiates a DHPSI exchange with n identifiers
+// SendWithReader initiates a DHPSI exchange with n identifiers
 // that are read from r. The format of an indentifier is
 //  PREFIX:MATCHABLE\r\n
 // example:
 //  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e\r\n
-func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
+func (s *Sender) SendWithReader(ctx context.Context, n int64, r io.Reader) error {
+	// wrap r in a bufio reader
+	src := bufio.NewReader(r)
+	var identifiers = make(chan []byte)
+	// exhaust src
+	go func() {
+		defer close(identifiers)
+		for i := int64(0); i < n; i++ {
+			identifier, err := SafeReadLine(src)
+			if len(identifier) != 0 {
+				identifiers <- identifier
+			}
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("error reading identifiers: %v", err)
+				}
+				return
+			}
+		}
+	}()
+	return s.Send(ctx, n, identifiers)
+}
+
+// Send initiates a DHPSI exchange with n identifiers
+// that are read from identifiers, until identifiers closes or n is reached.
+// The format of an indentifier is PREFIX:MATCHABLE
+// example:
+//  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
+func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
 	// pick a ristretto implementation
 	gr, _ := NewRistretto(RistrettoTypeR255)
-	// wrap src in a bufio reader
-	src := bufio.NewReader(r)
 	// stage1 : writes the permutated identifiers to the receiver
 	stage1 := func() error {
 		if writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr); err != nil {
@@ -40,21 +67,15 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 		} else {
 			// read N matchables from r
 			// and write them to stage1
-			for i := int64(0); i < n; i++ {
-				line, err := SafeReadLine(src)
-				// some data was returned
-				if len(line) != 0 {
-					if err := writer.Shuffle(line); err != nil {
-						return err
-					}
-				}
-				if err != nil {
+			for identifier := range identifiers {
+				if err := writer.Shuffle(identifier); err != nil {
 					return err
 				}
 			}
 			return nil
 		}
 	}
+
 	// stage2 : reads the identifiers from the receiver, encrypt them and send them back
 	stage2 := func() error {
 		reader, err := NewMultiplyParallelReader(s.rw, gr)
@@ -66,7 +87,7 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 		} else {
 			for i := int64(0); i < reader.Max(); i++ {
 				var p [EncodedLen]byte
-				if err := reader.Multiply(&p); err != nil {
+				if err := reader.Read(&p); err != nil {
 					if err != io.EOF {
 						return err
 					}
@@ -90,28 +111,3 @@ func (s *Sender) Send(ctx context.Context, n int64, r io.Reader) error {
 
 	return nil
 }
-
-/*
-	for {
-		// read one batch
-		var points = make([][EncodedLen]byte, batchSize)
-		n, err := reader.Multiplies(points)
-		// process data
-		if n != 0 {
-			for i := 0; i < n; i++ {
-				if err := writer.Write(points[i]); err != nil {
-					return fmt.Errorf("stage2: %v", err)
-				}
-			}
-		}
-		// process errors
-		if err != nil {
-			if err != io.EOF {
-				return fmt.Errorf("stage2: %v", err)
-			} else if n == 0 {
-				break
-			}
-		}
-	}
-	return nil
-*/
