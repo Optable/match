@@ -22,19 +22,19 @@ func NewSender(rw io.ReadWriter) *Sender {
 	return &Sender{rw: rw}
 }
 
-// SendWithReader initiates a DHPSI exchange with n identifiers
+// SendFromReader initiates a DHPSI exchange with n identifiers
 // that are read from r. The format of an indentifier is
 //  PREFIX:MATCHABLE\r\n
 // example:
 //  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e\r\n
-func (s *Sender) SendWithReader(ctx context.Context, n int64, r io.Reader) error {
+func (s *Sender) SendFromReader(ctx context.Context, n int64, r io.Reader) error {
 	// extract r into a channel via SafeRead
 	var identifiers = exhaust(n, r)
 	return s.Send(ctx, n, identifiers)
 }
 
 // Send initiates a DHPSI exchange with n identifiers
-// that are read from identifiers, until identifiers closes or n is reached.
+// that are read from the identifiers channel, until identifiers closes or n is reached.
 // The format of an indentifier is PREFIX:MATCHABLE
 // example:
 //  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e

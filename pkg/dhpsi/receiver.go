@@ -28,17 +28,19 @@ type permuted struct {
 	identifier []byte
 }
 
-// IntersectWithReader on n matchables,
-// sourced from r,
-// returning the matching intersection.
-func (s *Receiver) IntersectWithReader(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
+// IntersectFromReader on n matchables,
+// sourced from r, returning the matching intersection.
+// The format of an indentifier is
+//  PREFIX:MATCHABLE\r\n
+func (s *Receiver) IntersectFromReader(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
 	var identifiers = exhaust(n, r)
 	return s.Intersect(ctx, n, identifiers)
 }
 
 // Intersect on n matchables,
-// sourced from identifiers,
-// returning the matching intersection.
+// sourced from identifiers, returning the matching intersection.
+// The format of an indentifier is
+//  PREFIX:MATCHABLE
 func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// state
 	var remoteIDs = make(map[[EncodedLen]byte]bool) // single write goroutine access from stage1

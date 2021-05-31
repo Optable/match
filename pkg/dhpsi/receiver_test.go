@@ -38,7 +38,7 @@ func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []by
 	defer close(intersectionsBus)
 	r := initTestDataSource(common, ReceiverTestBodyLen)
 	rec := NewReceiver(conn)
-	ii, err := rec.IntersectWithReader(context.Background(), int64(ReceiverTestLen), r)
+	ii, err := rec.IntersectFromReader(context.Background(), int64(ReceiverTestLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
 	}
@@ -67,7 +67,7 @@ func TestReceiver(t *testing.T) {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
 		s := NewSender(conn)
-		err = s.SendWithReader(context.Background(), int64(SenderTestLen), r)
+		err = s.SendFromReader(context.Background(), int64(SenderTestLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}

@@ -29,9 +29,11 @@ type DeriveMultiplyParallelShuffler struct {
 // and shuffles matchable values on n sequences of bytes to be sent out.
 // It first computes a permutation table and subsequently sends out sequences ordered
 // by the precomputed permutation table. This is the first stage of doing a DH exchange.
+//
+// This version operates on multiple cores in parallel
 func NewDeriveMultiplyParallelShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMultiplyParallelShuffler, error) {
 	// send the max value first
-	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
+	if err := binary.Write(w, binary.BigEndian, &n); err != nil {
 		return nil, err
 	}
 	// create the first batch
@@ -122,7 +124,9 @@ type MultiplyParallelReader struct {
 
 // NewMultiplyParallelReader makes a ristretto multiplier reader that sits on the other end
 // of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto hashes and
-// multiplies them using gr
+// multiplies them using gr.
+//
+// This version operates on multiple cores in parallel
 func NewMultiplyParallelReader(r io.Reader, gr Ristretto) (*MultiplyParallelReader, error) {
 	// setup the underlying reader
 	rr, err := NewReader(r)
@@ -262,7 +266,7 @@ func copy_out(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
 	return
 }
 
-// Read a point from the underyling reader with ristretto
+// Read a point from the underyling reader, multiplied with ristretto
 // and write it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (dec *MultiplyParallelReader) Read(point *[EncodedLen]byte) (err error) {

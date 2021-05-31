@@ -96,7 +96,7 @@ func handle(c net.Conn, n int64, f io.ReadCloser) {
 	defer c.Close()
 	defer f.Close()
 	r := dhpsi.NewReceiver(c)
-	if i, err := r.IntersectWithReader(context.Background(), n, f); err != nil {
+	if i, err := r.IntersectFromReader(context.Background(), n, f); err != nil {
 		log.Printf("intersect failed (%d): %v", len(i), err)
 	} else {
 		// write out to common-ids.txt

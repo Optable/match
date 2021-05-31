@@ -11,7 +11,7 @@ import (
 const (
 	// EncodedLen is the lenght of one encoded ristretto point
 	EncodedLen = 32
-	// PrefixedLen is the lenght of one prefixed email identifier
+	// PrefixedLen is the length of one prefixed email identifier
 	EmailPrefixedLen = 66
 )
 
@@ -46,7 +46,7 @@ type Writer struct {
 //
 // This is the first stage of doing a DHPSI exchange.
 func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMultiplyShuffler, error) {
-	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
+	if err := binary.Write(w, binary.BigEndian, &n); err != nil {
 		return nil, err
 	}
 	// and create the encoder
@@ -106,7 +106,7 @@ func (enc *DeriveMultiplyShuffler) InvertedPermutations() []int64 {
 	return invertedPermutations(enc.permutations)
 }
 
-// InvertedPermutations returns the reverse of the permutation matrix
+// invertedPermutations returns the reverse of the permutation matrix
 // that was computed on initialization
 func invertedPermutations(in []int64) []int64 {
 	var invertedpermutations = make([]int64, len(in))
@@ -120,7 +120,7 @@ func invertedPermutations(in []int64) []int64 {
 // the total number of items that will be sent out
 func NewWriter(w io.Writer, n int64) (*Writer, error) {
 	// send the max value first
-	if err := binary.Write(w, binary.LittleEndian, &n); err != nil {
+	if err := binary.Write(w, binary.BigEndian, &n); err != nil {
 		return nil, err
 	}
 	return &Writer{w: w, max: n}, nil
@@ -161,7 +161,7 @@ type Reader struct {
 
 // NewMultiplyReader makes a ristretto multiplier reader that sits on the other end
 // of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto hashes and
-// multiplies them using gr
+// multiplies them using gr.
 func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
 	if r, err := NewReader(r); err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
 	}
 }
 
-// Read a point from the underyling reader with ristretto
+// Read a point from the underyling reader, multiply it with ristretto
 // and write it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
@@ -190,11 +190,11 @@ func (dec *MultiplyReader) Max() int64 {
 }
 
 // NewReader makes a simple reader that sits on the other end
-// of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto hashes
+// of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto points
 func NewReader(r io.Reader) (*Reader, error) {
 	var max int64
 	// extract the max value
-	if err := binary.Read(r, binary.LittleEndian, &max); err != nil {
+	if err := binary.Read(r, binary.BigEndian, &max); err != nil {
 		return nil, err
 	}
 	return &Reader{r: r, max: max}, nil
