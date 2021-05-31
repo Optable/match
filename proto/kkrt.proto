@@ -49,9 +49,22 @@ package optable.kkrt.v1;
 
 
 message CuckooHashParamSetup {
+    // Number of records from receiver: |Y|
+    int64 receiverSize = 1;
+    // stash size |S|
+    int64 stash = 2;
+    // param k
+    int64 k = 3;
+    // random seeds for 3 hash functions
+    bytes seed1 = 4;
+    bytes seed2 = 5;
+    bytes seed3 = 6;
 }
 
 message InitKkrtOtParamSetup {
+    // random seed for linear error correcting code C
+    // basically to instantiate AES
+    bytes seed = 1;
 }
 
 message KkrtOtSender {
