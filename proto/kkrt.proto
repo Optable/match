@@ -53,3 +53,12 @@ message CuckooHashParamSetup {
 
 message InitKkrtOtParamSetup {
 }
+
+message KkrtOtSender {
+}
+
+message KkrtOtReceiver {
+}
+
+message PsiSender {
+}
