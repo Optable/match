@@ -16,7 +16,7 @@ package optable.kkrt.v1;
 //
 // Stage 2: OT + OPRF
 //
-// - Sender 2-1:   Instantiate pseudorandom code C (blocks of AES), yet another hash funcon H,
+// - Sender 2-1:   Instantiate pseudorandom code C (AES-128 run 4 times), yet another hash funcon H,
 //                 and sample the secret choice bit string s of length k, and
 //                 sends an InitKkrtOtParamSetup
 //
@@ -50,21 +50,45 @@ package optable.kkrt.v1;
 
 message CuckooHashParamSetup {
     // Number of records from receiver: |Y|
-    int64 receiverSize = 1;
+    uint64 receiverSize = 1;
     // stash size |S|
-    int64 stash = 2;
+    uint64 stash = 2;
     // param k
-    int64 k = 3;
-    // random seeds for 3 hash functions
+    uint64 k = 3;
+    // random 16 bytes salt for 3 hash functions
+    // see https://pkg.go.dev/golang.org/x/crypto@v0.0.0-20210513164829-c07d793c2f9a/blake2b
     bytes seed1 = 4;
     bytes seed2 = 5;
     bytes seed3 = 6;
 }
 
 message InitKkrtOtParamSetup {
-    // random seed for linear error correcting code C
-    // basically to instantiate AES
-    bytes seed = 1;
+    // random 16 bytes seed for linear error correcting code C
+    // to instantiate AES-128
+    // see https://golang.org/pkg/crypto/aes/
+    bytes aesHashingSeed = 1;
+    // random 64 bytes salt for hash function to produce OPRF output
+    bytes hashSeed = 2;
+    // Number of base OT (Naor-Pinkas) to run
+    uint64 baseOtCount = 3;
+}
+
+// We will perform Elliptic Curve Naor Pinkas, instead of the Diffie-Hellman style Naor Pinkas
+message NaorPinkasBaseOtParamSetup {
+    // Assume for now the ristretto point on Curve25519 are represented in bytes
+    bytes basePoint = 1; // G
+    bytes pointC = 2; // C= cG <=> g^c
+}
+
+message NaorPinkasBaseOtReceiver {
+    bytes pubKeyZero = 1; // k_0 = kG <=> g^k, or k_0 = C - kG <=> C/g^k = g^(c-k)
+}
+
+message NaorPinkasBaseOtSender {
+    bytes pointR = 1; // R = rG <=> g^r
+    bytes hashSeed = 2; // seed for hash function H
+    bytes encryptedM0 = 3; //E_0 = H(rk_0) ^ m_0 <=> H((k_0)^r) ^ m_0
+    bytes encryptedM1 = 4; //E_1 = H(rk_1) ^ m_1 <=> H((k_1)^r) ^ m_1
 }
 
 message KkrtOtSender {
