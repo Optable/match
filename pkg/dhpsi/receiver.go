@@ -1,11 +1,9 @@
 package dhpsi
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
-	"log"
 )
 
 // (receiver, publisher: high cardinality) stage1: reads the identifiers from the sender, encrypt them and index them in a map
@@ -34,25 +32,7 @@ type permuted struct {
 // sourced from r,
 // returning the matching intersection.
 func (s *Receiver) IntersectWithReader(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
-	// wrap r in a bufio reader
-	var src = bufio.NewReader(r)
-	var identifiers = make(chan []byte)
-	// exhaust src
-	go func() {
-		defer close(identifiers)
-		for i := int64(0); i < n; i++ {
-			identifier, err := SafeReadLine(src)
-			if len(identifier) != 0 {
-				identifiers <- identifier
-			}
-			if err != nil {
-				if err != io.EOF {
-					log.Printf("error reading identifiers: %v", err)
-				}
-				return
-			}
-		}
-	}()
+	var identifiers = exhaust(n, r)
 	return s.Intersect(ctx, n, identifiers)
 }
 

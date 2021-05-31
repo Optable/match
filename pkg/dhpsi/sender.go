@@ -1,11 +1,9 @@
 package dhpsi
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
-	"log"
 )
 
 // operations
@@ -30,25 +28,8 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e\r\n
 func (s *Sender) SendWithReader(ctx context.Context, n int64, r io.Reader) error {
-	// wrap r in a bufio reader
-	src := bufio.NewReader(r)
-	var identifiers = make(chan []byte)
-	// exhaust src
-	go func() {
-		defer close(identifiers)
-		for i := int64(0); i < n; i++ {
-			identifier, err := SafeReadLine(src)
-			if len(identifier) != 0 {
-				identifiers <- identifier
-			}
-			if err != nil {
-				if err != io.EOF {
-					log.Printf("error reading identifiers: %v", err)
-				}
-				return
-			}
-		}
-	}()
+	// extract r into a channel via SafeRead
+	var identifiers = exhaust(n, r)
 	return s.Send(ctx, n, identifiers)
 }
 
@@ -67,6 +48,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		} else {
 			// read N matchables from r
 			// and write them to stage1
+			// shuffle will error out if more than N
+			// are read from identifiers
 			for identifier := range identifiers {
 				if err := writer.Shuffle(identifier); err != nil {
 					return err
