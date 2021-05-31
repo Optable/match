@@ -2,12 +2,54 @@ syntax = "proto3";
 
 package optable.kkrt.v1;
 
-// The protocol is divided into 3 phases to perform a KKRT Private Set
+// The protocol is divided into 3 stages to perform a KKRT Private Set
 // Intersection exchange, also known as Batched-OPRF PSI.
 //
-// Phase 1
-// TBD
+// Stage 1: Cuckoohash parameters negotiaton
+//
+// - Receiver 1-1: read identifier, seeds 3 different hash function that hash to 1.2 * |Y|,
+//                 and sends a CuckooHashParamSetup
+// - Receiver 1-2: cuckoohash Y, and output cuckhash table B, stash S and a map Z that holds
+//                 item y as key, and the index of hash function as value.
+//
+// - Sender 1-1:   reads identifier, and receives a CuckooHashParamSetup
+//
+// Stage 2: OT + OPRF
+//
+// - Sender 2-1:   Instantiate pseudorandom code C (blocks of AES), yet another hash funcon H,
+//                 and sample the secret choice bit string s of length k, and
+//                 sends an InitKkrtOtParamSetup
+//
+// - Sender 2-2:   Act as Receiver in KKRT OT extension with input (s_i) for i in [k].
+//
+// - Sender 2-3:   Receives q^i for i in [k], where q^i in (U^i, T^i) depending on s_i.
+// - Sender 2-4:   stores OPRF keys: k_j = (C, s), (j, q_j).
+//
+// - Receiver 2-1: Receives an InitKkrtOtParamSetup,
+//                 Computes OPRF input r: r = y || z(y) if y in B, or r = y, if y in S.
+//                 Samples uniformly random m x k matrix U, m=1.2*|Y| + |S|,
+//                 Computes m x k matrix T: T_j = C(r_j) ^ U_j for j in [m].
+//
+// - Receiver 2-2: Ac as Sender in KKRT OT extension with input (U^i, T^i) for i in [k].
+// - Receiver 2-3: stores OPRF mask (outputs) F(k_j, r_j) = H(j || U_j) for j in [m]
+//
+// Stage 3: PSI
+//
+// - Sender 1-1:   Evaluate OPRF using keys k on input X, output all possible OPRF outputs H_X, S_X,
+//                 for x in X:
+//                   for i in {1, 2, 3}:
+//                       H_X = H_X + H(h_i(x) || C(x || i) * s ^ q[h_i(x)])
+//                 for x in X:
+//                   for j in {1, 2, ..., |S|}:
+//                       S_X = S_X + H(1.2|Y| + j || C(x) * s ^ q[1.2|Y|+j])
+//
+// - Sender 1-2:   Permute H_X, S_X, send them.
+//
+// - Receiver 1-1: Compute Intersection by comparing H_X', S_X' with OPRF output F(k, r).
 
-service PSI {
-    rpc RunKkrtPsi() returns () {}
+
+message CuckooHashParamSetup {
+}
+
+message InitKkrtOtParamSetup {
 }
