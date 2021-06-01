@@ -2,7 +2,7 @@
 
 ## protocol
 
-The Elliptic Curve Diffie-Hellman private set intersection. The point operation of _kP_ is multiplication of a point _Y_ with a scalar _k_ over an elliptic curve.
+The Elliptic Curve Diffie-Hellman private set intersection. The point operation of _kP_ is multiplication of a point _P_ with a scalar _k_ over an elliptic curve.
 
 1. the receiver and the sender agree on an elliptic curve _E_.
 1. the sender generates his private key _a_, and hashes each identifier from his input audience list to obtain points _x<sub>i</sub> ∈ X_ on E. (*Derive*)
@@ -19,14 +19,15 @@ The Elliptic Curve Diffie-Hellman private set intersection. The point operation 
 ## data flow
 
 ```
-         Sender                                         Receiver
+         Sender                                        Receiver
+         X, a                                          Y, b
 
 
-Stage1   DM/Shuffle    ------------------------------>  M -> baX              Stage 1
+Stage1   DM/Shuffle    --------------aX------------->  M -> baX              Stage 1
 
-Stage2   M -> abY      +------------------------------  DM/Shuffle            Stage 2.1
+Stage2   M -> abY      +-------------bY--------------  DM/Shuffle            Stage 2.1
                        |
-                       +----------------------------->  intersect(baX, abY)   Stage 2.2
+                       +-------------abY------------>  intersect(baX, abY)   Stage 2.2
 
 
      DM: ristretto255  derive/multiply
