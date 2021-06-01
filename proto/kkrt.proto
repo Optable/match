@@ -69,7 +69,7 @@ message InitKkrtOtParamSetup {
     bytes aesHashingSeed = 1;
     // random 64 bytes salt for hash function to produce OPRF output
     bytes hashSeed = 2;
-    // Number of base OT (Naor-Pinkas) to run
+    // Number of base OT (Naor-Pinkas) to run default:128
     uint64 baseOtCount = 3;
 }
 
@@ -77,18 +77,18 @@ message InitKkrtOtParamSetup {
 message NaorPinkasBaseOtParamSetup {
     // Assume for now the ristretto point on Curve25519 are represented in bytes
     bytes basePoint = 1; // G
-    bytes pointC = 2; // C= cG <=> g^c
+    bytes pointA = 2; // A=aG
 }
 
 message NaorPinkasBaseOtReceiver {
-    bytes pubKeyZero = 1; // k_0 = kG <=> g^k, or k_0 = C - kG <=> C/g^k = g^(c-k)
+    bytes pubKeyZero = 1; // k_0 = bG, or k_0 = A - bG
 }
 
 message NaorPinkasBaseOtSender {
-    bytes pointR = 1; // R = rG <=> g^r
-    bytes hashSeed = 2; // seed for hash function H
-    bytes encryptedM0 = 3; //E_0 = H(rk_0) ^ m_0 <=> H((k_0)^r) ^ m_0
-    bytes encryptedM1 = 4; //E_1 = H(rk_1) ^ m_1 <=> H((k_1)^r) ^ m_1
+    bytes hashSeed = 1; // seed for hash function H
+    bytes pointR = 2; // R = rG
+    bytes encryptedM0 = 3; //E_0 = H(rk_0) ^ m_0
+    bytes encryptedM1 = 4; //E_1 = H(rk_1) ^ m_1
 }
 
 message KkrtOtSender {
