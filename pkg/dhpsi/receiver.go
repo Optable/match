@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+
+	"github.com/optable/match/internal/util"
 )
 
 // (receiver, publisher: high cardinality) stage1: reads the identifiers from the sender, encrypt them and index them in a map
@@ -117,12 +119,12 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 
 	// run stage1
-	if err := sel(ctx, stage1); err != nil {
+	if err := util.Sel(ctx, stage1); err != nil {
 		return nil, err
 	}
 	// run stage2.1/2.2
 	var done = 2
-	var errs = run(stage21, stage22)
+	var errs = util.Sels(stage21, stage22)
 	for done != 0 {
 		select {
 		case err := <-errs:

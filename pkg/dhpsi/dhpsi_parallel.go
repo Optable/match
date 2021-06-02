@@ -266,7 +266,7 @@ func copy_out(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
 	return
 }
 
-// Read a point from the underyling reader, multiplied with ristretto
+// Read a point from the underyling reader, multiply it with ristretto
 // and write it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (dec *MultiplyParallelReader) Read(point *[EncodedLen]byte) (err error) {

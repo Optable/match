@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+
+	"github.com/optable/match/internal/util"
 )
 
 // operations
@@ -84,11 +86,11 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 	}
 
 	// run stage1
-	if err := sel(ctx, stage1); err != nil {
+	if err := util.Sel(ctx, stage1); err != nil {
 		return err
 	}
 	// run stage2
-	if err := sel(ctx, stage2); err != nil {
+	if err := util.Sel(ctx, stage2); err != nil {
 		return err
 	}
 

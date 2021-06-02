@@ -1,4 +1,4 @@
-package dhpsi
+package util
 
 import (
 	"context"
@@ -17,13 +17,13 @@ func TestSel(t *testing.T) {
 		return err1
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := sel(ctx, f1); err != err1 {
+	if err := Sel(ctx, f1); err != err1 {
 		t.Errorf("expected %v, got %v", err1, err)
 	}
 
 	// check context cancelled
 	cancel()
-	if err := sel(ctx, f1); err != context.Canceled {
+	if err := Sel(ctx, f1); err != context.Canceled {
 		t.Errorf("expected context.Canceled, got %v", err)
 	}
 
@@ -34,7 +34,7 @@ func TestSel(t *testing.T) {
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second/10)
 	defer cancel()
-	if err := sel(ctx, f2); err != context.DeadlineExceeded {
+	if err := Sel(ctx, f2); err != context.DeadlineExceeded {
 		t.Errorf("expected context.DeadlineExceeded, got %v", err)
 	}
 }
