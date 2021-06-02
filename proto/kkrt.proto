@@ -98,4 +98,10 @@ message KkrtOtReceiver {
 }
 
 message PsiSender {
+    message OprfMasks {
+        repeated uint64 hashes = 1 [packed=true]; // an array of 3 hashes.
+    }
+
+    repeated OprfMasks OprfMasksFromCuckooHashTable= 1; // |x| by 3 2D array
+    repeated uint64 OprfMasksFromCuckooHashStash = 2; // |x| by 1 array
 }
