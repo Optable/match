@@ -10,9 +10,9 @@ In the protocol, _P2_ samples a random 32 bytes salt _K_ and sends it to _P1_. B
 Sender (P1)                                       Receiver (P2)
 X                                                 Y
 
-receive K        <------------------------------  generate K (32 bytes)
+receive K        <------------------------------  generate K (32 bytes)
 
-sip(K,X) -> H<sub>X</sub>  ------------------------------>  intersect(H<sub>X</sub>, sip(K,Y) -> H<sub>Y</sub>)
+sip(K,X) -> H_X  ------------------------------>  intersect(H_X, sip(K,Y) -> H_Y)
 
 sip(K,I): SipHash of input I salted with K
 ```
