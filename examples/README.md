@@ -1,6 +1,6 @@
 # examples
 
-The standard match operation involves a *sender* and a *receiver*. The sender performs an intersection match with a receiver, such that the receiver learns the result of the intersection, and the sender learns nothing. Protocols such as PSI allow the sender and receiver to  protect private data records that are used as inputs in performing the intersection match.
+The standard match operation involves a *sender* and a *receiver*. The sender performs an intersection match with a receiver, such that the receiver learns the result of the intersection, and the sender learns nothing. Protocols such as PSI allow the sender and receiver to  protect, to varying degrees of security guarantees, private data records that are used as inputs in performing the intersection match.
 
 ## 1. generate some data
 `go run generate.go`

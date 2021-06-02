@@ -3,7 +3,7 @@ An open-source set intersection protocols library written in golang.
 
 The goal of the match library is to provide production level implementations of various set intersection protocols. Protocols will typically tradeoff security for performance. For example, a private set intersection (PSI) protocol provides cryptographic guarantees to participants concerning their private and non-intersecting data records, and is suitable for scenarios where participants trust each other to be honest in adhering to the protocol, but still want to protect their private data while performing the intersection operation.
 
-The standard match operation under consideration involves a *sender* and a *receiver*. The sender performs an intersection match with a receiver, such that the receiver learns the result of the intersection, and the sender learns nothing. Protocols such as PSI allow the sender and receiver to protect private data records that are used as inputs in performing the intersection match.
+The standard match operation under consideration involves a *sender* and a *receiver*. The sender performs an intersection match with a receiver, such that the receiver learns the result of the intersection, and the sender learns nothing. Protocols such as PSI allow the sender and receiver to protect, to varying degrees of security guarantees, the private data records that are used as inputs in performing the intersection match.
 
 The protocols that are currently provided by the match library are listed below, along with an overview of their characteristics.
 
