@@ -1,7 +1,7 @@
 # kkrtpsi implementation
 
 # protocol
-The KKRT PSI (Batched-OPRF PSI) [1] is one of the most efficient OT-extension ([oblivious transfer](https://en.wikipedia.org/wiki/Oblivious_transfer)) based PSI protocol that boast approximately 100 times speed up in single core performance (350s for DHPSI vs 2.5s for KKRT for a match between two 1 Million records dataset). It is secure against semi-honest adversaries, a malicious party that adheres to the protocol honestly but wants to learn/extract the other party's private information from the data being exchanged.
+The KKRT PSI (Batched-OPRF PSI) [1] is one of the most efficient OT-extension ([oblivious transfer](https://en.wikipedia.org/wiki/Oblivious_transfer)) based PSI protocol that boast more than 100 times speed up in single core performance (350s for DHPSI vs 2.5s for KKRT for a match between two 1 Million records dataset). It is secure against semi-honest adversaries, a malicious party that adheres to the protocol honestly but wants to learn/extract the other party's private information from the data being exchanged.
 Discalimer: This is a work in progress.
 
 1. the receiver generates [CuckooHash](https://en.wikipedia.org/wiki/Cuckoo_hashing) parameters and exchange with the sender.
