@@ -2,7 +2,7 @@
 
 ## protocol
 
-The Elliptic Curve Diffie-Hellman private set intersection. The point operation of _kP_ is multiplication of a point _P_ with a scalar _k_ over an elliptic curve.
+The Elliptic Curve Diffie-Hellman private set intersection[1] is one of the first PSI protocol and is communication efficient, but requires expensive computations from both parties: a sender and a receiver. We implement DHPSI using elliptic curve (specifically `ristretto255` [2]) instead of finite field exponentiation for performance reasons. The point operation of _kP_ is the multiplication of a point _P_ with a scalar _k_ over an elliptic curve.
 
 1. the receiver and the sender agree on an elliptic curve _E_.
 1. the sender generates his private key _a_, and hashes each identifier from his input audience list to obtain points _x<sub>i</sub> ∈ X_ on E. (*Derive*)
@@ -34,3 +34,10 @@ Stage2   M -> abY      +-------------bY--------------  DM/Shuffle            Sta
       M: ristretto255  multiply
 Shuffle: cryptographic quality shuffle
 ```
+
+## References
+
+[1] C. Meadows. A more efficient cryptographic matchmaking protocol for use in the absence of a continuously available third party. In IEEE S&P’86, pages 134–137. IEEE, 1986.
+
+[2] https://datatracker.ietf.org/doc/html/draft-hdevalence-cfrg-ristretto-01
+
