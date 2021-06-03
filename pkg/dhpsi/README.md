@@ -39,5 +39,5 @@ Shuffle: cryptographic quality shuffle
 
 [1] C. Meadows. A more efficient cryptographic matchmaking protocol for use in the absence of a continuously available third party. In IEEE S&P’86, pages 134–137. IEEE, 1986.
 
-[2] https://datatracker.ietf.org/doc/html/draft-hdevalence-cfrg-ristretto-01
+[2] https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-ristretto255-decaf448
 
