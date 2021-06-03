@@ -73,28 +73,46 @@ message InitKkrtOtParamSetup {
     uint64 baseOtCount = 3;
 }
 
+// See https://pkg.go.dev/github.com/bwesterb/go-ristretto@v1.2.0/edwards25519#FieldElement
+message RistrettoPoint {
+    message FieldElement {
+        repeated uint64 e = 1; //5 field elements
+    }
+    // X, Y, Z, T (4 field elements)
+    FieldElement X = 1; //x = X/Z
+    FieldElement Y = 2; //y = Y/Z
+    FieldElement Z = 3;
+    FieldElement T = 4; //XY=ZT condition
+}
+
 // We will perform Elliptic Curve Naor Pinkas, instead of the Diffie-Hellman style Naor Pinkas
 message NaorPinkasBaseOtParamSetup {
     // Assume for now the ristretto point on Curve25519 are represented in bytes
-    bytes basePoint = 1; // G
-    bytes pointA = 2; // A=aG
+    RistrettoPoint basePoint = 1; // G
+    RistrettoPoint pointA = 2; // A=aG
 }
 
 message NaorPinkasBaseOtReceiver {
-    bytes pubKeyZero = 1; // k_0 = bG, or k_0 = A - bG
+    RistrettoPoint pubKeyZero = 1; // k_0 = bG, or k_0 = A - bG
 }
 
 message NaorPinkasBaseOtSender {
     bytes hashSeed = 1; // seed for hash function H
-    bytes pointR = 2; // R = rG
+    RistrettoPoint pointR = 2; // R = rG
     bytes encryptedM0 = 3; //E_0 = H(rk_0) ^ m_0
     bytes encryptedM1 = 4; //E_1 = H(rk_1) ^ m_1
 }
 
 message KkrtOtSender {
+    message Row {
+        repeated uint64 hashes = 1 [packed=true];
+    }
+    repeated Row CorrectionMatrix = 1;
+    bytes key = 2; //key to AES to generate internal matrices.
 }
 
 message KkrtOtReceiver {
+    bytes key = 1; //key to AES to generate internal matrices.
 }
 
 message PsiSender {
