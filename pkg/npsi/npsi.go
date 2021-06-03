@@ -40,10 +40,3 @@ func ReadAll(r io.Reader) <-chan uint64 {
 	}()
 	return out
 }
-
-// HashAll reads all identifiers from identifiers
-// and parallel hashes them until identifiers closes
-func HashAll(h Hasher, identifiers <-chan []byte) <-chan hashPair {
-	var pairs = make(chan hashPair)
-	return pairs
-}

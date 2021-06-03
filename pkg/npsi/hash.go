@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/cespare/xxhash"
 	"github.com/dchest/siphash"
 	"github.com/spaolacci/murmur3"
 )
@@ -14,6 +15,7 @@ const (
 	HashSIP = iota
 	HashMurmur3
 	HashxxHash
+	HashHighway
 )
 
 var (
@@ -34,6 +36,8 @@ func NewHasher(t int, salt []byte) (Hasher, error) {
 		return NewSIPHasher(salt)
 	case HashMurmur3:
 		return NewMurmur3Hasher(salt)
+	case HashxxHash:
+		return NewXXHasher(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
@@ -80,4 +84,24 @@ func NewMurmur3Hasher(salt []byte) (murmur64, error) {
 func (m murmur64) Hash64(p []byte) uint64 {
 	// prepend the salt in m and then Sum
 	return murmur3.Sum64(append(m.salt, p...))
+}
+
+// xxHash implementation of Hasher
+type xxHash struct {
+	salt []byte
+}
+
+// NewXXHasher returns a xxHash hasher that uses salt
+// as a prefix to the bytes being summed
+func NewXXHasher(salt []byte) (xxHash, error) {
+	if len(salt) != SaltLength {
+		return xxHash{}, ErrSaltLengthMismatch
+	}
+
+	return xxHash{salt: salt}, nil
+}
+
+func (x xxHash) Hash64(p []byte) uint64 {
+	// prepend the salt in m and then Sum
+	return xxhash.Sum64(append(x.salt, p...))
 }
