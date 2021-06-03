@@ -87,7 +87,6 @@ message RistrettoPoint {
 
 // We will perform Elliptic Curve Naor Pinkas, instead of the Diffie-Hellman style Naor Pinkas
 message NaorPinkasBaseOtParamSetup {
-    // Assume for now the ristretto point on Curve25519 are represented in bytes
     RistrettoPoint basePoint = 1; // G
     RistrettoPoint pointA = 2; // A=aG
 }
