@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	batchSize = 8
+	batchSize = 512
 )
 
 var (
