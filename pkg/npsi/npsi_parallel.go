@@ -2,6 +2,7 @@ package npsi
 
 import (
 	"runtime"
+	"sync"
 )
 
 //
@@ -17,20 +18,23 @@ var hOpBus = make(chan hOp)
 // hOp is a hash operation
 // being sent to the hashing engine
 type hOp struct {
-	h  Hasher
-	in [][]byte
-	f  func([]uint64)
+	hh Hasher
+	l  int
+	x  [][]byte
+	h  []uint64
+	f  func(h hOp)
 }
 
 func handler() {
 	for {
 		select {
 		case op := <-hOpBus:
-			var out = make([]uint64, len(op.in))
-			for k, v := range op.in {
-				out[k] = op.h.Hash64(v)
+			var h = make([]uint64, op.l)
+			for i := 0; i < op.l; i++ {
+				h[i] = op.hh.Hash64(op.x[i])
 			}
-			op.f(out)
+			op.h = h
+			op.f(op)
 		}
 	}
 }
@@ -45,16 +49,52 @@ func init() {
 // HashAll reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
 func HashAll(h Hasher, identifiers <-chan []byte) <-chan hashPair {
+	var wg sync.WaitGroup
 	var pairs = make(chan hashPair)
+
+	f := func(op hOp) {
+		// pump everything out
+		for i := 0; i < op.l; i++ {
+			pairs <- hashPair{x: op.x[i], h: op.h[i]}
+		}
+		wg.Done()
+	}
+
 	// parallel hash is overkill here. these hash operations are
-	// super fast. we do get localize pseudo randomness out of this
+	// super fast. we do get localized pseudo randomness out of this
 	// since no effort is made to re-order finished batches
 	go func() {
-		defer close(pairs)
+		var i = 0
+		// init a first batch
+		var batch = makeOp(h, batchSize, f)
 		for identifier := range identifiers {
 			// accumulate a batch
-
+			batch.x[i] = identifier
+			i++
+			// send it out?
+			if i == batchSize {
+				wg.Add(1)
+				hOpBus <- batch
+				// reset batch
+				batch = makeOp(h, batchSize, f)
+				i = 0
+			}
+		}
+		// anything left here?
+		if i != 0 {
+			batch.l = i
+			wg.Add(1)
+			hOpBus <- batch
 		}
 	}()
+	// turn the lights off on your way out
+	go func() {
+		wg.Wait()
+		close(pairs)
+	}()
 	return pairs
+}
+
+func makeOp(hh Hasher, l int, f func(hOp)) hOp {
+	return hOp{hh: hh, l: l, x: make([][]byte, l), f: f}
 }

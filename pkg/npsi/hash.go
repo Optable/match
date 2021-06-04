@@ -3,14 +3,16 @@ package npsi
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 
 	"github.com/cespare/xxhash"
 	"github.com/dchest/siphash"
+	"github.com/dgryski/go-highway"
 	"github.com/spaolacci/murmur3"
 )
 
 const (
-	SaltLength = 16
+	SaltLength = 32
 
 	HashSIP = iota
 	HashMurmur3
@@ -22,6 +24,22 @@ var (
 	ErrUnknownHash        = fmt.Errorf("cannot create a hasher of unknown hash type")
 	ErrSaltLengthMismatch = fmt.Errorf("provided salt is not %d length", SaltLength)
 )
+
+func init() {
+	if SaltLength != 32 {
+		log.Fatalf("SaltLength has to be fixed to 32 and is set to %d", SaltLength)
+	}
+}
+
+// extractSalt a length SaltLength (32 fixed tho) slice of bytes into 4 uint64
+//
+func extractKeys(salt []byte) (keys []uint64) {
+	for i := 0; i < 4; i++ {
+		var key = binary.BigEndian.Uint64(salt[i*8 : i*8+8])
+		keys = append(keys, key)
+	}
+	return
+}
 
 // Hasher implements different non cryptographic
 // hashing functions
@@ -38,6 +56,8 @@ func NewHasher(t int, salt []byte) (Hasher, error) {
 		return NewMurmur3Hasher(salt)
 	case HashxxHash:
 		return NewXXHasher(salt)
+	case HashHighway:
+		return NewHighwayHasher(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
@@ -54,8 +74,11 @@ func NewSIPHasher(salt []byte) (siphash64, error) {
 	if len(salt) != SaltLength {
 		return siphash64{}, ErrSaltLengthMismatch
 	}
-	var key0 = binary.BigEndian.Uint64(salt[:SaltLength/2])
-	var key1 = binary.BigEndian.Uint64(salt[SaltLength/2 : SaltLength])
+	// extract the keys
+	keys := extractKeys(salt)
+	// xor key0 and key1 into key0, key2 and key3 into key1
+	key0 := keys[0] ^ keys[1]
+	key1 := keys[2] ^ keys[3]
 
 	return siphash64{key0: key0, key1: key1}, nil
 }
@@ -102,6 +125,35 @@ func NewXXHasher(salt []byte) (xxHash, error) {
 }
 
 func (x xxHash) Hash64(p []byte) uint64 {
-	// prepend the salt in m and then Sum
+	// prepend the salt in x and then Sum
 	return xxhash.Sum64(append(x.salt, p...))
+}
+
+// highway hash implementation of Hasher
+type hw struct {
+	key highway.Lanes
+}
+
+// NewHighwayHasher returns a highwayHash hasher that uses salt
+// as the 4 lanes for the hashing
+func NewHighwayHasher(salt []byte) (hw, error) {
+	if len(salt) != SaltLength {
+		return hw{}, ErrSaltLengthMismatch
+	}
+
+	// extract the keys
+	keys := extractKeys(salt)
+	// turn into lanes
+	var key highway.Lanes
+	key[0] = keys[0]
+	key[1] = keys[1]
+	key[2] = keys[2]
+	key[3] = keys[3]
+
+	return hw{key: key}, nil
+}
+
+func (h hw) Hash64(p []byte) uint64 {
+	// prepend the salt in m and then Sum
+	return highway.Hash(h.key, p)
 }
