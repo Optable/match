@@ -16,7 +16,9 @@ package optable.kkrt.v1;
 //
 // Stage 2: OT + OPRF
 //
-// - Sender 2-1:   Instantiate pseudorandom code C (AES-128 run 4 times), yet another hash funcon H,
+// - Sender 2-1:   Instantiate pseudorandom code C (AES-128 run 4 times):
+//                 C(x) = AES(x||1) || AES(x||2) || AES(x||3) || AES(x||4)
+//                 instantiate a random oracle represented by a hash funcon H,
 //                 and sample the secret choice bit string s of length k, and
 //                 sends an InitKkrtOtParamSetup
 //
@@ -52,14 +54,16 @@ message CuckooHashParamSetup {
     // Number of records from receiver: |Y|
     uint64 receiverSize = 1;
     // stash size |S|
-    uint64 stash = 2;
-    // param k
-    uint64 k = 3;
+    uint32 stash = 2;
     // random 16 bytes salt for 3 hash functions
     // see https://pkg.go.dev/golang.org/x/crypto@v0.0.0-20210513164829-c07d793c2f9a/blake2b
     bytes seed1 = 4;
     bytes seed2 = 5;
     bytes seed3 = 6;
+    // parameter k for output length of C,
+    // # of columns of OT-extension matrices
+    // length of secret choice bits s
+    uint64 k = 7;
 }
 
 message InitKkrtOtParamSetup {
