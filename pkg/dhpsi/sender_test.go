@@ -77,5 +77,22 @@ func TestSender(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
 
+func TestSenderZeroSize(t *testing.T) {
+	common := emails.Common(TestCommonLen)
+	addr, err := s_receiverInit(common)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := initTestDataSource([]byte{}, 0)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewSender(conn)
+	err = s.SendFromReader(context.Background(), int64(0), r)
+	if err != nil {
+		t.Error(err)
+	}
 }
