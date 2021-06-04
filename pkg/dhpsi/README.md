@@ -19,20 +19,20 @@ The Diffie-Hellman private set intersection (DHPSI) [1] is one of the first PSI 
 ## data flow
 
 ```
-         Sender                                        Receiver
-         X, a                                          Y, b
+          Sender                                        Receiver
+          X, a                                          Y, b
 
 
-Stage1   DM/Shuffle    --------------aX------------->  M -> baX              Stage 1
+Stage 1   DM/Shuffle    --------------aX------------->  M -> baX              Stage 1
 
-Stage2   M -> abY      +-------------bY--------------  DM/Shuffle            Stage 2.1
-                       |
-                       +-------------abY------------>  intersect(baX, abY)   Stage 2.2
+Stage 2   M -> abY      +-------------bY--------------  DM/Shuffle            Stage 2.1
+                        |
+                        +-------------abY------------>  intersect(baX, abY)   Stage 2.2
 
 
-     DM: ristretto255  derive/multiply
-      M: ristretto255  multiply
-Shuffle: cryptographic quality shuffle
+     DM:  ristretto255  derive/multiply
+      M:  ristretto255  multiply
+Shuffle:  cryptographic quality shuffle
 ```
 
 ## References
