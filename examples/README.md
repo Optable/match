@@ -7,9 +7,7 @@ The standard match operation involves a *sender* and a *receiver*. The sender pe
 
 This will create two files, `sender-ids.txt` and `receiver-ids.txt` with 100 *IDs* in common between them. You can confirm the communality by running:
 
-```
-comm -12 <(sort sender-ids.txt) <(sort receiver-ids.txt) | wc -l
-```
+`comm -12 <(sort sender-ids.txt) <(sort receiver-ids.txt) | wc -l`
 
 ## 2. run the receiver
 `go run receiver/main.go`
