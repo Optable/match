@@ -2,6 +2,7 @@ package cuckoo
 
 import (
 	"math"
+	//"github.com/optable/match/pkg/npsi"
 )
 
 const (
@@ -21,41 +22,32 @@ var stashSize = map[uint8]uint8{
 	24: 2,
 }
 
-// an array of input elements
-type stash struct {
-	value []byte
-}
-
-// a hash table with key = h_i(x), value = x
-type bucket struct {
-	key   uint64
-	value []byte
-}
-
 type Cuckoo struct {
-	//hashmap (k, v) -> k: uint64, v: []byte
-	buckets []bucket
+	//hashmap (k, v) -> k: h_i(x) (uint64), v: x ([]byte)
+	buckets map[uint64][]byte
 	// Total bucket count, len(bucket)
 	bucketSize uint64
 
 	seeds [Nhash]uint32
 
-	stash []stash
+	stash [][]byte
 
 	// map that stores the index of the hash
 	// function used to compute the bucket index of the element
-	z map[[]byte]uint8
+	// at index
+	// z: (k, v) -> k -> idx, v -> hashidx
+	z map[uint64]uint8
 }
 
-func NewCuckoo(size uint64, seeds []uint32) *Cuckoo {
-	bsize := uint64(1.2 * size)
+func NewCuckoo(size uint64, seeds [Nhash]uint32) *Cuckoo {
+	bSize := uint64(1.2 * float64(size))
 
 	return &Cuckoo{
-		buckets:    make(bucket, bsize),
-		bucketSize: bsize,
+		buckets:    make(map[uint64][]byte, bSize),
+		bucketSize: bSize,
 		seeds:      seeds,
-		stash:      make(stash, findStashSize(size)),
-		z:          make(map[[]byte]uint8, size),
+		stash:      make([][]byte, findStashSize(size)),
+		z:          make(map[uint64]uint8, size),
 	}
 }
 
@@ -64,15 +56,15 @@ func (c *Cuckoo) hash(item []byte) []uint64 {
 	h := make([]uint64, Nhash)
 
 	for i := range h {
-		h[i] = uint64(doHash(item, c.seeds[i]))
+		h[i] = doHash(item, c.seeds[i])
 	}
 
 	return h
 }
 
 // need to import hash lib from npsi branch
-func dohash(item []byte, seed uint32) {
-	return
+func doHash(item []byte, seed uint32) uint64 {
+	return uint64(0) // to be implemented
 }
 
 func (c *Cuckoo) Insert(item []byte) {
@@ -83,19 +75,20 @@ func (c *Cuckoo) tryAdd(item []byte, h *[Nhash]uint64) (added bool) {
 	return true
 }
 
-func (c *Cuckoo) GetIndexMap() map[[]byte]uint8 {
+func (c *Cuckoo) GetIndexMap() map[uint64]uint8 {
 	return c.z
 }
 
 // return m = 1.2 * |Y| + |S|
 func (c *Cuckoo) Len() uint64 {
-	return c.bucketSize + len(stash)
+	return c.bucketSize + uint64(len(c.stash))
 }
 
 func findStashSize(size uint64) uint8 {
-	logSize := uint8(math.Log2(size))
+	logSize := uint8(math.Log2(float64(size)))
+	//fmt.Printf("size: %d, logsize: %d\n", size, logSize)
 
-	switch logSize {
+	switch {
 	case logSize <= 8:
 		return stashSize[8]
 	case logSize > 8 && logSize <= 12:
@@ -105,7 +98,7 @@ func findStashSize(size uint64) uint8 {
 	case logSize > 16 && logSize <= 20:
 		return stashSize[20]
 	case logSize > 20 && logSize <= 24:
-		return stashSize[2]
+		return stashSize[24]
 	default:
 		return uint8(0)
 	}
