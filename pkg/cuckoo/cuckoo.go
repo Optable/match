@@ -11,7 +11,7 @@ const (
 )
 
 var stashSize = map[uint8]uint8{
-	// key is N in power in base 2
+	// key is log_2(|Y|)
 	// value is # of elements in stash
 	// values taken from Phasing: PSI using permutation-based hashing
 	8:  12,
@@ -57,6 +57,39 @@ func NewCuckoo(size uint64, seeds []uint32) *Cuckoo {
 		stash:      make(stash, findStashSize(size)),
 		z:          make(map[[]byte]uint8, size),
 	}
+}
+
+// returns the result of h1(x), h2(x), h3(x)
+func (c *Cuckoo) hash(item []byte) []uint64 {
+	h := make([]uint64, Nhash)
+
+	for i := range h {
+		h[i] = uint64(doHash(item, c.seeds[i]))
+	}
+
+	return h
+}
+
+// need to import hash lib from npsi branch
+func dohash(item []byte, seed uint32) {
+	return
+}
+
+func (c *Cuckoo) Insert(item []byte) {
+	return
+}
+
+func (c *Cuckoo) tryAdd(item []byte, h *[Nhash]uint64) (added bool) {
+	return true
+}
+
+func (c *Cuckoo) GetIndexMap() map[[]byte]uint8 {
+	return c.z
+}
+
+// return m = 1.2 * |Y| + |S|
+func (c *Cuckoo) Len() uint64 {
+	return c.bucketSize + len(stash)
 }
 
 func findStashSize(size uint64) uint8 {
