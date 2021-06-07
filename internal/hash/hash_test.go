@@ -1,4 +1,4 @@
-package npsi
+package hash
 
 import (
 	"crypto/rand"
@@ -20,21 +20,9 @@ func makeSalt() ([]byte, error) {
 	}
 }
 
-func BenchmarkChanRead(b *testing.B) {
-	var c = make(chan bool)
-	go func() {
-		for range c {
-		}
-	}()
-
-	for i := 0; i < b.N; i++ {
-		c <- true
-	}
-}
-
 func BenchmarkSipHash(b *testing.B) {
 	s, _ := makeSalt()
-	h, _ := NewHasher(HashSIP, s)
+	h, _ := New(SIP, s)
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}
@@ -42,7 +30,7 @@ func BenchmarkSipHash(b *testing.B) {
 
 func BenchmarkMurmur3(b *testing.B) {
 	s, _ := makeSalt()
-	h, _ := NewHasher(HashMurmur3, s)
+	h, _ := New(Murmur3, s)
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}
@@ -50,7 +38,7 @@ func BenchmarkMurmur3(b *testing.B) {
 
 func BenchmarkXXHasher(b *testing.B) {
 	s, _ := makeSalt()
-	h, _ := NewHasher(HashxxHash, s)
+	h, _ := New(XX, s)
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}
@@ -58,7 +46,7 @@ func BenchmarkXXHasher(b *testing.B) {
 
 func BenchmarkHighwayHash(b *testing.B) {
 	s, _ := makeSalt()
-	h, _ := NewHasher(HashHighway, s)
+	h, _ := New(Highway, s)
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}
@@ -66,7 +54,7 @@ func BenchmarkHighwayHash(b *testing.B) {
 
 func TestUnknownHasher(t *testing.T) {
 	s, _ := makeSalt()
-	h, err := NewHasher(666, s)
+	h, err := New(666, s)
 	if err != ErrUnknownHash {
 		t.Fatalf("requested impossible hasher and got %v", h)
 	}
@@ -74,7 +62,7 @@ func TestUnknownHasher(t *testing.T) {
 
 func TestGetSIP(t *testing.T) {
 	s, _ := makeSalt()
-	h, err := NewHasher(HashSIP, s)
+	h, err := New(SIP, s)
 	if err != nil {
 		t.Fatalf("got error %v while requesting SIP hash", err)
 	}
@@ -86,7 +74,7 @@ func TestGetSIP(t *testing.T) {
 
 func TestGetMurmur3(t *testing.T) {
 	s, _ := makeSalt()
-	h, err := NewHasher(HashMurmur3, s)
+	h, err := New(Murmur3, s)
 	if err != nil {
 		t.Fatalf("got error %v while requesting murmur3 hash", err)
 	}
@@ -98,7 +86,7 @@ func TestGetMurmur3(t *testing.T) {
 
 func TestGetxxHash(t *testing.T) {
 	s, _ := makeSalt()
-	h, err := NewHasher(HashxxHash, s)
+	h, err := New(XX, s)
 	if err != nil {
 		t.Fatalf("got error %v while requesting xxHash hash", err)
 	}
@@ -110,7 +98,7 @@ func TestGetxxHash(t *testing.T) {
 
 func TestGetHighwayHash(t *testing.T) {
 	s, _ := makeSalt()
-	h, err := NewHasher(HashHighway, s)
+	h, err := New(Highway, s)
 	if err != nil {
 		t.Fatalf("got error %v while requesting highway hash", err)
 	}

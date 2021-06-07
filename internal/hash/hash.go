@@ -1,4 +1,4 @@
-package npsi
+package hash
 
 import (
 	"encoding/binary"
@@ -14,10 +14,10 @@ import (
 const (
 	SaltLength = 32
 
-	HashSIP = iota
-	HashMurmur3
-	HashxxHash
-	HashHighway
+	SIP = iota
+	Murmur3
+	XX
+	Highway
 )
 
 var (
@@ -48,15 +48,15 @@ type Hasher interface {
 }
 
 // NewHasher creates a hasher of type t
-func NewHasher(t int, salt []byte) (Hasher, error) {
+func New(t int, salt []byte) (Hasher, error) {
 	switch t {
-	case HashSIP:
+	case SIP:
 		return NewSIPHasher(salt)
-	case HashMurmur3:
+	case Murmur3:
 		return NewMurmur3Hasher(salt)
-	case HashxxHash:
+	case XX:
 		return NewXXHasher(salt)
-	case HashHighway:
+	case Highway:
 		return NewHighwayHasher(salt)
 	default:
 		return nil, ErrUnknownHash

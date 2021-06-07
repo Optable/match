@@ -3,6 +3,8 @@ package npsi
 import (
 	"runtime"
 	"sync"
+
+	"github.com/optable/match/internal/hash"
 )
 
 //
@@ -18,7 +20,7 @@ var hOpBus = make(chan hOp)
 // hOp is a hash operation
 // being sent to the hashing engine
 type hOp struct {
-	hh Hasher
+	hh hash.Hasher
 	l  int
 	x  [][]byte
 	h  []uint64
@@ -46,9 +48,9 @@ func init() {
 	}
 }
 
-// HashAll reads all identifiers from identifiers
+// HashAllParallel reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
-func HashAll(h Hasher, identifiers <-chan []byte) <-chan hashPair {
+func HashAllParallel(h hash.Hasher, identifiers <-chan []byte) <-chan hashPair {
 	var wg sync.WaitGroup
 	var pairs = make(chan hashPair)
 
@@ -95,6 +97,6 @@ func HashAll(h Hasher, identifiers <-chan []byte) <-chan hashPair {
 	return pairs
 }
 
-func makeOp(hh Hasher, l int, f func(hOp)) hOp {
+func makeOp(hh hash.Hasher, l int, f func(hOp)) hOp {
 	return hOp{hh: hh, l: l, x: make([][]byte, l), f: f}
 }

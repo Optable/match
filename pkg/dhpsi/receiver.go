@@ -35,7 +35,7 @@ type permuted struct {
 // The format of an indentifier is
 //  PREFIX:MATCHABLE\r\n
 func (s *Receiver) IntersectFromReader(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
-	var identifiers = exhaust(n, r)
+	var identifiers = util.Exhaust(n, r)
 	return s.Intersect(ctx, n, identifiers)
 }
 

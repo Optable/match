@@ -1,4 +1,5 @@
-package dhpsi
+// black box testing of all PSIs
+package psi_test
 
 import (
 	"context"
@@ -7,6 +8,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/optable/match/pkg/dhpsi"
 	"github.com/optable/match/test/emails"
 )
 
@@ -15,6 +17,10 @@ const (
 	SenderTestBodyLen = 10000
 	SenderTestLen     = SenderTestBodyLen + TestCommonLen
 )
+
+type sender interface {
+	Send(ctx context.Context, n int64, identifiers <-chan []byte) error
+}
 
 func initTestDataSource(common []byte, bodyLen int) io.ReadCloser {
 	// get an io pipe to read results
@@ -50,7 +56,7 @@ func s_receiverInit(common []byte) (addr string, err error) {
 
 func s_receiverHandle(common []byte, conn net.Conn) {
 	r := initTestDataSource(common, ReceiverTestBodyLen)
-	rec := NewReceiver(conn)
+	rec := dhpsi.NewReceiver(conn)
 	_, err := rec.IntersectFromReader(context.Background(), int64(ReceiverTestLen), r)
 	if err != nil {
 		// hmm - send this to the main thread with a channel
@@ -58,7 +64,7 @@ func s_receiverHandle(common []byte, conn net.Conn) {
 	}
 }
 
-func TestSender(t *testing.T) {
+func TestDHPSISender(t *testing.T) {
 	// generate common data
 	common := emails.Common(TestCommonLen)
 	addr, err := s_receiverInit(common)
@@ -72,10 +78,28 @@ func TestSender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewSender(conn)
+	s := dhpsi.NewSender(conn)
 	err = s.SendFromReader(context.Background(), int64(SenderTestLen), r)
 	if err != nil {
 		t.Error(err)
 	}
 
+}
+
+func TestDHPSISenderZeroSize(t *testing.T) {
+	common := emails.Common(TestCommonLen)
+	addr, err := s_receiverInit(common)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := initTestDataSource([]byte{}, 0)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := dhpsi.NewSender(conn)
+	err = s.SendFromReader(context.Background(), int64(0), r)
+	if err != nil {
+		t.Error(err)
+	}
 }
