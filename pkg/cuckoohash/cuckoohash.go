@@ -6,8 +6,20 @@ import (
 
 const (
 	// Nhash is the number of hash function used for cuckoohash
-	Nhash = 3
+	Nhash         = 3
+	ReinsertLimit = 200
 )
+
+var stashSize = map[uint8]uint8{
+	// key is N in power in base 2
+	// value is # of elements in stash
+	// values taken from Phasing: PSI using permutation-based hashing
+	8:  12,
+	12: 6,
+	16: 4,
+	20: 3,
+	24: 2,
+}
 
 // an array of input elements
 type stash struct {
@@ -28,5 +40,9 @@ type CuckooTable struct {
 
 	seeds [Nhash]uint32
 
-	stash stash //an array of elements
+	stash stash
+
+	// map that stores the index of the hash
+	// function used to compute the bucket index of the element
+	z map[[]byte]uint8
 }
