@@ -1,4 +1,5 @@
-package dhpsi
+// black box testing of all PSIs
+package psi_test
 
 import (
 	"context"
@@ -8,6 +9,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/optable/match/pkg/dhpsi"
 	"github.com/optable/match/test/emails"
 )
 
@@ -15,6 +17,10 @@ const (
 	ReceiverTestBodyLen = 1000
 	ReceiverTestLen     = ReceiverTestBodyLen + TestCommonLen
 )
+
+type receiver interface {
+	Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error)
+}
 
 // test receiver and return the addr string
 func r_receiverInit(common []byte, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
@@ -37,7 +43,7 @@ func r_receiverInit(common []byte, intersectionsBus chan<- []byte, errs chan<- e
 func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
 	defer close(intersectionsBus)
 	r := initTestDataSource(common, ReceiverTestBodyLen)
-	rec := NewReceiver(conn)
+	rec := dhpsi.NewReceiver(conn)
 	ii, err := rec.IntersectFromReader(context.Background(), int64(ReceiverTestLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
@@ -48,7 +54,22 @@ func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []by
 	}
 }
 
-func TestReceiver(t *testing.T) {
+// take the common chunk from the emails generator
+// and turn it into prefixed sha512 hashes
+func parseCommon(b []byte) (out []string) {
+	for i := 0; i < len(b)/emails.HashLen; i++ {
+		// make one
+		one := make([]byte, len(emails.Prefix)+hex.EncodedLen(len(b[i*emails.HashLen:i*emails.HashLen+emails.HashLen])))
+		// copy the prefix first and then the
+		// hex string
+		copy(one, emails.Prefix)
+		hex.Encode(one[len(emails.Prefix):], b[i*emails.HashLen:i*emails.HashLen+emails.HashLen])
+		out = append(out, string(one))
+	}
+	return
+}
+
+func TestDHPSIReceiver(t *testing.T) {
 	// generate common data
 	common := emails.Common(TestCommonLen)
 	// setup channels
@@ -66,7 +87,7 @@ func TestReceiver(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
-		s := NewSender(conn)
+		s := dhpsi.NewSender(conn)
 		err = s.SendFromReader(context.Background(), int64(SenderTestLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
@@ -106,19 +127,4 @@ func TestReceiver(t *testing.T) {
 			t.Fatalf("expected to intersect, got %s != %s (%d %d)", s1, s2, len(s1), len(s2))
 		}
 	}
-}
-
-// take the common chunk from the emails generator
-// and turn it into prefixed sha512 hashes
-func parseCommon(b []byte) (out []string) {
-	for i := 0; i < len(b)/emails.HashLen; i++ {
-		// make one
-		one := make([]byte, len(emails.Prefix)+hex.EncodedLen(len(b[i*emails.HashLen:i*emails.HashLen+emails.HashLen])))
-		// copy the prefix first and then the
-		// hex string
-		copy(one, emails.Prefix)
-		hex.Encode(one[len(emails.Prefix):], b[i*emails.HashLen:i*emails.HashLen+emails.HashLen])
-		out = append(out, string(one))
-	}
-	return
 }

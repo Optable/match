@@ -3,6 +3,8 @@ package npsi
 import (
 	"encoding/binary"
 	"io"
+
+	"github.com/optable/match/internal/hash"
 )
 
 type hashPair struct {
@@ -39,4 +41,19 @@ func ReadAll(r io.Reader) <-chan uint64 {
 		}
 	}()
 	return out
+}
+
+// HashAll reads all identifiers from identifiers
+// and hashes them until identifiers closes
+func HashAll(h hash.Hasher, identifiers <-chan []byte) <-chan hashPair {
+	var pairs = make(chan hashPair)
+
+	// just read and hash baby
+	go func() {
+		for identifier := range identifiers {
+			h := h.Hash64(identifier)
+			pairs <- hashPair{x: identifier, h: h}
+		}
+	}()
+	return pairs
 }

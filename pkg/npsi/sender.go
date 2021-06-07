@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/util"
 )
 
@@ -22,13 +23,13 @@ type Sender struct {
 //  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, identifiers <-chan []byte) error {
 	// hold k
-	var k = make([]byte, SaltLength)
+	var k = make([]byte, hash.SaltLength)
 	// stage 1: receive a random salt K from P1
 	stage1 := func() error {
 		if n, err := s.rw.Read(k); err != nil {
 			return err
-		} else if n != SaltLength {
-			return ErrSaltLengthMismatch
+		} else if n != hash.SaltLength {
+			return hash.ErrSaltLengthMismatch
 		}
 		return nil
 	}
@@ -36,7 +37,7 @@ func (s *Sender) Send(ctx context.Context, identifiers <-chan []byte) error {
 	// stage 2: send hashes salted with K to P1
 	stage2 := func() error {
 		// get a hasher
-		if h, err := NewHasher(HashSIP, k); err != nil {
+		if h, err := hash.New(hash.SIP, k); err != nil {
 			return err
 		} else {
 			// make a channel to receive local x,h pairs

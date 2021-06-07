@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/util"
 )
 
@@ -29,7 +30,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 //  PREFIX:MATCHABLE
 func (r *Receiver) Intersect(ctx context.Context, identifiers <-chan []byte) ([][]byte, error) {
 	var intersected [][]byte
-	var k = make([]byte, SaltLength)
+	var k = make([]byte, hash.SaltLength)
 
 	// stage 1: P2 samples a random salt K and sends it to P1.
 	stage1 := func() error {
@@ -48,10 +49,10 @@ func (r *Receiver) Intersect(ctx context.Context, identifiers <-chan []byte) ([]
 	// stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
 	stage2 := func() error {
 		//
-		var localIDs = make(map[uint64]hashPair)
+		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)
 		// get a hasher
-		h, err := NewHasher(HashSIP, k)
+		h, err := hash.New(hash.SIP, k)
 		if err != nil {
 			return err
 		}
@@ -92,9 +93,9 @@ func (r *Receiver) Intersect(ctx context.Context, identifiers <-chan []byte) ([]
 				select {
 				case Hi := <-c1:
 					// do we have an intersection?
-					if pair, ok := localIDs[Hi]; ok {
+					if identifier, ok := localIDs[Hi]; ok {
 						// we do
-						intersected = append(intersected, pair.x)
+						intersected = append(intersected, identifier)
 						// prune it
 						delete(localIDs, Hi)
 					} else {
@@ -111,7 +112,7 @@ func (r *Receiver) Intersect(ctx context.Context, identifiers <-chan []byte) ([]
 						delete(remoteIDs, pair.h)
 					} else {
 						// we dont, cache this
-						localIDs[pair.h] = pair
+						localIDs[pair.h] = pair.x
 					}
 
 				case <-done:
