@@ -31,12 +31,6 @@ type Cuckoo struct {
 	seeds [Nhash]uint32
 
 	stash [][]byte
-
-	// map that stores the index of the hash
-	// function used to compute the bucket index of the element
-	// decoded in uint64
-	// z: (k, v) -> k -> item in uint64, v -> hashidx
-	z map[uint64]uint8
 }
 
 func NewCuckoo(size uint64, itemByteSize uint8, seeds [Nhash]uint32) *Cuckoo {
@@ -47,7 +41,6 @@ func NewCuckoo(size uint64, itemByteSize uint8, seeds [Nhash]uint32) *Cuckoo {
 		bucketSize: bSize,
 		seeds:      seeds,
 		stash:      make([][]byte, findStashSize(size)),
-		z:          make(map[uint64]uint8, size),
 	}
 }
 
@@ -75,8 +68,15 @@ func (c *Cuckoo) tryAdd(item []byte, h *[Nhash]uint64) (added bool) {
 	return true //TODO
 }
 
-func (c *Cuckoo) GetIndexMap() map[uint64]uint8 {
-	return nil //TODO
+// given the value x, find the hash function that gives the bucket idx
+func (c *Cuckoo) GetHashIdx(item []byte) uint8 {
+	return uint8(0) //TODO
+}
+
+// returns the bucket idx if item is stored in bucket
+// or 2^64 - 1
+func (c *Cuckoo) find(item []byte) uint64 {
+	return uint64(1<<63 - 1) //TODO
 }
 
 // return m = 1.2 * |Y| + |S|
