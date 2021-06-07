@@ -12,7 +12,7 @@ const (
 )
 
 var stashSize = map[uint8]uint8{
-	// key is log_2(|Y|)
+	// key is log_2(|X|)
 	// value is # of elements in stash
 	// values taken from Phasing: PSI using permutation-based hashing
 	8:  12,
@@ -34,12 +34,12 @@ type Cuckoo struct {
 
 	// map that stores the index of the hash
 	// function used to compute the bucket index of the element
-	// at index
-	// z: (k, v) -> k -> idx, v -> hashidx
+	// decoded in uint64
+	// z: (k, v) -> k -> item in uint64, v -> hashidx
 	z map[uint64]uint8
 }
 
-func NewCuckoo(size uint64, seeds [Nhash]uint32) *Cuckoo {
+func NewCuckoo(size uint64, itemByteSize uint8, seeds [Nhash]uint32) *Cuckoo {
 	bSize := uint64(1.2 * float64(size))
 
 	return &Cuckoo{
@@ -68,15 +68,15 @@ func doHash(item []byte, seed uint32) uint64 {
 }
 
 func (c *Cuckoo) Insert(item []byte) {
-	return
+	return // TODO
 }
 
 func (c *Cuckoo) tryAdd(item []byte, h *[Nhash]uint64) (added bool) {
-	return true
+	return true //TODO
 }
 
 func (c *Cuckoo) GetIndexMap() map[uint64]uint8 {
-	return c.z
+	return nil //TODO
 }
 
 // return m = 1.2 * |Y| + |S|
