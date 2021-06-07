@@ -1,14 +1,15 @@
 package cuckoo
 
 import (
+	"github.com/optable/match/internal/hash"
 	"math"
-	//"github.com/optable/match/pkg/npsi"
 )
 
 const (
 	// Nhash is the number of hash function used for cuckoohash
 	Nhash         = 3
 	ReinsertLimit = 200
+	StashHidx     = 4
 )
 
 var stashSize = map[uint8]uint8{
@@ -28,12 +29,12 @@ type Cuckoo struct {
 	// Total bucket count, len(bucket)
 	bucketSize uint64
 
-	seeds [Nhash]uint32
+	seeds [Nhash][]byte //3 32-bytes salt
 
 	stash [][]byte
 }
 
-func NewCuckoo(size uint64, itemByteSize uint8, seeds [Nhash]uint32) *Cuckoo {
+func NewCuckoo(size uint64, itemByteSize uint8, seeds [Nhash][]byte) *Cuckoo {
 	bSize := uint64(1.2 * float64(size))
 
 	return &Cuckoo{
@@ -56,8 +57,16 @@ func (c *Cuckoo) hash(item []byte) []uint64 {
 }
 
 // need to import hash lib from npsi branch
-func doHash(item []byte, seed uint32) uint64 {
-	return uint64(0) // to be implemented
+func doHash(item []byte, seed []byte) uint64 {
+	// instantiate hash function seeded with seed
+	// error handling?
+	h, _ := hash.New(hash.Highway, seed)
+	return h.Hash64(item)
+}
+
+// wrap hashed val to bucketSize
+func (c *Cuckoo) bucketIdx(hash uint64) uint64 {
+	return uint64(hash % c.bucketSize)
 }
 
 func (c *Cuckoo) Insert(item []byte) {
@@ -70,7 +79,18 @@ func (c *Cuckoo) tryAdd(item []byte, h *[Nhash]uint64) (added bool) {
 
 // given the value x, find the hash function that gives the bucket idx
 func (c *Cuckoo) GetHashIdx(item []byte) uint8 {
-	return uint8(0) //TODO
+	var hIdx uint64
+
+	bucketIdx := c.find(item)
+	for i, s := range c.seeds {
+		hIdx = c.bucketIdx(doHash(item, s))
+		if hIdx == bucketIdx {
+			return uint8(i)
+		}
+	}
+
+	// On stash
+	return uint8(StashHidx)
 }
 
 // returns the bucket idx if item is stored in bucket
