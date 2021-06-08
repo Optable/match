@@ -34,13 +34,13 @@ type Cuckoo struct {
 	buckets map[uint64][]byte
 	// Total bucket count, len(bucket)
 	bucketSize uint64
-	// 3 32-bytes salt to instantiate h_1, h_2, h_3
+	// 3 32-bytes salt to instantiate h_0, h_, h_2
 	seeds [Nhash][]byte
 	// array of items
 	stash [][]byte
 }
 
-func NewCuckoo(size uint64, itemByteSize uint8, seeds [Nhash][]byte) *Cuckoo {
+func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := uint64(1.2 * float64(size))
 
 	return &Cuckoo{
@@ -51,7 +51,7 @@ func NewCuckoo(size uint64, itemByteSize uint8, seeds [Nhash][]byte) *Cuckoo {
 	}
 }
 
-// returns the result of h1(x), h2(x), h3(x)
+// returns the result of h0(x), h1(x), h2(x)
 func (c *Cuckoo) hash(item []byte) [Nhash]uint64 {
 	var hashes [Nhash]uint64
 
@@ -188,7 +188,7 @@ func (c *Cuckoo) GetHashIdx(item []byte) (uint8, bool) {
 	}
 
 	// Not found in bucket nor stash
-	return uint8(0), false
+	return uint8(255), false
 }
 
 // return m = 1.2 * |Y| + |S|
@@ -201,7 +201,7 @@ func findStashSize(size uint64) uint8 {
 	//fmt.Printf("size: %d, logsize: %d\n", size, logSize)
 
 	switch {
-	case logSize <= 8:
+	case logSize > 0 && logSize <= 8:
 		return stashSize[8]
 	case logSize > 8 && logSize <= 12:
 		return stashSize[12]
