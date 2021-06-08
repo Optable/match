@@ -29,6 +29,8 @@ var stashSize = map[uint8]uint8{
 	24: 2,
 }
 
+// A Cuckoo represents a 3-way Cuckoo hash table data structure
+// that contains buckets and a stash with 3 hash functions
 type Cuckoo struct {
 	//hashmap (k, v) -> k: h_i(x) (uint64), v: x ([]byte)
 	buckets map[uint64][]byte
