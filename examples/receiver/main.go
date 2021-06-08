@@ -35,7 +35,7 @@ var out *string
 func main() {
 	var wg sync.WaitGroup
 	var port = flag.String("p", defaultPort, "The receiver port")
-	var file = flag.String("in", defaultSenderFileName, "A list of prefixed IDs terminated with a newline")
+	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	out = flag.String("out", defaultCommonFileName, "A list of IDs that intersect between the receiver and the sender")
 	var once = flag.Bool("once", false, "Exit after processing one receiver")
 
