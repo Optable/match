@@ -148,6 +148,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
 	cuckoo := NewCuckoo(n, seeds)
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		cuckoo.Insert(Identifiers[i%len(Identifiers)])
@@ -158,6 +159,9 @@ func BenchmarkCuckooInsert(b *testing.B) {
 func BenchmarkCuckooGetHashIdx(b *testing.B) {
 	seeds := makeSeeds()
 	cuckoo := NewCuckoo(n, seeds)
+	for _, item := range Identifiers {
+		cuckoo.Insert(item)
+	}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
