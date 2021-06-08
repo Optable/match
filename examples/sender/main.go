@@ -30,7 +30,7 @@ func showUsageAndExit(exitcode int) {
 
 func main() {
 	var addr = flag.String("a", defaultAddress, "The receiver address")
-	var file = flag.String("in", defaultSenderFileName, "A list of prefixed IDs terminated with a newline")
+	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	var showHelp = flag.Bool("h", false, "Show help message")
 
 	log.SetFlags(0)

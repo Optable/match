@@ -19,7 +19,7 @@ const (
 
 func main() {
 	var ws sync.WaitGroup
-	fmt.Printf("generating %d sender(s) and %d receiver(s) emails with %d in common\r\n", senderCardinality, receiverCardinality, commonCardinality)
+	fmt.Printf("generating %d sender(s) and %d receiver(s) IDs with %d in common\r\n", senderCardinality, receiverCardinality, commonCardinality)
 	// make the common part
 	common := emails.Common(commonCardinality)
 	// do advertisers & publishers in parallel
