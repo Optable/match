@@ -88,12 +88,17 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	}
 
 	cuckoo := NewCuckoo(uint64(16), seeds)
+
+	//test Insert
 	for _, item := range items {
 		err := cuckoo.Insert(item)
 		if err != nil {
 			t.Errorf("Cuckoo insert failed: %w", err)
 		}
+	}
 
+	//test GetHashIdx
+	for _, item := range items {
 		idx, found := cuckoo.GetHashIdx(item)
 		if !found {
 			t.Errorf("Cuckoo GetHashIdx, item: %s not inserted.", string(item[:]))
