@@ -104,7 +104,7 @@ func handle(c net.Conn, n int64, f io.ReadCloser) {
 			defer f.Close()
 			for _, id := range i {
 				// and write it
-				if _, err := f.Write(append(id, "\r\n"...)); err != nil {
+				if _, err := f.Write(append(id, "\n"...)); err != nil {
 					log.Fatal(err)
 				}
 			}

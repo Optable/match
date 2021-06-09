@@ -9,21 +9,15 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/optable/match/pkg/dhpsi"
 	"github.com/optable/match/test/emails"
 )
 
 const (
-	ReceiverTestBodyLen = 1000
-	ReceiverTestLen     = ReceiverTestBodyLen + TestCommonLen
+	TestReceiverLen = 1000
 )
 
-type receiver interface {
-	Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error)
-}
-
 // test receiver and return the addr string
-func r_receiverInit(common []byte, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
+func r_receiverInit(protocol int, common []byte, totalReceiverSize int, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return "", err
@@ -34,17 +28,18 @@ func r_receiverInit(common []byte, intersectionsBus chan<- []byte, errs chan<- e
 			if err != nil {
 				// handle error
 			}
-			go r_receiverHandle(common, conn, intersectionsBus, errs)
+			go r_receiverHandle(protocol, common, totalReceiverSize, conn, intersectionsBus, errs)
 		}
 	}()
 	return ln.Addr().String(), nil
 }
 
-func r_receiverHandle(common []byte, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
+func r_receiverHandle(protocol int, common []byte, totalReceiverSize int, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
 	defer close(intersectionsBus)
-	r := initTestDataSource(common, ReceiverTestBodyLen)
-	rec := dhpsi.NewReceiver(conn)
-	ii, err := rec.IntersectFromReader(context.Background(), int64(ReceiverTestLen), r)
+	r := initTestDataSource(common, totalReceiverSize-TestCommonLen)
+
+	rec, _ := newReceiver(protocol, conn)
+	ii, err := rec.Intersect(context.Background(), int64(TestReceiverLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
 	}
@@ -69,26 +64,24 @@ func parseCommon(b []byte) (out []string) {
 	return
 }
 
-func TestDHPSIReceiver(t *testing.T) {
-	// generate common data
-	common := emails.Common(TestCommonLen)
+func testReceiver(protocol int, common []byte, totalReceiverSize int, t *testing.T) {
 	// setup channels
 	var intersectionsBus = make(chan []byte)
 	var errs = make(chan error, 2)
-	addr, err := r_receiverInit(common, intersectionsBus, errs)
+	addr, err := r_receiverInit(protocol, common, totalReceiverSize, intersectionsBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// send
+	// send operation
 	go func() {
-		r := initTestDataSource(common, SenderTestBodyLen)
+		r := initTestDataSource(common, TestSenderLen-TestCommonLen)
 		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
-		s := dhpsi.NewSender(conn)
-		err = s.SendFromReader(context.Background(), int64(SenderTestLen), r)
+		s, _ := newSender(protocol, conn)
+		err = s.Send(context.Background(), int64(TestSenderLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
@@ -127,4 +120,12 @@ func TestDHPSIReceiver(t *testing.T) {
 			t.Fatalf("expected to intersect, got %s != %s (%d %d)", s1, s2, len(s1), len(s2))
 		}
 	}
+
+}
+
+func TestDHPSIReceiver(t *testing.T) {
+	// generate common data
+	common := emails.Common(TestCommonLen)
+	// test
+	testReceiver(psiDHPSI, common, TestReceiverLen, t)
 }

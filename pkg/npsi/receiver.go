@@ -28,7 +28,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // returning the matching intersection, using the NPSI protocol.
 // The format of an indentifier is
 //  PREFIX:MATCHABLE
-func (r *Receiver) Intersect(ctx context.Context, identifiers <-chan []byte) ([][]byte, error) {
+func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	var intersected [][]byte
 	var k = make([]byte, hash.SaltLength)
 

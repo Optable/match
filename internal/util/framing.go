@@ -13,8 +13,8 @@ import (
 func SafeReadLine(r *bufio.Reader) (line []byte, err error) {
 	line, err = r.ReadBytes('\n')
 	if len(line) > 1 {
-		// strip the \r\n
-		line = line[:len(line)-2]
+		// strip the \n
+		line = line[:len(line)-1]
 	}
 	return
 }
