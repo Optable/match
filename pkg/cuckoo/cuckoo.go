@@ -20,6 +20,8 @@ const (
 	// index returned to signify the item is pushed on to the stash
 	// instead of the bucket
 	StashHidx = 4
+	// Bucket size parameter
+	Factor = 2.4
 )
 
 var stashSize = map[uint8]uint8{
@@ -49,7 +51,7 @@ type Cuckoo struct {
 // NewCuckoo instantiate the struct Cuckoo with a bucket of size 1.2 * size,
 // a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
-	bSize := uint64(1.2 * float64(size))
+	bSize := uint64(Factor * float64(size))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
 		hashers[i], _ = hash.New(hash.Highway, s)
@@ -103,6 +105,11 @@ func (c *Cuckoo) bucketIndices(item []byte) [Nhash]uint64 {
 // returns an error msg if all failed.
 func (c *Cuckoo) Insert(item []byte) error {
 	bucketIndices := c.bucketIndices(item)
+
+	// check if item has already been inserted:
+	if found := c.exists(item, bucketIndices); found {
+		return nil
+	}
 
 	// add to free slots
 	if c.tryAdd(item, bucketIndices, false, 0) {
@@ -180,6 +187,10 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 // if item is on stash, return StashHidx
 // if item is not inserted, return the max value 255, and found is set to false.
 func (c *Cuckoo) GetHashIdx(item []byte) (hIdx uint8, found bool) {
+	if c.onStash(item) {
+		return uint8(StashHidx), true
+	}
+
 	bucketIndices := c.bucketIndices(item)
 	for i, bIdx := range bucketIndices {
 		if v, found := c.buckets[bIdx]; found && bytes.Equal(v, item) {
@@ -189,15 +200,34 @@ func (c *Cuckoo) GetHashIdx(item []byte) (hIdx uint8, found bool) {
 		}
 	}
 
-	// On stash
-	for _, v := range c.stash {
-		if len(v) > 0 && bytes.Equal(v, item) {
-			return uint8(StashHidx), true
+	// Not found in bucket nor stash
+	return uint8(255), false
+}
+
+func (c *Cuckoo) onBucket(item []byte, bucketIndices [Nhash]uint64) (found bool) {
+	for _, bIdx := range bucketIndices {
+		if v, found := c.buckets[bIdx]; found && bytes.Equal(v, item) {
+			// the index for hash function is the same as the
+			// index for the bucketIndices
+			return true
 		}
 	}
 
-	// Not found in bucket nor stash
-	return uint8(255), false
+	return false
+}
+
+func (c *Cuckoo) onStash(item []byte) (found bool) {
+	for _, v := range c.stash {
+		if len(v) > 0 && bytes.Equal(v, item) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *Cuckoo) exists(item []byte, bucketIndices [Nhash]uint64) (found bool) {
+	return c.onBucket(item, bucketIndices) || c.onStash(item)
 }
 
 // Len returns the total size of the cuckoo struct
