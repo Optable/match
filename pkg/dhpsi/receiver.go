@@ -33,7 +33,7 @@ type permuted struct {
 // IntersectFromReader on n matchables,
 // sourced from r, returning the matching intersection.
 // The format of an indentifier is
-//  string\r\n
+//  string\n
 func (s *Receiver) IntersectFromReader(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
 	var identifiers = util.Exhaust(n, r)
 	return s.Intersect(ctx, n, identifiers)
