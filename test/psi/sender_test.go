@@ -74,3 +74,15 @@ func TestDHPSISender(t *testing.T) {
 	// test sender
 	testSender(psiDHPSI, addr, common, TestSenderLen, t)
 }
+
+func TestNPSISender(t *testing.T) {
+	// generate common data
+	common := emails.Common(TestCommonLen)
+	// init a test receiver server
+	addr, err := s_receiverInit(psiNPSI, common, TestReceiverLen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// test sender
+	testSender(psiNPSI, addr, common, TestSenderLen, t)
+}

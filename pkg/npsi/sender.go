@@ -2,6 +2,7 @@ package npsi
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/optable/match/internal/hash"
@@ -33,7 +34,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 	// stage 1: receive a random salt K from P1
 	stage1 := func() error {
 		if n, err := s.rw.Read(k); err != nil {
-			return err
+			return fmt.Errorf("stage1: %v", err)
 		} else if n != hash.SaltLength {
 			return hash.ErrSaltLengthMismatch
 		}
@@ -51,7 +52,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			// exhaust the hashes into the receiver
 			for hash := range sender {
 				if err := HashWrite(s.rw, hash.h); err != nil {
-					return err
+					return fmt.Errorf("stage2: %v", err)
 				}
 			}
 		}

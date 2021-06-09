@@ -14,7 +14,7 @@ type hashPair struct {
 
 // Read one hash
 func HashRead(r io.Reader, u *uint64) error {
-	return binary.Read(r, binary.BigEndian, &u)
+	return binary.Read(r, binary.BigEndian, u)
 }
 
 // Write one hash
@@ -50,6 +50,7 @@ func HashAll(h hash.Hasher, identifiers <-chan []byte) <-chan hashPair {
 
 	// just read and hash baby
 	go func() {
+		defer close(pairs)
 		for identifier := range identifiers {
 			h := h.Hash64(identifier)
 			pairs <- hashPair{x: identifier, h: h}

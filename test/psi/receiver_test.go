@@ -129,3 +129,10 @@ func TestDHPSIReceiver(t *testing.T) {
 	// test
 	testReceiver(psiDHPSI, common, TestReceiverLen, t)
 }
+
+func TestNPSIReceiver(t *testing.T) {
+	// generate common data
+	common := emails.Common(TestCommonLen)
+	// test
+	testReceiver(psiNPSI, common, TestReceiverLen, t)
+}
