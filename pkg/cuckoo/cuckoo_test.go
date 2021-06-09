@@ -9,7 +9,8 @@ import (
 	"testing"
 )
 
-var n = uint64(32)
+var test_n = uint64(32)
+var bench_n = uint64(1e7) // 10Million
 var Identifiers = [32][]byte{
 	[]byte("e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e"),
 	[]byte("e:73244e1b8c426ed93d315034d9332d5326c6b0cd72cc49093c25106f0dd081c5"),
@@ -45,6 +46,11 @@ var Identifiers = [32][]byte{
 	[]byte("e:693f16e5f2b814c592a6ab7478da155907362b42634d99a78b15fd7b1886faa7"),
 }
 
+var (
+	bench_cuckoo *Cuckoo
+	bench_data   [][]byte
+)
+
 func makeSeeds() [Nhash][]byte {
 	var seeds [Nhash][]byte
 
@@ -59,7 +65,6 @@ func makeSeeds() [Nhash][]byte {
 }
 
 func TestStashSize(t *testing.T) {
-	// Table driven test
 	stashSizeTests := []struct {
 		n    uint64 //input size
 		want uint8  // stash size
@@ -105,7 +110,7 @@ func TestNewCuckoo(t *testing.T) {
 func TestInsertAndGetHashIdx(t *testing.T) {
 	seeds := makeSeeds()
 
-	cuckoo := NewCuckoo(n, seeds)
+	cuckoo := NewCuckoo(test_n, seeds)
 
 	//test Insert
 	for _, item := range Identifiers {
@@ -166,40 +171,30 @@ func stashOccupation(c *Cuckoo) int {
 	return n
 }
 
-func benchmarkCuckooInsert(size int, b *testing.B) {
+func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
-	cuckoo := NewCuckoo(uint64(size), seeds)
-	data := genBytes(size)
+	bench_cuckoo = NewCuckoo(bench_n, seeds)
+	bench_data = genBytes(int(bench_n))
 	b.ResetTimer()
 	errCount := 0
 
 	for i := 0; i < b.N; i++ {
-		err := cuckoo.Insert(data[i%size])
+		err := bench_cuckoo.Insert(bench_data[i%int(bench_n)])
 		if err != nil {
 			errCount += 1
 		}
 	}
 
 	b.Logf("b.N: %d, bucketSize: %d, faillure insertion:  %d, stashSize: %d, items on stash: %d\n",
-		b.N, cuckoo.bucketSize, errCount, len(cuckoo.stash), stashOccupation(cuckoo))
+		b.N, bench_cuckoo.bucketSize, errCount, len(bench_cuckoo.stash), stashOccupation(bench_cuckoo))
 }
-
-func BenchmarkCuckooInsert1k(b *testing.B)   { benchmarkCuckooInsert(1000, b) }
-func BenchmarkCuckooInsert50k(b *testing.B)  { benchmarkCuckooInsert(50000, b) }
-func BenchmarkCuckooInsert1M(b *testing.B)   { benchmarkCuckooInsert(1000000, b) }
-func BenchmarkCuckooInsert100M(b *testing.B) { benchmarkCuckooInsert(100000000, b) }
 
 // Benchmark find hash index
 func BenchmarkCuckooGetHashIdx(b *testing.B) {
-	seeds := makeSeeds()
-	cuckoo := NewCuckoo(n, seeds)
-	for _, item := range Identifiers {
-		cuckoo.Insert(item)
-	}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		cuckoo.GetHashIdx(Identifiers[i%len(Identifiers)])
+		bench_cuckoo.GetHashIdx(bench_data[i%int(bench_n)])
 	}
 }
 
