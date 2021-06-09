@@ -3,15 +3,19 @@ package cuckoo
 import (
 	"bytes"
 	"fmt"
-	"github.com/optable/match/internal/hash"
 	"math"
 	"math/rand"
 	"time"
+
+	"github.com/optable/match/internal/hash"
 )
 
 const (
 	// Nhash is the number of hash function used for cuckoohash
-	Nhash         = 3
+	Nhash = 3
+	// Maximum number of reinsertons.
+	// Each reinsertion kicked off 1 egg (item) and replace it
+	// with the item being reinserted, and then reinsert the kicked off egg
 	ReinsertLimit = 200
 	// index returned to signify the item is pushed on to the stash
 	// instead of the bucket
@@ -100,11 +104,6 @@ func (c *Cuckoo) bucketIndices(item []byte) [Nhash]uint64 {
 func (c *Cuckoo) Insert(item []byte) error {
 	bucketIndices := c.bucketIndices(item)
 
-	// if item has already been inserted (duplicated item), exit
-	if c.exists(item, bucketIndices) {
-		return nil
-	}
-
 	// add to free slots
 	if c.tryAdd(item, bucketIndices, false, 0) {
 		return nil
@@ -179,7 +178,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 // GetHashIdx finds the index of the hash function {0, 1, 2}
 // that gives the bucket index, and a boolean found
 // if item is on stash, return StashHidx
-// if item is not inserted, return the max value 255, and found=false.
+// if item is not inserted, return the max value 255, and found is set to false.
 func (c *Cuckoo) GetHashIdx(item []byte) (hIdx uint8, found bool) {
 	bucketIndices := c.bucketIndices(item)
 	for i, bIdx := range bucketIndices {
@@ -199,25 +198,6 @@ func (c *Cuckoo) GetHashIdx(item []byte) (hIdx uint8, found bool) {
 
 	// Not found in bucket nor stash
 	return uint8(255), false
-}
-
-// exists returns a boolean that signifies an item is already present in cuckoo struct
-func (c *Cuckoo) exists(item []byte, bucketIndices [Nhash]uint64) (exists bool) {
-	// check bucket
-	for _, bIdx := range bucketIndices {
-		if v, found := c.buckets[bIdx]; found && bytes.Equal(v, item) {
-			return true
-		}
-	}
-
-	//check stash
-	for _, v := range c.stash {
-		if len(v) > 0 && bytes.Equal(v, item) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // Len returns the total size of the cuckoo struct

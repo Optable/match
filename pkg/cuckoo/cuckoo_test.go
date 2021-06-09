@@ -3,6 +3,7 @@ package cuckoo
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"testing"
@@ -144,16 +145,49 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	//printStash(cuckoo)
 }
 
-// Benchmark insertion
-func BenchmarkCuckooInsert(b *testing.B) {
+func genBytes(n int) [][]byte {
+	data := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		data[i] = make([]byte, 16)
+		binary.LittleEndian.PutUint64(data[i], uint64(i))
+	}
+
+	return data
+}
+
+func stashOccupation(c *Cuckoo) int {
+	n := 0
+	for _, v := range c.stash {
+		if len(v) > 0 {
+			n += 1
+		}
+	}
+
+	return n
+}
+
+func benchmarkCuckooInsert(size int, b *testing.B) {
 	seeds := makeSeeds()
-	cuckoo := NewCuckoo(n, seeds)
+	cuckoo := NewCuckoo(uint64(size), seeds)
+	data := genBytes(size)
 	b.ResetTimer()
+	errCount := 0
 
 	for i := 0; i < b.N; i++ {
-		cuckoo.Insert(Identifiers[i%len(Identifiers)])
+		err := cuckoo.Insert(data[i%size])
+		if err != nil {
+			errCount += 1
+		}
 	}
+
+	b.Logf("b.N: %d, bucketSize: %d, faillure insertion:  %d, stashSize: %d, items on stash: %d\n",
+		b.N, cuckoo.bucketSize, errCount, len(cuckoo.stash), stashOccupation(cuckoo))
 }
+
+func BenchmarkCuckooInsert1k(b *testing.B)   { benchmarkCuckooInsert(1000, b) }
+func BenchmarkCuckooInsert50k(b *testing.B)  { benchmarkCuckooInsert(50000, b) }
+func BenchmarkCuckooInsert1M(b *testing.B)   { benchmarkCuckooInsert(1000000, b) }
+func BenchmarkCuckooInsert100M(b *testing.B) { benchmarkCuckooInsert(100000000, b) }
 
 // Benchmark find hash index
 func BenchmarkCuckooGetHashIdx(b *testing.B) {
