@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-var test_n = uint64(1e6) // 10Million
-var bench_n = uint64(1e7)
+var test_n = uint64(1e6)  // 1Million
+var bench_n = uint64(1e7) // 10 Million
 
 var (
 	bench_cuckoo *Cuckoo
@@ -85,7 +85,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 		}
 	}
 
-	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, aillure insertion:  %d, stashSize: %d, items on stash: %d\n",
+	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, stashSize: %d, items on stash: %d\n",
 		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, len(cuckoo.stash), stashOccupation(cuckoo))
 
 	//test GetHashIdx
