@@ -11,16 +11,19 @@ import (
 
 	"github.com/optable/match/internal/util"
 	"github.com/optable/match/pkg/dhpsi"
+	"github.com/optable/match/pkg/npsi"
+	"github.com/optable/match/pkg/psi"
 )
 
 const (
+	defaultProtocol       = "npsi"
 	defaultPort           = ":6667"
 	defaultSenderFileName = "receiver-ids.txt"
 	defaultCommonFileName = "common-ids.txt"
 )
 
 func usage() {
-	log.Printf("Usage: receiver [-p port] [-in file] [-out file] [-once false]\n")
+	log.Printf("Usage: receiver [-proto protocol] [-p port] [-in file] [-out file] [-once false]\n")
 	flag.PrintDefaults()
 }
 
@@ -33,6 +36,7 @@ var out *string
 
 func main() {
 	var wg sync.WaitGroup
+	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (dhpsi,npsi)")
 	var port = flag.String("p", defaultPort, "The receiver port")
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	out = flag.String("out", defaultCommonFileName, "A list of IDs that intersect between the receiver and the sender")
@@ -48,6 +52,17 @@ func main() {
 		showUsageAndExit(0)
 	}
 
+	// validate protocol
+	switch *protocol {
+	case "npsi":
+		fallthrough
+	case "dhpsi":
+		log.Printf("operating with protocol %s", *protocol)
+	default:
+		log.Printf("unsupported protocol %s", *protocol)
+		showUsageAndExit(0)
+	}
+
 	// open file
 	f, err := os.Open(*file)
 	if err != nil {
@@ -56,6 +71,7 @@ func main() {
 	defer f.Close()
 
 	// count lines
+	log.Printf("counting lines in %s", *file)
 	n, err := util.Count(f)
 	if err != nil {
 		log.Fatal(err)
@@ -73,14 +89,18 @@ func main() {
 			log.Fatal(err)
 		} else {
 			log.Printf("handling sender %s", c.RemoteAddr())
-			wg.Add(1)
 			f, err := os.Open(*file)
 			if err != nil {
 				log.Fatal(err)
 			}
+			// make the receiver
+			receiver := newReceiver(*protocol, c)
+			// and hand it off
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				handle(c, n, f)
+				defer c.Close()
+				handle(receiver, n, f)
 			}()
 
 			if *once {
@@ -91,11 +111,21 @@ func main() {
 	}
 }
 
-func handle(c net.Conn, n int64, f io.ReadCloser) {
-	defer c.Close()
+func newReceiver(protocol string, rw io.ReadWriter) psi.Receiver {
+	switch protocol {
+	case "npsi":
+		return npsi.NewReceiver(rw)
+	case "dhpsi":
+		return dhpsi.NewReceiver(rw)
+	}
+
+	return nil
+}
+
+func handle(r psi.Receiver, n int64, f io.ReadCloser) {
 	defer f.Close()
-	r := dhpsi.NewReceiver(c)
-	if i, err := r.IntersectFromReader(context.Background(), n, f); err != nil {
+	ids := util.Exhaust(n, f)
+	if i, err := r.Intersect(context.Background(), n, ids); err != nil {
 		log.Printf("intersect failed (%d): %v", len(i), err)
 	} else {
 		// write out to common-ids.txt

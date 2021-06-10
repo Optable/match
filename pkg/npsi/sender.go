@@ -26,9 +26,9 @@ func NewSender(rw io.ReadWriter) *Sender {
 
 // Send initiates a NPSI exchange
 // that are read from identifiers, until identifiers closes.
-// The format of an indentifier is PREFIX:MATCHABLE
+// The format of an indentifier is string
 // example:
-//  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
+//  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
 	// hold k
 	var k = make([]byte, hash.SaltLength)
@@ -48,7 +48,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		if h, err := hash.New(hash.Highway, k); err != nil {
 			return err
 		} else {
-			// inform the receiver of the set of the size
+			// inform the receiver of the size
 			// its about to receive
 			if err := binary.Write(s.rw, binary.BigEndian, &n); err != nil {
 				return err
