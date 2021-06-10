@@ -3,6 +3,7 @@ package npsi
 import (
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"io"
 	"sync"
 
@@ -52,21 +53,25 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)
 		// get a hasher
-		h, err := hash.New(hash.SIP, k)
+		h, err := hash.New(hash.Highway, k)
 		if err != nil {
 			return err
 		}
-
+		// sender sends the number
+		// of items its about to write first
+		var n int64
+		if err := binary.Read(r.rw, binary.BigEndian, &n); err != nil {
+			return err
+		}
 		//
 		// stage2 : P2 receives hashes from P1 (Hi) and computes its own hashes from Xj,
 		// then the intersection with its own hashes (Hj)
 		//
 		// make a channel to receive hashes from the sender
-		sender := ReadAll(r.rw)
+		sender := ReadAll(r.rw, n)
 		// make a channel to receive local x,h pairs
-		receiver := HashAll(h, identifiers)
-		// try to intersect and throw out intersected hashes as we get them,
-		// when the sender and the receiver are exhausted, intersect the rest
+		receiver := HashAllParallel(h, identifiers)
+		// try to intersect and throw out intersected hashes as we get them
 		var c1 = make(chan uint64)
 		var c2 = make(chan hashPair)
 		var done = make(chan bool)
@@ -96,7 +101,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 					if identifier, ok := localIDs[Hi]; ok {
 						// we do
 						intersected = append(intersected, identifier)
-						// prune it
+						// expulse it
 						delete(localIDs, Hi)
 					} else {
 						// we dont, cache this
@@ -108,7 +113,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 					if remoteIDs[pair.h] {
 						// we do
 						intersected = append(intersected, pair.x)
-						// prune it
+						// expulse it
 						delete(remoteIDs, pair.h)
 					} else {
 						// we dont, cache this

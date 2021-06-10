@@ -2,6 +2,7 @@ package npsi
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -44,11 +45,16 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 	// stage 2: send hashes salted with K to P1
 	stage2 := func() error {
 		// get a hasher
-		if h, err := hash.New(hash.SIP, k); err != nil {
+		if h, err := hash.New(hash.Highway, k); err != nil {
 			return err
 		} else {
+			// inform the receiver of the set of the size
+			// its about to receive
+			if err := binary.Write(s.rw, binary.BigEndian, &n); err != nil {
+				return err
+			}
 			// make a channel to receive local x,h pairs
-			sender := HashAll(h, identifiers)
+			sender := HashAllParallel(h, identifiers)
 			// exhaust the hashes into the receiver
 			for hash := range sender {
 				if err := HashWrite(s.rw, hash.h); err != nil {
