@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"flag"
 	"io"
@@ -11,6 +9,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/optable/match/internal/util"
 	"github.com/optable/match/pkg/dhpsi"
 )
 
@@ -57,7 +56,7 @@ func main() {
 	defer f.Close()
 
 	// count lines
-	n, err := count(f)
+	n, err := util.Count(f)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -113,29 +112,4 @@ func handle(c net.Conn, n int64, f io.ReadCloser) {
 			log.Fatal(err)
 		}
 	}
-}
-
-func count(r io.Reader) (int64, error) {
-	var count int64
-	const lineBreak = '\n'
-	buf := make([]byte, bufio.MaxScanTokenSize)
-	for {
-		bufferSize, err := r.Read(buf)
-		if err != nil && err != io.EOF {
-			return 0, err
-		}
-		var buffPosition int
-		for {
-			i := bytes.IndexByte(buf[buffPosition:], lineBreak)
-			if i == -1 || bufferSize == buffPosition {
-				break
-			}
-			buffPosition += i + 1
-			count++
-		}
-		if err == io.EOF {
-			break
-		}
-	}
-	return count, nil
 }
