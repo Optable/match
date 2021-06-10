@@ -21,7 +21,7 @@ const (
 	// instead of the bucket
 	StashHidx = 4
 	// Bucket size parameter
-	Factor = 2.4
+	Factor = 2
 )
 
 var stashSize = map[uint8]uint8{
@@ -115,7 +115,7 @@ func (c *Cuckoo) Insert(item []byte) error {
 	bucketIndices := c.bucketIndices(item)
 
 	// check if item has already been inserted:
-	if found := c.exists(item, bucketIndices); found {
+	if found := c.Exists(item); found {
 		return nil
 	}
 
@@ -201,29 +201,15 @@ func (c *Cuckoo) GetHashIdx(item []byte) (hIdx uint8, found bool) {
 	}
 
 	bucketIndices := c.bucketIndices(item)
-	for i, bIdx := range bucketIndices {
+	for _, bIdx := range bucketIndices {
 		if v, found := c.buckets[bIdx]; found && bytes.Equal(v.item, item) {
 			// the index for hash function is the same as the
 			// index for the bucketIndices
-			return uint8(i), true
-		}
-	}
-
-	// Not found in bucket nor stash
-	return uint8(255), false
-}
-
-func (c *Cuckoo) GetHashIdxIterate(item []byte) (hIdx uint8, found bool) {
-	if c.onStash(item) {
-		return uint8(StashHidx), true
-	}
-
-	for _, v := range c.buckets {
-		if bytes.Equal(v.item, item) {
 			return v.hIdx, true
 		}
 	}
 
+	// Not found in bucket nor stash
 	return uint8(255), false
 }
 
@@ -249,8 +235,22 @@ func (c *Cuckoo) onStash(item []byte) (found bool) {
 	return false
 }
 
-func (c *Cuckoo) exists(item []byte, bucketIndices [Nhash]uint64) (found bool) {
+// Exists returns true if an item is inserted in cuckoo, false otherwise
+func (c *Cuckoo) Exists(item []byte) (found bool) {
+	bucketIndices := c.bucketIndices(item)
 	return c.onBucket(item, bucketIndices) || c.onStash(item)
+}
+
+// LoadFactor returns the ratio of occupied buckets with the overall bucketSize
+func (c *Cuckoo) LoadFactor() (factor float64) {
+	occupation := 0
+	for _, v := range c.buckets {
+		if len(v.item) > 0 {
+			occupation += 1
+		}
+	}
+
+	return float64(occupation) / float64(c.bucketSize)
 }
 
 // Len returns the total size of the cuckoo struct

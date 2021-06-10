@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-var test_n = uint64(1e7) // 10Million
-var bench_n = uint64(1e6)
+var test_n = uint64(1e6) // 10Million
+var bench_n = uint64(1e7)
 
 var (
 	bench_cuckoo *Cuckoo
@@ -58,9 +58,9 @@ func TestNewCuckoo(t *testing.T) {
 		bSize uint64 //bucketSize
 	}{
 		{uint64(0), uint64(0)},
-		{uint64(math.Pow(2, 4)), uint64(2.4 * math.Pow(2, 4))},
-		{uint64(math.Pow(2, 8)), uint64(2.4 * math.Pow(2, 8))},
-		{uint64(math.Pow(2, 16)), uint64(2.4 * math.Pow(2, 16))},
+		{uint64(math.Pow(2, 4)), uint64(2 * math.Pow(2, 4))},
+		{uint64(math.Pow(2, 8)), uint64(2 * math.Pow(2, 8))},
+		{uint64(math.Pow(2, 16)), uint64(2 * math.Pow(2, 16))},
 	}
 
 	for _, tt := range cuckooTests {
@@ -85,8 +85,8 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 		}
 	}
 
-	t.Logf("To be inserted: %d, bucketSize: %d, faillure insertion:  %d, stashSize: %d, items on stash: %d\n",
-		test_n, cuckoo.bucketSize, errCount, len(cuckoo.stash), stashOccupation(cuckoo))
+	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, aillure insertion:  %d, stashSize: %d, items on stash: %d\n",
+		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, len(cuckoo.stash), stashOccupation(cuckoo))
 
 	//test GetHashIdx
 	for _, item := range data {
@@ -134,12 +134,12 @@ func BenchmarkCuckooGetHashIdx(b *testing.B) {
 	}
 }
 
-// Benchmark find hash index
-func BenchmarkCuckooGetHashIdxiIterate(b *testing.B) {
+// Benchmark Exists
+func BenchmarkCuckooExists(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		bench_cuckoo.GetHashIdxIterate(bench_data[i%int(bench_n)])
+		bench_cuckoo.Exists(bench_data[i%int(bench_n)])
 	}
 }
 
