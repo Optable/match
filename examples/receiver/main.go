@@ -101,6 +101,7 @@ func main() {
 				defer wg.Done()
 				defer c.Close()
 				handle(receiver, n, f)
+				log.Printf("handled sender %s", c.RemoteAddr())
 			}()
 
 			if *once {
@@ -129,6 +130,7 @@ func handle(r psi.Receiver, n int64, f io.ReadCloser) {
 		log.Printf("intersect failed (%d): %v", len(i), err)
 	} else {
 		// write out to common-ids.txt
+		log.Printf("intersected %d IDs, writing out to %s", len(i), *out)
 		if f, err := os.Create(*out); err == nil {
 			defer f.Close()
 			for _, id := range i {
@@ -137,7 +139,6 @@ func handle(r psi.Receiver, n int64, f io.ReadCloser) {
 					log.Fatal(err)
 				}
 			}
-			log.Printf("intersected %d IDs into %s", len(i), *out)
 		} else {
 			log.Fatal(err)
 		}
