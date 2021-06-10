@@ -97,13 +97,13 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 
 		if idx != StashHidx {
 			bIdx := cuckoo.bucketIndex(cuckoo.hash(item)[idx])
-			if !bytes.Equal(cuckoo.buckets[bIdx], item) {
+			if !bytes.Equal(cuckoo.buckets[bIdx].item, item) {
 				t.Errorf("Cuckoo GetHashIdx, hashIdx not correct for item: %s", string(item[:]))
 			}
 		} else {
 			found = false
 			for _, v := range cuckoo.stash {
-				if bytes.Equal(v, item) {
+				if bytes.Equal(v.item, item) {
 					found = true
 				}
 			}
@@ -134,6 +134,15 @@ func BenchmarkCuckooGetHashIdx(b *testing.B) {
 	}
 }
 
+// Benchmark find hash index
+func BenchmarkCuckooGetHashIdxiIterate(b *testing.B) {
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		bench_cuckoo.GetHashIdxIterate(bench_data[i%int(bench_n)])
+	}
+}
+
 func genBytes(n int) [][]byte {
 	rand.Seed(time.Now().UnixNano())
 	data := make([][]byte, n)
@@ -148,7 +157,7 @@ func genBytes(n int) [][]byte {
 func stashOccupation(c *Cuckoo) int {
 	n := 0
 	for _, v := range c.stash {
-		if len(v) > 0 {
+		if len(v.item) > 0 {
 			n += 1
 		}
 	}
@@ -158,12 +167,12 @@ func stashOccupation(c *Cuckoo) int {
 
 func printBucket(c *Cuckoo) {
 	for k, v := range c.buckets {
-		fmt.Printf("bIdx: %d, item: %s\n", k, string(v[:]))
+		fmt.Printf("bIdx: %d, item: %s, hIdx:%d\n", k, string(v.item[:]), v.hIdx)
 	}
 }
 
 func printStash(c *Cuckoo) {
 	for _, s := range c.stash {
-		fmt.Printf("item: %s", string(s[:]))
+		fmt.Printf("item: %s, hIdx: %d", string(s.item[:]), s.hIdx)
 	}
 }
