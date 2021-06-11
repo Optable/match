@@ -83,8 +83,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				if sender == nil && receiver == nil {
 					break
 				}
+				// merge sender&receiver
 				select {
-				//case Hi := <-c1:
 				case Hi, ok := <-sender:
 					if !ok {
 						// do not select on this anymore
@@ -102,7 +102,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 						remoteIDs[Hi] = true
 					}
 
-				//case pair := <-c2:
 				case pair, ok := <-receiver:
 					if !ok {
 						// do not select on this anymore
@@ -119,11 +118,15 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 						// we dont, cache this
 						localIDs[pair.h] = pair.x
 					}
-
-					// todo:
-					//  if Hi is completed and len(intersected) == len(remoteIDs)
-					//  we can stop trying. remove the expulsions for this to work.
 				}
+
+				// todo:
+				//  if Hi is completed and len(intersected) == len(remoteIDs)
+				//  we can stop trying. remove the expulsions for this to work.
+				//  this needs the able to cancel the receiver goroutine otherwise it will leak
+				//if sender == nil && len(intersected) == len(remoteIDs) {
+				//	break
+				//}
 			}
 		}()
 		// let the intersection finish
