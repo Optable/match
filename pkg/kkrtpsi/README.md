@@ -16,6 +16,7 @@ Discalimer: This is a work in progress.
 
 
 ## data flow
+```
              Sender                                                                  Receiver
              X                                                                       Y
 
@@ -47,6 +48,7 @@ K:          OPRF keys
 OPRF(K, Y): OPRF evaluation of input Y with key K
 H':         OPRF evaluation of input X that are put in cuckoo hash table
 S':         OPRF evaluation of input X that are put in cuckoo stash
+```
 
 ## Progress
 - [x] KKRT PSI protobuf definition
