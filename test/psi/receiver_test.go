@@ -12,12 +12,8 @@ import (
 	"github.com/optable/match/test/emails"
 )
 
-const (
-	TestReceiverLen = 1000
-)
-
 // test receiver and return the addr string
-func r_receiverInit(protocol int, common []byte, totalReceiverSize int, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
+func r_receiverInit(protocol int, common []byte, commonLen, receiverLen int, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return "", err
@@ -28,18 +24,18 @@ func r_receiverInit(protocol int, common []byte, totalReceiverSize int, intersec
 			if err != nil {
 				// handle error
 			}
-			go r_receiverHandle(protocol, common, totalReceiverSize, conn, intersectionsBus, errs)
+			go r_receiverHandle(protocol, common, commonLen, receiverLen, conn, intersectionsBus, errs)
 		}
 	}()
 	return ln.Addr().String(), nil
 }
 
-func r_receiverHandle(protocol int, common []byte, totalReceiverSize int, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
+func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
 	defer close(intersectionsBus)
-	r := initTestDataSource(common, totalReceiverSize-TestCommonLen)
+	r := initTestDataSource(common, receiverLen-commonLen)
 
 	rec, _ := newReceiver(protocol, conn)
-	ii, err := rec.Intersect(context.Background(), int64(TestReceiverLen), r)
+	ii, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
 	}
@@ -64,24 +60,24 @@ func parseCommon(b []byte) (out []string) {
 	return
 }
 
-func testReceiver(protocol int, common []byte, totalReceiverSize int, t *testing.T) {
+func testReceiver(protocol int, common []byte, s test_size) error {
 	// setup channels
 	var intersectionsBus = make(chan []byte)
 	var errs = make(chan error, 2)
-	addr, err := r_receiverInit(protocol, common, totalReceiverSize, intersectionsBus, errs)
+	addr, err := r_receiverInit(protocol, common, s.commonLen, s.receiverLen, intersectionsBus, errs)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 
 	// send operation
 	go func() {
-		r := initTestDataSource(common, TestSenderLen-TestCommonLen)
+		r := initTestDataSource(common, s.senderLen-s.commonLen)
 		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
-		s, _ := newSender(protocol, conn)
-		err = s.Send(context.Background(), int64(TestSenderLen), r)
+		snd, _ := newSender(protocol, conn)
+		err = snd.Send(context.Background(), int64(s.senderLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
@@ -95,12 +91,12 @@ func testReceiver(protocol int, common []byte, totalReceiverSize int, t *testing
 	// errors?
 	select {
 	case err := <-errs:
-		t.Fatal(err)
+		return err
 	default:
 	}
 	// right amount?
 	if len(common)/emails.HashLen != len(intersections) {
-		t.Errorf("expected %d intersections and got %d", len(common)/emails.HashLen, len(intersections))
+		return fmt.Errorf("expected %d intersections and got %d", len(common)/emails.HashLen, len(intersections))
 	}
 	// sort intersections
 	sort.Slice(intersections, func(i, j int) bool {
@@ -117,22 +113,32 @@ func testReceiver(protocol int, common []byte, totalReceiverSize int, t *testing
 		s1 := string(c[k])
 		s2 := string(v)
 		if s1 != s2 {
-			t.Fatalf("expected to intersect, got %s != %s (%d %d)", s1, s2, len(s1), len(s2))
+			return fmt.Errorf("expected to intersect, got %s != %s (%d %d)", s1, s2, len(s1), len(s2))
 		}
 	}
-
+	return nil
 }
 
 func TestDHPSIReceiver(t *testing.T) {
-	// generate common data
-	common := emails.Common(TestCommonLen)
-	// test
-	testReceiver(psiDHPSI, common, TestReceiverLen, t)
+	for _, s := range test_sizes {
+		t.Logf("testing scenario %s", s.scenario)
+		// generate common data
+		common := emails.Common(s.commonLen)
+		// test
+		if err := testReceiver(psiDHPSI, common, s); err != nil {
+			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
 }
 
 func TestNPSIReceiver(t *testing.T) {
-	// generate common data
-	common := emails.Common(TestCommonLen)
-	// test
-	testReceiver(psiNPSI, common, TestReceiverLen, t)
+	for _, s := range test_sizes {
+		t.Logf("testing scenario %s", s.scenario)
+		// generate common data
+		common := emails.Common(s.commonLen)
+		// test
+		if err := testReceiver(psiNPSI, common, s); err != nil {
+			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
 }

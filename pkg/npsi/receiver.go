@@ -75,25 +75,28 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		var c1 = make(chan uint64)
 		var c2 = make(chan hashPair)
 		var done = make(chan bool)
-		var wg sync.WaitGroup
+		var wg1 sync.WaitGroup
+		var wg2 sync.WaitGroup
 
-		wg.Add(2)
+		wg1.Add(2)
 		// drain the sender
 		go func() {
-			defer wg.Done()
+			defer wg1.Done()
 			for Hi := range sender {
 				c1 <- Hi
 			}
 		}()
 		// drain the receiver (local IDs)
 		go func() {
-			defer wg.Done()
+			defer wg1.Done()
 			for pair := range receiver {
 				c2 <- pair
 			}
 		}()
 		// intersect
+		wg2.Add(1)
 		go func() {
+			defer wg2.Done()
 			for {
 				select {
 				case Hi := <-c1:
@@ -125,10 +128,12 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				}
 			}
 		}()
-		// let the intersection finish
-		wg.Wait()
+		// let the drainers finish
+		wg1.Wait()
 		// kill the intersection goroutine
 		close(done)
+		// let the intersection finish
+		wg2.Wait()
 		// break out
 		return nil
 	}
