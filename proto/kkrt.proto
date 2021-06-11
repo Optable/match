@@ -8,11 +8,11 @@ package optable.kkrt.v1;
 // Stage 1: Cuckoohash parameters negotiaton
 //
 // - Receiver 1-1: read identifier, seeds 3 different hash function that hash to 1.2 * |Y|,
-//                 and sends a CuckooHashParamSetup
+//                 and sends a CuckooHashSetup
 // - Receiver 1-2: cuckoohash Y, and output cuckhash table B, stash S and a map Z that holds
 //                 item y as key, and the index of hash function as value.
 //
-// - Sender 1-1:   reads identifier, and receives a CuckooHashParamSetup
+// - Sender 1-1:   reads identifier, and receives a CuckooHashSetup
 //
 // Stage 2: OT + OPRF
 //
@@ -20,24 +20,27 @@ package optable.kkrt.v1;
 //                 C(x) = AES(x||1) || AES(x||2) || AES(x||3) || AES(x||4)
 //                 instantiate a random oracle represented by a hash funcon H,
 //                 and sample the secret choice bit string s of length k, and
-//                 sends an InitKkrtOtParamSetup
+//                 sends an KkrtOtSetup message.
 //
 // - Sender 2-2:   Act as Receiver in KKRT OT extension with input (s_i) for i in [k].
+//                 Receives OTSender message to run OTExtension.
 //
-// - Sender 2-3:   Receives q^i for i in [k], where q^i in (U^i, T^i) depending on s_i.
+// - Sender 2-3:   Receives OTExtensionSender message which are the rows q^i for i in [k],
+//                 where q^i in (U^i, T^i) depending on s_i.
 // - Sender 2-4:   stores OPRF keys: k_j = (C, s), (j, q_j).
 //
-// - Receiver 2-1: Receives an InitKkrtOtParamSetup,
+// - Receiver 2-1: Receives an KkrtOtSetup,
 //                 Computes OPRF input r: r = y || z(y) if y in B, or r = y, if y in S.
 //                 Samples uniformly random m x k matrix U, m=1.2*|Y| + |S|,
 //                 Computes m x k matrix T: T_j = C(r_j) ^ U_j for j in [m].
 //
-// - Receiver 2-2: Ac as Sender in KKRT OT extension with input (U^i, T^i) for i in [k].
-// - Receiver 2-3: stores OPRF mask (outputs) F(k_j, r_j) = H(j || U_j) for j in [m]
+// - Receiver 2-2: Act as Sender in KKRT OT extension with input (U^i, T^i) for i in [k].
+//                 Receives OTReceiver message to run the OT extension.
+// - Receiver 2-3: stores OPRF mask (outputs) F(k_j, r_j) = H(j || U_j) for j in [m].
 //
 // Stage 3: PSI
 //
-// - Sender 1-1:   Evaluate OPRF using keys k on input X, output all possible OPRF outputs H_X, S_X,
+// - Sender 3-1:   Evaluate OPRF using keys k on input X, output all possible OPRF outputs H_X, S_X,
 //                 for x in X:
 //                   for i in {1, 2, 3}:
 //                       H_X = H_X + H(h_i(x) || C(x || i) * s ^ q[h_i(x)])
@@ -45,36 +48,34 @@ package optable.kkrt.v1;
 //                   for j in {1, 2, ..., |S|}:
 //                       S_X = S_X + H(1.2|Y| + j || C(x) * s ^ q[1.2|Y|+j])
 //
-// - Sender 1-2:   Permute H_X, S_X, send them.
+// - Sender 3-2:   Permute H_X, S_X, send PsiStage message.
 //
-// - Receiver 1-1: Compute Intersection by comparing H_X', S_X' with OPRF output F(k, r).
+// - Receiver 3-1: Compute Intersection by comparing H_X', S_X' with OPRF output F(k, r).
 
 
-message CuckooHashParamSetup {
+message CuckooHashSetup {
     // Number of records from receiver: |Y|
-    uint64 receiverSize = 1;
-    // stash size |S|
-    uint32 stash = 2;
+    uint64 receiver_size = 1;
     // random 16 bytes salt for 3 hash functions
     // see https://pkg.go.dev/golang.org/x/crypto@v0.0.0-20210513164829-c07d793c2f9a/blake2b
-    bytes seed1 = 4;
-    bytes seed2 = 5;
-    bytes seed3 = 6;
+    bytes seed1 = 2;
+    bytes seed2 = 3;
+    bytes seed3 = 4;
     // parameter k for output length of C,
     // # of columns of OT-extension matrices
     // length of secret choice bits s
-    uint64 k = 7;
+    uint64 k = 5;
 }
 
-message InitKkrtOtParamSetup {
+message KKRTOtSetup {
     // random 16 bytes seed for linear error correcting code C
     // to instantiate AES-128
     // see https://golang.org/pkg/crypto/aes/
-    bytes aesHashingSeed = 1;
+    bytes aes_hashing_seed = 1;
     // random 64 bytes salt for hash function to produce OPRF output
-    bytes hashSeed = 2;
+    bytes hash_seed = 2;
     // Number of base OT (Naor-Pinkas) to run default:128
-    uint64 baseOtCount = 3;
+    uint64 base_ot_count = 3;
 }
 
 // See https://pkg.go.dev/github.com/bwesterb/go-ristretto@v1.2.0/edwards25519#FieldElement
@@ -89,40 +90,38 @@ message RistrettoPoint {
     FieldElement T = 4; //XY=ZT condition
 }
 
-// We will perform Elliptic Curve Naor Pinkas, instead of the Diffie-Hellman style Naor Pinkas
-message NaorPinkasBaseOtParamSetup {
-    RistrettoPoint basePoint = 1; // G
-    RistrettoPoint pointA = 2; // A=aG
+message EncodedRistrettoPoint {
+    bytes point = 1;
 }
 
-message NaorPinkasBaseOtReceiver {
-    RistrettoPoint pubKeyZero = 1; // k_0 = bG, or k_0 = A - bG
+message OtReceiver {
+    repeated RistrettoPoint points = 1;
 }
 
-message NaorPinkasBaseOtSender {
-    bytes hashSeed = 1; // seed for hash function H
-    RistrettoPoint pointR = 2; // R = rG
-    bytes encryptedM0 = 3; //E_0 = H(rk_0) ^ m_0
-    bytes encryptedM1 = 4; //E_1 = H(rk_1) ^ m_1
+message OtSender {
+    bytes hash_seed = 1;
+    repeated RistrettoPoint points = 1;
+    bytes encrypted_m0 = 3;
+    bytes encrypted_m1 = 4;
 }
 
-message KkrtOtSender {
+message OtExtensionSender {
     message Row {
-        repeated uint64 hashes = 1 [packed=true];
+        repeated uint64 hashes = 1;
     }
-    repeated Row CorrectionMatrix = 1;
+    repeated Row correction_matrices = 1;
     bytes key = 2; //key to AES to generate internal matrices.
 }
 
-message KkrtOtReceiver {
+message OtExtensionReceiver {
     bytes key = 1; //key to AES to generate internal matrices.
 }
 
-message PsiSender {
+message PsiStage {
     message OprfMasks {
-        repeated uint64 hashes = 1 [packed=true]; // an array of 3 hashes.
+        repeated uint64 hashes = 1; // an array of 3 hashes.
     }
 
-    repeated OprfMasks OprfMasksFromCuckooHashTable= 1; // |x| by 3 2D array
-    repeated uint64 OprfMasksFromCuckooHashStash = 2; // |x| by 1 array
+    repeated OprfMasks oprf_masks_from_cuckoo_hash_tables= 1; // |x| by 3 2D array
+    repeated uint64 oprf_masks_from_cuckoo_hash_stashs = 2; // |x| by 1 array
 }

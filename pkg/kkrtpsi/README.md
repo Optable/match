@@ -17,6 +17,16 @@ Discalimer: This is a work in progress.
 
 ## data flow
 
+
+## Progress
+- [x] KKRT PSI protobuf definition
+- [x] KKRT PSI data flow chart
+- [x] Cuckoohash pkg implementation
+- [ ] Base OT network protocol implementation
+- [ ] Naor-Pinkas base OT implementation using OT network implementation
+- [ ] IKNP OT extension (KKRT OT extension) ---> to be explored further
+- [ ] Glue every components together to implement KKRT PSI
+
 ## References
 
 [1] V. Kolesnikov, R. Kumaresan, M. Rosulek, N.Trieu. Efficient Batched Oblivious PRF with Applications to Private Set Intersection. Full version available at https://eprint.iacr.org/2016/799.pdf, and ACM version at https://dl.acm.org/doi/pdf/10.1145/2976749.2978381.
