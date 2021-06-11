@@ -65,12 +65,12 @@ func testSenderByProtocol(p int, t *testing.T) {
 		// generate common data
 		common := emails.Common(s.commonLen)
 		// init a test receiver server
-		addr, err := s_receiverInit(psiDHPSI, common, s.commonLen, s.receiverLen)
+		addr, err := s_receiverInit(p, common, s.commonLen, s.receiverLen)
 		if err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
 		// test sender
-		err = testSender(psiDHPSI, addr, common, s.commonLen, s.senderLen)
+		err = testSender(p, addr, common, s.commonLen, s.senderLen)
 		if err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
