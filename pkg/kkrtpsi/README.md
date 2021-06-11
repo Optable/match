@@ -16,7 +16,37 @@ Discalimer: This is a work in progress.
 
 
 ## data flow
+             Sender                                                                  Receiver
+             X                                                                       Y
 
+
+
+Stage 1      Cuckoo Hash        ◄─────────────────CukooHashSetup────────────────     CH(Y)         Stage 1
+
+
+
+Stage 2.1    OT + OTExtension   ◄───────────────────OTSender─────────────────────                  Stage 2.1
+
+
+                                ───────────────────OTReceiver───────────────────►
+
+
+
+             K                  ◄──────────────OTExtensionReceiver───────────────
+
+
+                                ────────────────OTExtensionSender───────────────►    OPRF(K, Y)
+
+
+
+Stage 3      H', S'             ────────────────────PsiStage────────────────────►                  Stage 3
+
+
+CH(Y):      Cuckoo Hash input Y
+K:          OPRF keys
+OPRF(K, Y): OPRF evaluation of input Y with key K
+H':         OPRF evaluation of input X that are put in cuckoo hash table
+S':         OPRF evaluation of input X that are put in cuckoo stash
 
 ## Progress
 - [x] KKRT PSI protobuf definition
