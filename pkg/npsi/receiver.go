@@ -72,34 +72,25 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// make a channel to receive local x,h pairs
 		receiver := HashAllParallel(h, identifiers)
 		// try to intersect and throw out intersected hashes as we get them
-		var c1 = make(chan uint64)
-		var c2 = make(chan hashPair)
-		var done = make(chan bool)
-		var wg1 sync.WaitGroup
-		var wg2 sync.WaitGroup
-
-		wg1.Add(2)
-		// drain the sender
-		go func() {
-			defer wg1.Done()
-			for Hi := range sender {
-				c1 <- Hi
-			}
-		}()
-		// drain the receiver (local IDs)
-		go func() {
-			defer wg1.Done()
-			for pair := range receiver {
-				c2 <- pair
-			}
-		}()
+		var wg sync.WaitGroup
 		// intersect
-		wg2.Add(1)
+		wg.Add(1)
 		go func() {
-			defer wg2.Done()
+			defer wg.Done()
 			for {
+				// break out of this for loop
+				// if both channels are closed
+				if sender == nil && receiver == nil {
+					break
+				}
 				select {
-				case Hi := <-c1:
+				//case Hi := <-c1:
+				case Hi, ok := <-sender:
+					if !ok {
+						// do not select on this anymore
+						sender = nil
+						continue
+					}
 					// do we have an intersection?
 					if identifier, ok := localIDs[Hi]; ok {
 						// we do
@@ -111,7 +102,13 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 						remoteIDs[Hi] = true
 					}
 
-				case pair := <-c2:
+				//case pair := <-c2:
+				case pair, ok := <-receiver:
+					if !ok {
+						// do not select on this anymore
+						receiver = nil
+						continue
+					}
 					// do we have an intersection?
 					if remoteIDs[pair.h] {
 						// we do
@@ -123,17 +120,14 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 						localIDs[pair.h] = pair.x
 					}
 
-				case <-done:
-					return
+					// todo:
+					//  if Hi is completed and len(intersected) == len(remoteIDs)
+					//  we can stop trying. remove the expulsions for this to work.
 				}
 			}
 		}()
-		// let the drainers finish
-		wg1.Wait()
-		// kill the intersection goroutine
-		close(done)
 		// let the intersection finish
-		wg2.Wait()
+		wg.Wait()
 		// break out
 		return nil
 	}
