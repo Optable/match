@@ -13,7 +13,7 @@ import (
 const (
 	RistrettoTypeGR = iota
 	RistrettoTypeR255
-	RistrettoNative
+	RistrettoNil
 )
 
 type Ristretto interface {
@@ -27,10 +27,6 @@ type GR struct {
 
 type R255 struct {
 	key *r255.Scalar
-}
-
-type Native struct {
-	key [EncodedLen]byte
 }
 
 func NewRistretto(t int) (Ristretto, error) {
@@ -94,5 +90,3 @@ func (r R255) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	tmp = p.Encode(tmp)
 	copy(dst[:], tmp)
 }
-
-// built-in

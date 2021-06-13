@@ -10,6 +10,19 @@ import (
 
 var xxx = []byte("e:person@organization.tld")
 
+type NilRistretto int
+
+// test loopback ristretto just copies data out
+// and does no treatment
+func (g NilRistretto) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
+	// return first 32 bytes of matchable
+	copy(dst[:], src[:32])
+}
+func (g NilRistretto) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
+	// passthrought
+	copy(dst[:], src[:])
+}
+
 func TestInterOperability(t *testing.T) {
 	// gr
 	var p1 ristretto.Point
