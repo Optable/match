@@ -206,7 +206,7 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 				err := r.Read(&b.batch[j])
 				if err != nil {
 					// cancel everything
-					closed <- true
+					close(closed)
 					return
 				}
 			}

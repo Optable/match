@@ -53,6 +53,9 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// the final intersection
 	var intersection [][]byte
 	// the permutations algo used
+	// it might contains a seed
+	// or a pre-computed order so extract it for use
+	// in the intersection part
 	var permutations permutations.Permutations
 
 	// pick a ristretto implementation
