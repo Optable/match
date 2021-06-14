@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/optable/match/internal/util"
 	"github.com/optable/match/pkg/dhpsi"
@@ -72,10 +73,12 @@ func main() {
 
 	// count lines
 	log.Printf("counting lines in %s", *file)
+	t := time.Now()
 	n, err := util.Count(f)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("that took %v", time.Now().Sub(t))
 	log.Printf("operating on %s with %d IDs", *file, n)
 
 	// get a listener
