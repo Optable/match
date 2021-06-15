@@ -1,62 +1,49 @@
 package ot
 
-// each base OT has the following 2 methods
+import (
+	"fmt"
+	"golang.org/x/crypto/curve25519"
+)
+
+const (
+	NaorPinkas = iota
+	Simplest
+)
+
+var (
+	ErrUnknownOt          = fmt.Errorf("cannot create an Ot that follows an unknown protocol")
+	ErrBaseCountMissMatch = fmt.Errorf("provided slices is not the same length as the number of base OT.")
+)
+
+// OT implements different BaseOT
 type Ot interface {
-	Send()
-	Receive()
+	Send(messages [][2]string, c chan []byte) error
+	Receive(choices []uint8, messages []string, c chan []byte) error
 }
 
-// Sender is a generic OT sender type
-// that has a slice of pairs of messages
-type Sender struct {
-	// arrays of m_0, m_1
-	messages [][2]string
-	// channel to send encrypted msgs
-	c chan []byte
-}
-
-// Receiver is a generic OT receiver type
-// that has a slice of choic bits and a slice
-// of received messages
-type Receiver struct {
-	// choice bits
-	choices []uint8
-	//messages
-	messages []string
-	// channel to send choice bits and receive messages
-	c chan []byte
-}
-
-// A base OT has a sender and a receiver
-type BaseOt struct {
-	Sender
-	Receiver
-}
-
-// NewSender returns a Sender struct
-func NewSender(messages [][2]string) Sender {
-	return Sender{
-		messages: messages,
-		c:        make(chan []byte),
+// NewBaseOt returns an Ot of type t
+func NewBaseOt(t int, baseCount int) (Ot, error) {
+	switch t {
+	case NaorPinkas:
+		return NewNaorPinkas(baseCount)
+	case Simplest:
+		return NewSimplest(baseCount)
+	default:
+		return nil, ErrUnknownOt
 	}
 }
 
-// NewReceiver returns a Receiver struct
-func NewReceiver(choices []uint8) Receiver {
-	return Receiver{
-		choices: choices,
-		// receives # of choice bit messages
-		messages: make([]string, len(choices)),
-		c:        make(chan []byte),
+func genSecretKey() (secret []byte, err error) {
+	secret := make([]byte, curve25519.ScalarSize)
+	if _, err := rand.Read(secret); err != nil {
+		return nil, err
 	}
+	return
 }
 
-// InitBaseOT returns a BaseOT struct with number of baseOT configured.
-func InitBaseOt(baseCount int) *BaseOt {
-	msgs := make([][2]string, baseCount)
-	choices := make([]uint8, baseCount)
-	return &BaseOt{
-		NewSender(msgs),
-		NewReceiver(choices),
+func genPublicKey(secret []byte) (public []byte, err error) {
+	if public, err := curve25519.x25519(secret, curve25519.Basepoint); err != nil {
+		return nil, err
 	}
+	return
 }
