@@ -2,8 +2,8 @@ package ot
 
 // each base OT has the following 2 methods
 type Ot interface {
-	send()
-	receive()
+	Send()
+	Receive()
 }
 
 type Sender struct {
