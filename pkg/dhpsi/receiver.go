@@ -33,7 +33,7 @@ type permuted struct {
 // IntersectFromReader on n matchables,
 // sourced from r, returning the matching intersection.
 // The format of an indentifier is
-//  PREFIX:MATCHABLE\r\n
+//  string\n
 func (s *Receiver) IntersectFromReader(ctx context.Context, n int64, r io.Reader) ([][]byte, error) {
 	var identifiers = util.Exhaust(n, r)
 	return s.Intersect(ctx, n, identifiers)
@@ -42,7 +42,7 @@ func (s *Receiver) IntersectFromReader(ctx context.Context, n int64, r io.Reader
 // Intersect on n matchables,
 // sourced from identifiers, returning the matching intersection.
 // The format of an indentifier is
-//  PREFIX:MATCHABLE
+//  string
 func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// state
 	var remoteIDs = make(map[[EncodedLen]byte]bool) // single write goroutine access from stage1

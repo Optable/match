@@ -19,7 +19,7 @@ const (
 
 func main() {
 	var ws sync.WaitGroup
-	fmt.Printf("generating %d sender(s) and %d receiver(s) emails with %d in common\r\n", senderCardinality, receiverCardinality, commonCardinality)
+	fmt.Printf("generating %d sender(s) and %d receiver(s) IDs with %d in common\r\n", senderCardinality, receiverCardinality, commonCardinality)
 	// make the common part
 	common := emails.Common(commonCardinality)
 	// do advertisers & publishers in parallel
@@ -35,8 +35,10 @@ func output(filename string, common []byte, n int, ws *sync.WaitGroup) {
 		defer f.Close()
 		// exhaust out
 		for matchable := range emails.Mix(common, n) {
+			// add \n
+			out := append(matchable, "\n"...)
 			// and write it
-			if _, err := f.Write(matchable); err != nil {
+			if _, err := f.Write(out); err != nil {
 				log.Fatal(err)
 			}
 		}

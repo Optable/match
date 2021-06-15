@@ -26,9 +26,9 @@ func NewSender(rw io.ReadWriter) *Sender {
 
 // SendFromReader initiates a DHPSI exchange with n identifiers
 // that are read from r. The format of an indentifier is
-//  PREFIX:MATCHABLE\r\n
+//  string\n
 // example:
-//  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e\r\n
+//  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e\r\n
 func (s *Sender) SendFromReader(ctx context.Context, n int64, r io.Reader) error {
 	// extract r into a channel via SafeRead
 	var identifiers = util.Exhaust(n, r)
@@ -37,9 +37,9 @@ func (s *Sender) SendFromReader(ctx context.Context, n int64, r io.Reader) error
 
 // Send initiates a DHPSI exchange with n identifiers
 // that are read from the identifiers channel, until identifiers closes or n is reached.
-// The format of an indentifier is PREFIX:MATCHABLE
+// The format of an indentifier is string
 // example:
-//  e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
+//  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
 	// pick a ristretto implementation
 	gr, _ := NewRistretto(RistrettoTypeR255)

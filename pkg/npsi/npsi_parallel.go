@@ -51,6 +51,7 @@ func init() {
 // HashAllParallel reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
 func HashAllParallel(h hash.Hasher, identifiers <-chan []byte) <-chan hashPair {
+	// one wg.Add() per batch + one for the batcher go routine
 	var wg sync.WaitGroup
 	var pairs = make(chan hashPair)
 
@@ -62,10 +63,15 @@ func HashAllParallel(h hash.Hasher, identifiers <-chan []byte) <-chan hashPair {
 		wg.Done()
 	}
 
-	// parallel hash is overkill here. these hash operations are
-	// super fast. we do get localized pseudo randomness out of this
+	// parallel hash is overkill here probably.
+	// these hash operations are super fast.
+	// we do get localized pseudo randomness out of this
 	// since no effort is made to re-order finished batches
+	// batchSize has to be big enought to amortize the cost of the
+	// heavy machinery deployed here
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		var i = 0
 		// init a first batch
 		var batch = makeOp(h, batchSize, f)
@@ -89,11 +95,15 @@ func HashAllParallel(h hash.Hasher, identifiers <-chan []byte) <-chan hashPair {
 			hOpBus <- batch
 		}
 	}()
+
 	// turn the lights off on your way out
+	// it has to happen after at least once batch
+	// has been sent for processing
 	go func() {
 		wg.Wait()
 		close(pairs)
 	}()
+
 	return pairs
 }
 
