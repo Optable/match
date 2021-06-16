@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
+	"net"
 	"sync"
 
 	"github.com/optable/match/internal/hash"
@@ -22,6 +23,10 @@ type Receiver struct {
 // NewReceiver returns a receiver initialized to
 // use rw as the communication layer
 func NewReceiver(rw io.ReadWriter) *Receiver {
+	switch v := rw.(type) {
+	case *net.TCPConn:
+		v.SetNoDelay(false)
+	}
 	return &Receiver{rw: rw}
 }
 
@@ -48,7 +53,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 
 	// stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
-	stage2 := func() error {
+	stage2v2 := func() error {
 		//
 		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)
@@ -74,63 +79,30 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// try to intersect and throw out intersected hashes as we get them
 		var wg sync.WaitGroup
 		// intersect
-		wg.Add(1)
+		wg.Add(2)
 		go func() {
+			// index the sender
 			defer wg.Done()
-			for {
-				// break out of this for loop
-				// if both channels are closed
-				if sender == nil && receiver == nil {
-					break
-				}
-				// merge sender&receiver
-				select {
-				case Hi, ok := <-sender:
-					if !ok {
-						// do not select on this anymore
-						sender = nil
-						continue
-					}
-					// do we have an intersection?
-					if identifier, ok := localIDs[Hi]; ok {
-						// we do
-						intersected = append(intersected, identifier)
-						// expulse it
-						delete(localIDs, Hi)
-					} else {
-						// we dont, cache this
-						remoteIDs[Hi] = true
-					}
-
-				case pair, ok := <-receiver:
-					if !ok {
-						// do not select on this anymore
-						receiver = nil
-						continue
-					}
-					// do we have an intersection?
-					if remoteIDs[pair.h] {
-						// we do
-						intersected = append(intersected, pair.x)
-						// expulse it
-						delete(remoteIDs, pair.h)
-					} else {
-						// we dont, cache this
-						localIDs[pair.h] = pair.x
-					}
-				}
-
-				// todo:
-				//  if Hi is completed and len(intersected) == len(remoteIDs)
-				//  we can stop trying. remove the expulsions for this to work.
-				//  this needs the able to cancel the receiver goroutine otherwise it will leak
-				//if sender == nil && len(intersected) == len(remoteIDs) {
-				//	break
-				//}
+			for h := range sender {
+				remoteIDs[h] = true
 			}
 		}()
-		// let the intersection finish
+		go func() {
+			// index the receiver
+			defer wg.Done()
+			for pair := range receiver {
+				localIDs[pair.h] = pair.x
+			}
+		}()
+		// let the indexing finish
 		wg.Wait()
+		// intersect
+		for h, x := range localIDs {
+			if remoteIDs[h] {
+				intersected = append(intersected, x)
+			}
+		}
+
 		// break out
 		return nil
 	}
@@ -141,7 +113,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 
 	// run stage 2
-	if err := util.Sel(ctx, stage2); err != nil {
+	if err := util.Sel(ctx, stage2v2); err != nil {
 		return intersected, err
 	}
 
