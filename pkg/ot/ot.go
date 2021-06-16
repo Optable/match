@@ -42,13 +42,13 @@ func NewBaseOt(t int, baseCount int, curveName string) (Ot, error) {
 
 func InitCurve(curveName string) (curve elliptic.Curve) {
 	switch curveName {
-	case "p224":
+	case "P224":
 		curve = elliptic.P224()
 	case "P256":
 		curve = elliptic.P256()
 	case "P384":
 		curve = elliptic.P384()
-	case "p521":
+	case "P521":
 		curve = elliptic.P521()
 	default:
 		curve = elliptic.P256()
