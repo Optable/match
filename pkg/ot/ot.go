@@ -54,8 +54,8 @@ func (w *Writer) Write(point []byte) (err error) {
 }
 
 // Read reads a marshalled elliptic curve point from reader and stores it in point
-func (r *Reader) Read(point *[]byte) (err error) {
-	if _, err = r.r.Read(*point); err != nil {
+func (r *Reader) Read(point []byte) (err error) {
+	if _, err = r.r.Read(point); err != nil {
 		return err
 	}
 	return

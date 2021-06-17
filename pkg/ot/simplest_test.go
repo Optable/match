@@ -5,23 +5,38 @@ import (
 	"testing"
 )
 
-func TestSend(t *testing.T) {
-	msgs := make([][2][]byte, 3)
-	msgs[0] = [2][]byte{[]byte("m0"), []byte("m1")}
-	msgs[1] = [2][]byte{[]byte("secret1"), []byte("secret2")}
-	msgs[2] = [2][]byte{[]byte("code1"), []byte("code2")}
-	s, _ := NewBaseOt(0, len(msgs), "P256")
+var (
+	network = "tcp"
+	address = "127.0.0.1:10008"
+	msgs    = [][2][]byte{
+		{[]byte("m0"), []byte("m1")},
+		{[]byte("secret1"), []byte("secret2")},
+		{[]byte("code1"), []byte("code2")},
+	}
+	choices = []uint8{0, 1, 1}
+	curve   = "P256"
+)
 
-	l, err := net.Listen("tcp", "127.0.0.1:10008")
+func TestSimplest(t *testing.T) {
+	ss, err := NewBaseOt(1, len(msgs), curve)
+	if err != nil {
+		t.Errorf("Error creating simplest OT: %s", err)
+	}
+
+	l, err := net.Listen(network, address)
 	if err != nil {
 		t.Errorf("net listen encountered error: %s", err)
 	}
 	defer l.Close()
 
 	go func() {
-		_, err := net.Dial("tcp", "127.0.0.1:10008")
+		scon, err := net.Dial(network, address)
 		if err != nil {
 			t.Errorf("Cannot dial: %s", err)
+		}
+		err = ss.Send(msgs, scon)
+		if err != nil {
+			t.Errorf("Send encountered error: %s", err)
 		}
 	}()
 
@@ -31,8 +46,10 @@ func TestSend(t *testing.T) {
 	}
 	defer conn.Close()
 
-	err = s.Send(msgs, conn)
+	sr, err := NewBaseOt(1, len(choices), curve)
+	msg := make([][]byte, len(choices))
+	err = sr.Receive(choices, msg, conn)
 	if err != nil {
-		t.Errorf("Send encountered error: %s", err)
+		t.Errorf("Receive encountered error: %s", err)
 	}
 }
