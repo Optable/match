@@ -26,12 +26,12 @@ func NewSender(rw io.ReadWriter) *Sender {
 
 // SendFromReader initiates a DHPSI exchange with n identifiers
 // that are read from r. The format of an indentifier is
-//  string\r\n
+//  string\n
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e\r\n
 func (s *Sender) SendFromReader(ctx context.Context, n int64, r io.Reader) error {
 	// extract r into a channel via SafeRead
-	var identifiers = exhaust(n, r)
+	var identifiers = util.Exhaust(n, r)
 	return s.Send(ctx, n, identifiers)
 }
 

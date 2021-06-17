@@ -5,7 +5,7 @@ steps:
 - name: test
   image: golang
   commands:
-  - go test ./...
+  - go test -v ./...
   environment:
     GOOS: linux
     GOARCH: amd64

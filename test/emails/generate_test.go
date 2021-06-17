@@ -19,7 +19,8 @@ func initDataSource(common []byte) *bufio.Reader {
 	go func() {
 		matchables := Mix(common, Cardinality-CommonCardinality)
 		for matchable := range matchables {
-			if _, err := o.Write(matchable); err != nil {
+			out := append(matchable, "\n"...)
+			if _, err := o.Write(out); err != nil {
 				return
 			}
 		}
