@@ -5,21 +5,29 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
+	"io"
 )
 
 type simplest struct {
 	baseCount int
 	curve     elliptic.Curve
+	encodeLen int
 }
 
 func NewSimplest(baseCount int, curveName string) (*simplest, error) {
-	return &simplest{baseCount: baseCount, curve: InitCurve(curveName)}, nil
+	curve := InitCurve(curveName)
+	encodeLen := len(elliptic.Marshal(curve, curve.Params().Gx, curve.Params().Gy))
+	return &simplest{baseCount: baseCount, curve: curve, encodeLen: encodeLen}, nil
 }
 
-func (s *simplest) Send(messages [][2][]byte, c chan []byte) error {
+func (s *simplest) Send(messages [][2][]byte, rw io.ReadWriter) error {
 	if len(messages) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
+
+	// Instantiate Reader, Writer
+	r := NewReader(rw)
+	w := NewWriter(rw)
 
 	// generate sender secret public key pairs
 	a, Ax, Ay, err := elliptic.GenerateKey(s.curve, rand.Reader)
@@ -29,18 +37,17 @@ func (s *simplest) Send(messages [][2][]byte, c chan []byte) error {
 
 	// send point A in marshaled []byte to receiver
 	A := elliptic.Marshal(s.curve, Ax, Ay)
-	c <- A
+
+	w.Write(A)
 
 	// make a slice of point B, 1 for each OT, and receive them
-	var B [][]byte
-	for b := range c {
-		B = append(B, b)
+	B := make([][]byte, s.baseCount)
+	for i, _ := range B {
+		B[i] = make([]byte, s.encodeLen)
+		r.Read(&B[i])
 	}
 
-	//sanity check
-	if len(B) != s.baseCount {
-		return fmt.Errorf("Miss match with # of elements in channel and baseCount, got %d elements", len(B))
-	}
+	// how to check if B[i] actually contains read values?
 
 	// A = aA
 	Ax, Ay = s.curve.ScalarMult(Ax, Ay, a)
@@ -70,7 +77,7 @@ func (s *simplest) Send(messages [][2][]byte, c chan []byte) error {
 		}
 
 		// send encrypted m0
-		c <- m0
+		w.Write(m0)
 
 		//k1 = a(B - A) = aB - aA
 		k1x, k1y := s.curve.Add(k0x, k0y, Ax, Ay)
@@ -88,22 +95,25 @@ func (s *simplest) Send(messages [][2][]byte, c chan []byte) error {
 		}
 
 		// send encrypted m1
-		c <- m1
+		w.Write(m1)
 	}
-
-	// close channel
-	close(c)
 
 	return nil
 }
 
-func (s *simplest) Receive(choices []uint8, messages [][]byte, c chan []byte) error {
+func (s *simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) error {
 	if len(choices) != len(messages) || len(choices) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
+	// instantiate Reader, Writer
+	r := NewReader(rw)
+	w := NewWriter(rw)
+
 	// Receive marshalled point A from sender
-	A := <-c
+	A := make([]byte, s.encodeLen)
+	r.Read(&A)
+
 	Ax, Ay := elliptic.Unmarshal(s.curve, A)
 	// sanity check
 	if !s.curve.IsOnCurve(Ax, Ay) {
@@ -111,16 +121,16 @@ func (s *simplest) Receive(choices []uint8, messages [][]byte, c chan []byte) er
 	}
 
 	// Generate points B, 1 for each OT
-	// TODO: should we store all B?
 	B := make([][]byte, s.baseCount)
 	bSecrets := make([][]byte, s.baseCount)
 	for i := 0; i < s.baseCount; i++ {
 		// generate receiver priv/pub key pairs
 		b, Bx, By, err := elliptic.GenerateKey(s.curve, rand.Reader)
-		bSecrets[i] = b
 		if err != nil {
 			return err
 		}
+		bSecrets[i] = b
+
 		// for each choice bit, compute the resultant point B
 		switch choices[i] {
 		case 0:
@@ -134,21 +144,18 @@ func (s *simplest) Receive(choices []uint8, messages [][]byte, c chan []byte) er
 		}
 
 		// send marshalled point B to sender
-		c <- B[i]
+		w.Write(B[i])
 	}
 
 	// receive encrypted messages
-	var enc [][]byte
-	for m := range c {
-		enc = append(enc, m)
+	enc := make([][]byte, s.baseCount)
+	for _, m := range enc {
+		r.Read(&m)
 	}
 
-	// close c
-	close(c)
-
 	//sanity check
-	if len(enc) != s.baseCount {
-		return fmt.Errorf("Miss match with # of elements in channel and baseCount, got %d elements", len(B))
+	if len(enc[0]) == 0 {
+		return fmt.Errorf("Did not receive encrypted messages from Send")
 	}
 
 	// build keys for encypting messages

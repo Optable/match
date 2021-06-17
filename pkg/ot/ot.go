@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"math/big"
 )
 
@@ -24,8 +25,40 @@ var (
 
 // OT implements different BaseOT
 type Ot interface {
-	Send(messages [][2][]byte, c chan []byte) error
-	Receive(choices []uint8, messages [][]byte, c chan []byte) error
+	Send(messages [][2][]byte, rw io.ReadWriter) error
+	Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) error
+}
+
+type Writer struct {
+	w io.Writer
+}
+
+type Reader struct {
+	r io.Reader
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{w: w}
+}
+
+func NewReader(r io.Reader) *Reader {
+	return &Reader{r: r}
+}
+
+// Write writes the marshalled elliptic curve point to writer
+func (w *Writer) Write(point []byte) (err error) {
+	if _, err = w.w.Write(point); err != nil {
+		return err
+	}
+	return
+}
+
+// Read reads a marshalled elliptic curve point from reader and stores it in point
+func (r *Reader) Read(point *[]byte) (err error) {
+	if _, err = r.r.Read(*point); err != nil {
+		return err
+	}
+	return
 }
 
 // NewBaseOt returns an Ot of type t
