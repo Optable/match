@@ -23,7 +23,7 @@ type Sender struct {
 // use rw as the communication layer
 func NewSender(rw io.ReadWriter) *Sender {
 	switch v := rw.(type) {
-	// disable nagle
+	// enable nagle
 	case *net.TCPConn:
 		v.SetNoDelay(false)
 	}
