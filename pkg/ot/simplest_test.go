@@ -25,13 +25,11 @@ func initReceiver(msgBus chan<- []byte, errs chan<- error) (string, error) {
 	}
 
 	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
-			}
-			go receiveHandler(conn, msgBus, errs)
+		conn, err := l.Accept()
+		if err != nil {
+			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
+		go receiveHandler(conn, msgBus, errs)
 	}()
 	return l.Addr().String(), nil
 }
@@ -66,7 +64,7 @@ func TestSimplestOt(t *testing.T) {
 	}
 
 	msgBus := make(chan []byte)
-	errs := make(chan error, 2)
+	errs := make(chan error, 5)
 
 	addr, err := initReceiver(msgBus, errs)
 	if err != nil {
@@ -86,7 +84,9 @@ func TestSimplestOt(t *testing.T) {
 		err = ss.Send(msgs, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
+			close(msgBus)
 		}
+
 	}()
 
 	// Receive msg
@@ -103,6 +103,10 @@ func TestSimplestOt(t *testing.T) {
 	}
 
 	// verify if the received msgs are correct:
+	if len(msg) == 0 {
+		t.Fatalf("OT failed, did not receive any messages")
+	}
+
 	for i, m := range msg {
 		if string(m) != string(msgs[i][choices[i]]) {
 			t.Fatalf("OT failed, want to receive msg: %s, got: %s", string(msgs[i][choices[i]]), string(m))
