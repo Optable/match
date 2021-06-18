@@ -2,23 +2,43 @@ package ot
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"testing"
+	"time"
 )
 
 var (
-	network = "tcp"
-	address = "127.0.0.1:"
-	msgs    = [][2][]byte{
-		{[]byte("m0"), []byte("m1")},
-		{[]byte("secret1"), []byte("secret2")},
-		{[]byte("code1"), []byte("code2")},
-	}
-	choices = []uint8{0, 1, 1}
-	curve   = "P256"
+	network   = "tcp"
+	address   = "127.0.0.1:"
+	curve     = "P256"
+	baseCount = 256
 )
 
-func initReceiver(msgBus chan<- []byte, errs chan<- error) (string, error) {
+func genMsg(n int) [][2][]byte {
+	rand.Seed(time.Now().UnixNano())
+	data := make([][2][]byte, n)
+	for i := 0; i < n; i++ {
+		for j, _ := range data[i] {
+			data[i][j] = make([]byte, 64)
+			rand.Read(data[i][j])
+		}
+	}
+
+	return data
+}
+
+func genChoiceBits(n int) []uint8 {
+	choices := make([]uint8, n)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i, _ := range choices {
+		choices[i] = uint8(r.Intn(2))
+	}
+
+	return choices
+}
+
+func initReceiver(msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -29,17 +49,13 @@ func initReceiver(msgBus chan<- []byte, errs chan<- error) (string, error) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
-		go receiveHandler(conn, msgBus, errs)
+		go receiveHandler(conn, msgLen, choices, msgBus, errs)
 	}()
 	return l.Addr().String(), nil
 }
 
-func receiveHandler(conn net.Conn, msgBus chan<- []byte, errs chan<- error) {
+func receiveHandler(conn net.Conn, msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
-	msgLen := make([]int, len(msgs))
-	for i, m := range msgs {
-		msgLen[i] = len(m[0])
-	}
 
 	sr, err := NewBaseOt(1, len(choices), curve, msgLen)
 	if err != nil {
@@ -58,15 +74,18 @@ func receiveHandler(conn net.Conn, msgBus chan<- []byte, errs chan<- error) {
 }
 
 func TestSimplestOt(t *testing.T) {
+	msgs := genMsg(baseCount)
 	msgLen := make([]int, len(msgs))
 	for i, m := range msgs {
 		msgLen[i] = len(m[0])
 	}
 
+	choices := genChoiceBits(baseCount)
+
 	msgBus := make(chan []byte)
 	errs := make(chan error, 5)
 
-	addr, err := initReceiver(msgBus, errs)
+	addr, err := initReceiver(msgLen, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}

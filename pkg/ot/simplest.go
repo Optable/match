@@ -24,7 +24,7 @@ func newSimplest(baseCount int, curveName string, msgLen []int) (simplest, error
 	return simplest{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
 }
 
-func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) error {
+func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
@@ -63,6 +63,7 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) error {
 	Ax, Ay = s.curve.ScalarMult(Ax, Ay, a)
 	Ay.Neg(Ay) // -Ay
 	var kx, ky *big.Int
+	var k, ciphertext []byte
 
 	// encrypt plaintext messages and send it.
 	for i := 0; i < s.baseCount; i++ {
@@ -81,7 +82,7 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) error {
 			}
 
 			// derive key for aes
-			k := deriveKey(elliptic.Marshal(s.curve, kx, ky))
+			k = deriveKey(elliptic.Marshal(s.curve, kx, ky))
 
 			// instantiate AES
 			block, err := aes.NewCipher(k)
@@ -90,13 +91,13 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) error {
 			}
 
 			// encrypt plaintext using aes GCM mode
-			ciphertext, err := encrypt(block, plaintext)
+			ciphertext, err = encrypt(block, plaintext)
 			if err != nil {
 				return fmt.Errorf("Error encrypting sender message: %s\n", err)
 			}
 
 			// send ciphertext
-			if _, err := w.w.Write(ciphertext); err != nil {
+			if _, err = w.w.Write(ciphertext); err != nil {
 				return err
 			}
 		}
@@ -105,7 +106,7 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) error {
 	return nil
 }
 
-func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) error {
+func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
 	if len(choices) != len(messages) || len(choices) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
@@ -127,9 +128,11 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, s.baseCount)
+	var Bx, By *big.Int
+	var b []byte
 	for i := 0; i < s.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		b, Bx, By, err := elliptic.GenerateKey(s.curve, rand.Reader)
+		b, Bx, By, err = elliptic.GenerateKey(s.curve, rand.Reader)
 		if err != nil {
 			return err
 		}
