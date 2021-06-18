@@ -19,7 +19,8 @@ func TestInitCurve(t *testing.T) {
 	}
 
 	for _, tt := range curveTests {
-		got := InitCurve(tt.name).Params().Name
+		c, _ := initCurve(tt.name)
+		got := c.Params().Name
 		if got != tt.want {
 			t.Errorf("InitCurve(%s): want curve %s, got curve %s", tt.name, tt.name, got)
 		}

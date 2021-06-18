@@ -1,6 +1,7 @@
 package ot
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -19,8 +20,7 @@ var (
 	ErrUnknownOt          = fmt.Errorf("cannot create an Ot that follows an unknown protocol")
 	ErrBaseCountMissMatch = fmt.Errorf("provided slices is not the same length as the number of base OT.")
 
-	ZeroByte = big.NewInt(0).Bytes()
-	OneByte  = big.NewInt(1).Bytes()
+	nonceSize = 12 //aesgcm NonceSize
 )
 
 // OT implements different BaseOT
@@ -30,50 +30,68 @@ type Ot interface {
 }
 
 type Writer struct {
-	w io.Writer
+	w     io.Writer
+	curve elliptic.Curve
 }
 
 type Reader struct {
-	r io.Reader
+	r         io.Reader
+	curve     elliptic.Curve
+	encodeLen int
 }
 
-func NewWriter(w io.Writer) *Writer {
-	return &Writer{w: w}
+type points struct {
+	x *big.Int
+	y *big.Int
 }
 
-func NewReader(r io.Reader) *Reader {
-	return &Reader{r: r}
+func newWriter(w io.Writer, c elliptic.Curve) *Writer {
+	return &Writer{w: w, curve: c}
+}
+
+func newReader(r io.Reader, c elliptic.Curve, l int) *Reader {
+	return &Reader{r: r, curve: c, encodeLen: l}
+}
+
+func newPoints(x, y *big.Int) points {
+	return points{x: x, y: y}
 }
 
 // Write writes the marshalled elliptic curve point to writer
-func (w *Writer) Write(point []byte) (err error) {
-	if _, err = w.w.Write(point); err != nil {
+func (w *Writer) write(p points) (err error) {
+	if _, err = w.w.Write(elliptic.Marshal(w.curve, p.x, p.y)); err != nil {
 		return err
 	}
 	return
 }
 
 // Read reads a marshalled elliptic curve point from reader and stores it in point
-func (r *Reader) Read(point []byte) (err error) {
-	if _, err = r.r.Read(point); err != nil {
+func (r *Reader) read(p points) (err error) {
+	pt := make([]byte, r.encodeLen)
+	if _, err = io.ReadFull(r.r, pt); err != nil {
 		return err
 	}
+
+	px, py := elliptic.Unmarshal(r.curve, pt)
+
+	p.x.Set(px)
+	p.y.Set(py)
 	return
 }
 
 // NewBaseOt returns an Ot of type t
-func NewBaseOt(t int, baseCount int, curveName string) (Ot, error) {
+func NewBaseOt(t int, baseCount int, curveName string, msgLen []int) (Ot, error) {
 	switch t {
 	case NaorPinkas:
-		return NewNaorPinkas(baseCount, curveName)
+		return newNaorPinkas(baseCount, curveName, msgLen)
 	case Simplest:
-		return NewSimplest(baseCount, curveName)
+		return newSimplest(baseCount, curveName, msgLen)
 	default:
 		return nil, ErrUnknownOt
 	}
 }
 
-func InitCurve(curveName string) (curve elliptic.Curve) {
+func initCurve(curveName string) (curve elliptic.Curve, encodeLen int) {
 	switch curveName {
 	case "P224":
 		curve = elliptic.P224()
@@ -86,6 +104,7 @@ func InitCurve(curveName string) (curve elliptic.Curve) {
 	default:
 		curve = elliptic.P256()
 	}
+	encodeLen = len(elliptic.Marshal(curve, curve.Params().Gx, curve.Params().Gy))
 	return
 }
 
@@ -93,6 +112,11 @@ func InitCurve(curveName string) (curve elliptic.Curve) {
 func deriveKey(point []byte) []byte {
 	key := sha256.Sum256(point)
 	return key[:]
+}
+
+// compute ciphertext length in bytes
+func encryptLen(msgLen int) int {
+	return nonceSize + aes.BlockSize + msgLen
 }
 
 // aes GCM block cipher encryption

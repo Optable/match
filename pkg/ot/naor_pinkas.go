@@ -9,12 +9,15 @@ type naorPinkas struct {
 	baseCount int
 	curve     elliptic.Curve
 	encodeLen int
+	msgLen    []int
 }
 
-func NewNaorPinkas(baseCount int, curveName string) (naorPinkas, error) {
-	curve := InitCurve(curveName)
-	encodeLen := len(elliptic.Marshal(curve, curve.Params().Gx, curve.Params().Gy))
-	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen}, nil
+func newNaorPinkas(baseCount int, curveName string, msgLen []int) (naorPinkas, error) {
+	if len(msgLen) != baseCount {
+		return naorPinkas{}, ErrBaseCountMissMatch
+	}
+	curve, encodeLen := initCurve(curveName)
+	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
 }
 
 func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) error {
