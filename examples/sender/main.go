@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime/pprof"
 
 	"github.com/optable/match/internal/util"
 	"github.com/optable/match/pkg/dhpsi"
@@ -35,6 +36,7 @@ func main() {
 	var addr = flag.String("a", defaultAddress, "The receiver address")
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	var showHelp = flag.Bool("h", false, "Show help message")
+	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 	log.SetFlags(0)
 	flag.Usage = usage
@@ -42,6 +44,15 @@ func main() {
 
 	if *showHelp {
 		showUsageAndExit(0)
+	}
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 
 	// validate protocol

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -42,6 +43,7 @@ func main() {
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	out = flag.String("out", defaultCommonFileName, "A list of IDs that intersect between the receiver and the sender")
 	var once = flag.Bool("once", false, "Exit after processing one receiver")
+	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 	var showHelp = flag.Bool("h", false, "Show help message")
 
@@ -51,6 +53,15 @@ func main() {
 
 	if *showHelp {
 		showUsageAndExit(0)
+	}
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 
 	// validate protocol
