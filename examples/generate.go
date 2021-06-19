@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	senderCardinality   = 1000
+	senderCardinality   = 5000000
 	senderFileName      = "sender-ids.txt"
-	receiverCardinality = 10000
+	receiverCardinality = 5000000
 	receiverFileName    = "receiver-ids.txt"
 	commonCardinality   = senderCardinality / 10
 )
