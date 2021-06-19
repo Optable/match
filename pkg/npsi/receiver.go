@@ -1,6 +1,7 @@
 package npsi
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -69,12 +70,16 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		if err := binary.Read(r.rw, binary.BigEndian, &n); err != nil {
 			return err
 		}
+
+		// Add a buffer of 64k to amortize syscalls cost
+		bufR := bufio.NewReaderSize(r.rw, 64*1024)
+
 		//
 		// stage2 : P2 receives hashes from P1 (Hi) and computes its own hashes from Xj,
 		// then the intersection with its own hashes (Hj)
 		//
 		// make a channel to receive hashes from the sender
-		sender := ReadAll(r.rw, n)
+		sender := ReadAll(bufR, n)
 		// make a channel to receive local x,h pairs
 		receiver := HashAllParallel(h, identifiers)
 		// try to intersect and throw out intersected hashes as we get them
