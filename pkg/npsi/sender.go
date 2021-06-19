@@ -1,6 +1,7 @@
 package npsi
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -59,11 +60,16 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			if err := binary.Write(s.rw, binary.BigEndian, &n); err != nil {
 				return err
 			}
+
+			// Add a buffer of 64k to amortize syscalls cost
+			bufW := bufio.NewWriterSize(s.rw, 1024*64)
+			defer bufW.Flush()
+
 			// make a channel to receive local x,h pairs
 			sender := HashAllParallel(h, identifiers)
 			// exhaust the hashes into the receiver
 			for hash := range sender {
-				if err := HashWrite(s.rw, hash.h); err != nil {
+				if err := HashWrite(bufW, hash.h); err != nil {
 					return fmt.Errorf("stage2: %v", err)
 				}
 			}
