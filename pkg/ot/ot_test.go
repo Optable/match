@@ -22,22 +22,51 @@ func TestInitCurve(t *testing.T) {
 		c, _ := initCurve(tt.name)
 		got := c.Params().Name
 		if got != tt.want {
-			t.Errorf("InitCurve(%s): want curve %s, got curve %s", tt.name, tt.name, got)
+			t.Fatalf("InitCurve(%s): want curve %s, got curve %s", tt.name, tt.name, got)
 		}
 	}
 }
 
-func TestDeriveKey(t *testing.T) {
+func TestNewNaorPinkas(t *testing.T) {
+	ot, err := NewBaseOt(0, 3, "P256", []int{1, 2, 3})
+	if err != nil {
+		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
+	}
+
+	if _, ok := ot.(naorPinkas); !ok {
+		t.Fatalf("expected type naorPinkas, got %T", ot)
+	}
+}
+
+func TestNewSimplest(t *testing.T) {
+	ot, err := NewBaseOt(1, 3, "P256", []int{1, 2, 3})
+	if err != nil {
+		t.Fatalf("got error %v while creating Simplest baseOt", err)
+	}
+
+	if _, ok := ot.(simplest); !ok {
+		t.Fatalf("expected type simplest, got %T", ot)
+	}
+}
+
+func TestNewUnknownOt(t *testing.T) {
+	_, err := NewBaseOt(2, 3, "P256", []int{1, 2, 3})
+	if err == nil {
+		t.Fatal("should get error creating unknown baseOt")
+	}
+}
+
+func rTestDeriveKey(t *testing.T) {
 	c := elliptic.P256()
 	_, px, py, err := elliptic.GenerateKey(c, rand.Reader)
 	if err != nil {
-		t.Errorf("elliptic curve GenerateKey failed: %s", err)
+		t.Fatal(err)
 	}
 
 	p := elliptic.Marshal(c, px, py)
 	key := deriveKey(p)
 	if len(key) != 32 {
-		t.Errorf("Derived key length is not 32, got: %d", len(key))
+		t.Fatalf("derived key length is not 32, got: %d", len(key))
 	}
 }
 
@@ -45,29 +74,29 @@ func TestEncrypDecrypt(t *testing.T) {
 	c := elliptic.P256()
 	_, px, py, err := elliptic.GenerateKey(c, rand.Reader)
 	if err != nil {
-		t.Errorf("elliptic curve GenerateKey failed: %s", err)
+		t.Fatalf("elliptic curve GenerateKey failed: %s", err)
 	}
 
 	p := elliptic.Marshal(c, px, py)
 	key := deriveKey(p)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		t.Errorf("Error instantiating aes block cipher: %s\n", err)
+		t.Fatalf("cannot instantiate aes block cipher: %s\n", err)
 	}
 
 	plaintext := []byte("example testing plaintext with special chars: %QWEQW$##%Y^&%^*(*)&, []")
 	ciphertext, err := encrypt(block, plaintext)
 	if err != nil {
-		t.Errorf("Error when encrypt: %s\n", err)
+		t.Fatalf("failed to encrypt: %s\n", err)
 	}
 
 	plain, err := decrypt(block, ciphertext)
 	if err != nil {
-		t.Errorf("Error when decrypt: %s\n", err)
+		t.Fatalf("failed to decrypt: %s\n", err)
 	}
 
 	if len(plaintext) != len(plain) {
-		t.Errorf("Decrypted plaintext is not the same lenghth as plaintext used in encryption: %d, %d", len(plaintext), len(plain))
+		t.Fatalf("error in decrypt, want %d len bytes, got %d len bytes", len(plaintext), len(plain))
 
 	}
 
@@ -79,6 +108,6 @@ func TestEncrypDecrypt(t *testing.T) {
 	}
 
 	if !equal {
-		t.Errorf("plaintext used in encrption is not the same as the decrypted plaintext.")
+		t.Errorf("error in decrypt, want: %s, got: %s", string(plaintext), string(plain))
 	}
 }

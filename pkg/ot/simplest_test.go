@@ -123,12 +123,12 @@ func TestSimplestOt(t *testing.T) {
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {
-		t.Fatalf("OT failed, did not receive any messages")
+		t.Fatal("OT failed, did not receive any messages")
 	}
 
 	for i, m := range msg {
 		if string(m) != string(msgs[i][choices[i]]) {
-			t.Fatalf("OT failed, want to receive msg: %s, got: %s", string(msgs[i][choices[i]]), string(m))
+			t.Fatalf("OT failed, want to receive msg: %s, got: %s", msgs[i][choices[i]], m)
 		}
 	}
 }
