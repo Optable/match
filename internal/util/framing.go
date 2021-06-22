@@ -25,19 +25,21 @@ func Exhaust(n int64, r io.Reader) <-chan []byte {
 	// make the output channel
 	var identifiers = make(chan []byte)
 	// wrap r in a bufio reader
-	src := bufio.NewReader(r)
+	src := bufio.NewScanner(r)
+	src.Buffer(make([]byte, 64*1024), 64*1024)
 	go func() {
 		defer close(identifiers)
 		for i := int64(0); i < n; i++ {
-			identifier, err := SafeReadLine(src)
-			if len(identifier) != 0 {
-				identifiers <- identifier
-			}
-			if err != nil {
-				if err != io.EOF {
-					log.Printf("error reading identifiers: %v", err)
+			if !src.Scan() {
+				if src.Err() != nil {
+					log.Printf("error reading identifiers: %v", src.Err())
 				}
 				return
+			}
+
+			identifier := src.Bytes()
+			if len(identifier) != 0 {
+				identifiers <- identifier
 			}
 		}
 	}()
