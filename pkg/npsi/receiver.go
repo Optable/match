@@ -56,9 +56,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
 	stage2v2 := func() error {
-		//
-		var localIDs = make(map[uint64][]byte)
-		var remoteIDs = make(map[uint64]bool)
 		// get a hasher
 		h, err := hash.New(hash.Highway, k)
 		if err != nil {
@@ -70,6 +67,10 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		if err := binary.Read(r.rw, binary.BigEndian, &n); err != nil {
 			return err
 		}
+
+		var localIDs = make(map[uint64][]byte, n)
+		var remoteIDs = make(map[uint64]bool, n)
+		intersected = make([][]byte, 0, n/10)
 
 		// Add a buffer of 64k to amortize syscalls cost
 		bufR := bufio.NewReaderSize(r.rw, 64*1024)
