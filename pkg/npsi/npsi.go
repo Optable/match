@@ -30,15 +30,13 @@ func HashWrite(w io.Writer, u uint64) error {
 // Read returns ErrUnexpectedEOF.
 func ReadAll(r io.Reader, n int64) <-chan uint64 {
 	var out = make(chan uint64)
+	var buf = make([]byte, 8)
 	go func() {
 		defer close(out)
 		for i := int64(0); i < n; i++ {
-			var u uint64
-			if err := HashRead(r, &u); err == nil {
-				out <- u
-			} else {
-				return
-			}
+			io.ReadFull(r, buf)
+			u := binary.BigEndian.Uint64(buf)
+			out <- u
 		}
 	}()
 	return out
