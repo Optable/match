@@ -51,18 +51,6 @@ func (r *readerRistretto) read(p *gr.Point) (err error) {
 	return
 }
 
-// NewBaseOt returns an Ot of type t
-func NewBaseOtRistretto(t int, baseCount int, msgLen []int) (Ot, error) {
-	switch t {
-	case NaorPinkas:
-		return newNaorPinkasRistretto(baseCount, msgLen)
-	case Simplest:
-		return newSimplestRistretto(baseCount, msgLen)
-	default:
-		return nil, ErrUnknownOt
-	}
-}
-
 // generatekeys returns a secret key scalar
 // and a public key ristretto point
 func generateKeys() (secretKey gr.Scalar, publicKey gr.Point) {

@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"math/big"
 )
 
 const (
@@ -40,21 +39,12 @@ type Reader struct {
 	encodeLen int
 }
 
-type points struct {
-	x *big.Int
-	y *big.Int
-}
-
 func newWriter(w io.Writer, c elliptic.Curve) *Writer {
 	return &Writer{w: w, curve: c}
 }
 
 func newReader(r io.Reader, c elliptic.Curve, l int) *Reader {
 	return &Reader{r: r, curve: c, encodeLen: l}
-}
-
-func newPoints(x, y *big.Int) points {
-	return points{x: x, y: y}
 }
 
 // Write writes the marshalled elliptic curve point to writer
@@ -80,11 +70,17 @@ func (r *Reader) read(p points) (err error) {
 }
 
 // NewBaseOt returns an Ot of type t
-func NewBaseOt(t int, baseCount int, curveName string, msgLen []int) (Ot, error) {
+func NewBaseOt(t int, ristretto bool, baseCount int, curveName string, msgLen []int) (Ot, error) {
 	switch t {
 	case NaorPinkas:
+		if ristretto {
+			return newNaorPinkasRistretto(baseCount, msgLen)
+		}
 		return newNaorPinkas(baseCount, curveName, msgLen)
 	case Simplest:
+		if ristretto {
+			return newSimplestRistretto(baseCount, msgLen)
+		}
 		return newSimplest(baseCount, curveName, msgLen)
 	default:
 		return nil, ErrUnknownOt

@@ -25,12 +25,6 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 		return ErrBaseCountMissMatch
 	}
 
-	for i, _ := range messages {
-		if len(messages[i][0]) != len(messages[i][1]) {
-			return fmt.Errorf("Expecting the length of the pair of messages to be the same, got %d, %d\n", len(messages[i][0]), len(messages[i][1]))
-		}
-	}
-
 	// Instantiate Reader, Writer
 	r := newReaderRistretto(rw)
 	w := newWriterRistretto(rw)
@@ -46,7 +40,7 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 		return err
 	}
 
-	// make a slice of ristretto point B, 1 for each OT, and receive them
+	// make a slice of ristretto points to receive B from receiver.
 	B := make([]gr.Point, s.baseCount)
 	for i, _ := range B {
 		if err := r.read(&B[i]); err != nil {
@@ -54,21 +48,19 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 		}
 	}
 
-	var K gr.Point
+	K := make([]gr.Point, 2)
 	key := make([]byte, encodeLen)
 	// encrypt plaintext messages and send it.
 	for i := 0; i < s.baseCount; i++ {
+		// k0 = aB
+		K[0].ScalarMult(&B[i], &a)
+		//k1 = a(B - A) = aB - aA
+		K[1].Sub(&K[0], &T)
+
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
-			// precompute k0 = aB
-			K.ScalarMult(&B[i], &a)
-			if choice == 1 {
-				//k1 = a(B - A) = aB - aA
-				K.Sub(&K, &T)
-			}
-
 			// derive key for aes
-			key, err = deriveKeyRistretto(&K)
+			key, err = deriveKeyRistretto(&K[choice])
 			if err != nil {
 				return err
 			}
@@ -92,7 +84,7 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 		}
 	}
 
-	return nil
+	return
 }
 
 func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
@@ -168,5 +160,5 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		}
 	}
 
-	return nil
+	return
 }

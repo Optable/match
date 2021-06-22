@@ -1,8 +1,11 @@
 package ot
 
 import (
+	"crypto/aes"
 	"crypto/elliptic"
+	"fmt"
 	"io"
+	"math/big"
 )
 
 type naorPinkas struct {
@@ -20,10 +23,171 @@ func newNaorPinkas(baseCount int, curveName string, msgLen []int) (naorPinkas, e
 	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
 }
 
-func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) error {
-	return nil
+func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+	if len(messages) != n.baseCount {
+		return ErrBaseCountMissMatch
+	}
+
+	// Instantiate Reader, Writer
+	reader := newReader(rw, n.curve, n.encodeLen)
+	writer := newWriter(rw, n.curve)
+
+	// generate sender point A w/o secret, since a is never used.
+	_, A, err := generateKeyWithPoints(n.curve)
+	if err != nil {
+		return err
+	}
+
+	// generate sender secret public key pairs  used for encryption.
+	r, R, err := generateKeyWithPoints(n.curve)
+	if err != nil {
+		return err
+	}
+
+	// send point A to receiver
+	if err := writer.write(A); err != nil {
+		return err
+	}
+	// send point R to receiver
+	if err := writer.write(R); err != nil {
+		return err
+	}
+
+	// precompute A = rA
+	A = A.scalarMult(r)
+
+	// make a slice of points to receive K0.
+	pointK0 := make([]points, n.baseCount)
+	for i, _ := range pointK0 {
+		pointK0[i] = newPoints(n.curve, new(big.Int), new(big.Int))
+		if err := reader.read(pointK0[i]); err != nil {
+			return err
+		}
+	}
+
+	K := make([]points, 2)
+	var ciphertext []byte
+	// encrypt plaintext messages and send them.
+	for i := 0; i < n.baseCount; i++ {
+		// sanity check
+		if !pointK0[i].isOnCurve() {
+			return fmt.Errorf("Point A received from sender is not on curve: %s", n.curve.Params().Name)
+		}
+
+		// compute K0 = rK0
+		K[0] = pointK0[i].scalarMult(r)
+		// compute K1 = rA - rK0
+		K[1] = A.sub(K[0])
+
+		// encrypt plaintext message with key derived from K0, K1
+		for choice, plaintext := range messages[i] {
+			// derive key and instantiate AES
+			block, err := aes.NewCipher(K[choice].deriveKey())
+			if err != nil {
+				return err
+			}
+
+			// encrypt plaintext using aes GCM mode
+			ciphertext, err = encrypt(block, plaintext)
+			if err != nil {
+				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+			}
+
+			// send ciphertext
+			if _, err = writer.w.Write(ciphertext); err != nil {
+				return err
+			}
+		}
+	}
+
+	return
 }
 
-func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) error {
-	return nil
+func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
+	if len(choices) != len(messages) || len(choices) != n.baseCount {
+		return ErrBaseCountMissMatch
+	}
+
+	// instantiate Reader, Writer
+	reader := newReader(rw, n.curve, n.encodeLen)
+	writer := newWriter(rw, n.curve)
+
+	// receive point A from sender
+	A := newPoints(n.curve, new(big.Int), new(big.Int))
+	if err := reader.read(A); err != nil {
+		return err
+	}
+
+	// recieve point R from sender
+	R := newPoints(n.curve, new(big.Int), new(big.Int))
+	if err := reader.read(R); err != nil {
+		return err
+	}
+
+	// sanity check
+	if !A.isOnCurve() || !R.isOnCurve() {
+		return fmt.Errorf("Points received from sender is not on curve: %s", n.curve.Params().Name)
+	}
+
+	// Generate points B, 1 for each OT
+	bSecrets := make([][]byte, n.baseCount)
+	var B points
+	var b []byte
+	for i := 0; i < n.baseCount; i++ {
+		// generate receiver priv/pub key pairs going to take a long time.
+		b, B, err = generateKeyWithPoints(n.curve)
+		if err != nil {
+			return err
+		}
+		bSecrets[i] = b
+
+		// for each choice bit, compute the resultant point Kc, K1-c and send K0
+		switch choices[i] {
+		case 0:
+			// K0 = Kc = B
+			if err := writer.write(B); err != nil {
+				return err
+			}
+		case 1:
+			// K1 = Kc = B
+			// K0 = K1-c = A - B
+			if err := writer.write(A.sub(B)); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("Choice bits should be binary, got %v", choices[i])
+		}
+	}
+
+	e := make([][]byte, 2)
+	var K points
+	// receive encrypted messages, and decrypt it.
+	for i := 0; i < n.baseCount; i++ {
+		// compute # of bytes to be read.
+		l := encryptLen(n.msgLen[i])
+		// read both msg
+		for j, _ := range e {
+			e[j] = make([]byte, l)
+			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
+				return err
+			}
+		}
+
+		// build keys for decrypting choice messages
+		// K = bR
+		K = R.scalarMult(bSecrets[i])
+		// instantiate AES
+		block, err := aes.NewCipher(K.deriveKey())
+		if err != nil {
+			return err
+		}
+
+		// decrypt the message indexed by choice bit
+		messages[i], err = decrypt(block, e[choices[i]])
+		if err != nil {
+			return fmt.Errorf("Error encrypting sender message: %s\n", err)
+		}
+	}
+
+	return
 }

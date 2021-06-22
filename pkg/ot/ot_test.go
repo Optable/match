@@ -28,7 +28,7 @@ func TestInitCurve(t *testing.T) {
 }
 
 func TestNewNaorPinkas(t *testing.T) {
-	ot, err := NewBaseOt(0, 3, "P256", []int{1, 2, 3})
+	ot, err := NewBaseOt(NaorPinkas, false, 3, curve, []int{1, 2, 3})
 	if err != nil {
 		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
 	}
@@ -39,7 +39,7 @@ func TestNewNaorPinkas(t *testing.T) {
 }
 
 func TestNewSimplest(t *testing.T) {
-	ot, err := NewBaseOt(1, 3, "P256", []int{1, 2, 3})
+	ot, err := NewBaseOt(Simplest, false, 3, curve, []int{1, 2, 3})
 	if err != nil {
 		t.Fatalf("got error %v while creating Simplest baseOt", err)
 	}
@@ -50,13 +50,42 @@ func TestNewSimplest(t *testing.T) {
 }
 
 func TestNewUnknownOt(t *testing.T) {
-	_, err := NewBaseOt(2, 3, "P256", []int{1, 2, 3})
+	_, err := NewBaseOt(2, false, 3, curve, []int{1, 2, 3})
 	if err == nil {
 		t.Fatal("should get error creating unknown baseOt")
 	}
 }
 
-func rTestDeriveKey(t *testing.T) {
+func TestNewNaorPinkasRistretto(t *testing.T) {
+	ot, err := NewBaseOt(NaorPinkas, true, 3, curve, []int{1, 2, 3})
+	if err != nil {
+		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
+	}
+
+	if _, ok := ot.(naorPinkasRistretto); !ok {
+		t.Fatalf("expected type naorPinkasRistretto, got %T", ot)
+	}
+}
+
+func TestNewSimplestRistretto(t *testing.T) {
+	ot, err := NewBaseOt(Simplest, true, 3, curve, []int{1, 2, 3})
+	if err != nil {
+		t.Fatalf("got error %v while creating Simplest baseOt", err)
+	}
+
+	if _, ok := ot.(simplestRistretto); !ok {
+		t.Fatalf("expected type simplestRistretto, got %T", ot)
+	}
+}
+
+func TestNewUnknownOtRistretto(t *testing.T) {
+	_, err := NewBaseOt(2, true, 3, curve, []int{1, 2, 3})
+	if err == nil {
+		t.Fatal("should get error creating unknown baseOt")
+	}
+}
+
+func TestDeriveKey(t *testing.T) {
 	c := elliptic.P256()
 	_, px, py, err := elliptic.GenerateKey(c, rand.Reader)
 	if err != nil {

@@ -3,7 +3,6 @@ package ot
 import (
 	"crypto/aes"
 	"crypto/elliptic"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"math/big"
@@ -29,63 +28,51 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 		return ErrBaseCountMissMatch
 	}
 
-	for i, _ := range messages {
-		if len(messages[i][0]) != len(messages[i][1]) {
-			return fmt.Errorf("Expecting the length of the pair of messages to be the same, got %d, %d\n", len(messages[i][0]), len(messages[i][1]))
-		}
-	}
-
 	// Instantiate Reader, Writer
-	r := newReader(rw, s.curve, s.encodeLen)
-	w := newWriter(rw, s.curve)
+	reader := newReader(rw, s.curve, s.encodeLen)
+	writer := newWriter(rw, s.curve)
 
 	// generate sender secret public key pairs
-	a, Ax, Ay, err := elliptic.GenerateKey(s.curve, rand.Reader)
+	a, A, err := generateKeyWithPoints(s.curve)
 	if err != nil {
 		return err
 	}
 
 	// send point A in marshaled []byte to receiver
-	if err := w.write(newPoints(Ax, Ay)); err != nil {
+	if err := writer.write(A); err != nil {
 		return err
 	}
+
+	// Precompute A = aA
+	A = A.scalarMult(a)
 
 	// make a slice of point B, 1 for each OT, and receive them
 	B := make([]points, s.baseCount)
 	for i, _ := range B {
-		B[i] = newPoints(new(big.Int), new(big.Int))
-		if err := r.read(B[i]); err != nil {
+		B[i] = newPoints(s.curve, new(big.Int), new(big.Int))
+		if err := reader.read(B[i]); err != nil {
 			return err
 		}
 	}
 
-	// A = aA
-	Ax, Ay = s.curve.ScalarMult(Ax, Ay, a)
-	Ay.Neg(Ay) // -Ay
-	var kx, ky *big.Int
-	var k, ciphertext []byte
-
+	K := make([]points, 2)
+	var ciphertext []byte
 	// encrypt plaintext messages and send it.
 	for i := 0; i < s.baseCount; i++ {
 		// sanity check
-		if !s.curve.IsOnCurve(B[i].x, B[i].y) {
+		if !B[i].isOnCurve() {
 			return fmt.Errorf("Point A received from sender is not on curve: %s", s.curve.Params().Name)
 		}
 
+		// k0 = aB
+		K[0] = B[i].scalarMult(a)
+		//k1 = a(B - A) = aB - aA
+		K[1] = K[0].sub(A)
+
 		// Encrypt plaintext message with key derived from received points B
-		for b, plaintext := range messages[i] {
-			// precompute k0 = aB
-			kx, ky = s.curve.ScalarMult(B[i].x, B[i].y, a)
-			if b == 1 {
-				//k1 = a(B - A) = aB - aA
-				kx, ky = s.curve.Add(kx, ky, Ax, Ay)
-			}
-
-			// derive key for aes
-			k = deriveKey(elliptic.Marshal(s.curve, kx, ky))
-
-			// instantiate AES
-			block, err := aes.NewCipher(k)
+		for choice, plaintext := range messages[i] {
+			// derive key and instantiate AES
+			block, err := aes.NewCipher(K[choice].deriveKey())
 			if err != nil {
 				return err
 			}
@@ -97,13 +84,13 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 			}
 
 			// send ciphertext
-			if _, err = w.w.Write(ciphertext); err != nil {
+			if _, err = writer.w.Write(ciphertext); err != nil {
 				return err
 			}
 		}
 	}
 
-	return nil
+	return
 }
 
 func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
@@ -112,27 +99,27 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 	}
 
 	// instantiate Reader, Writer
-	r := newReader(rw, s.curve, s.encodeLen)
-	w := newWriter(rw, s.curve)
+	reader := newReader(rw, s.curve, s.encodeLen)
+	writer := newWriter(rw, s.curve)
 
 	// Receive marshalled point A from sender
-	A := newPoints(new(big.Int), new(big.Int))
-	if err := r.read(A); err != nil {
+	A := newPoints(s.curve, new(big.Int), new(big.Int))
+	if err := reader.read(A); err != nil {
 		return err
 	}
 
 	// sanity check
-	if !s.curve.IsOnCurve(A.x, A.y) {
+	if !A.isOnCurve() {
 		return fmt.Errorf("Point A received from sender is not on curve: %s", s.curve.Params().Name)
 	}
 
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, s.baseCount)
-	var Bx, By *big.Int
+	var B points
 	var b []byte
 	for i := 0; i < s.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		b, Bx, By, err = elliptic.GenerateKey(s.curve, rand.Reader)
+		b, B, err = generateKeyWithPoints(s.curve)
 		if err != nil {
 			return err
 		}
@@ -141,13 +128,13 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		// for each choice bit, compute the resultant point B and send it
 		switch choices[i] {
 		case 0:
-			if err := w.write(newPoints(Bx, By)); err != nil {
+			// B
+			if err := writer.write(B); err != nil {
 				return err
 			}
 		case 1:
-			// B = A + bG
-			Bx, By = s.curve.Add(A.x, A.y, Bx, By)
-			if err := w.write(newPoints(Bx, By)); err != nil {
+			// B = A + B
+			if err := writer.write(A.add(B)); err != nil {
 				return err
 			}
 		default:
@@ -155,27 +142,24 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		}
 	}
 
-	// receive encrypted messages, and decrypt it.
 	e := make([][]byte, 2)
-	var kx, ky *big.Int
-	var k []byte
-
+	var K points
+	// receive encrypted messages, and decrypt it.
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
 		l := encryptLen(s.msgLen[i])
 		// read both msg
 		for j, _ := range e {
 			e[j] = make([]byte, l)
-			if _, err := io.ReadFull(r.r, e[j]); err != nil {
+			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
 				return err
 			}
 		}
 
 		// build keys for decrypting choice messages
-		kx, ky = s.curve.ScalarMult(A.x, A.y, bSecrets[i])
-		k = deriveKey(elliptic.Marshal(s.curve, kx, ky))
+		K = A.scalarMult(bSecrets[i])
 		// instantiate AES
-		block, err := aes.NewCipher(k)
+		block, err := aes.NewCipher(K.deriveKey())
 		if err != nil {
 			return err
 		}
@@ -187,5 +171,5 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		}
 	}
 
-	return nil
+	return
 }

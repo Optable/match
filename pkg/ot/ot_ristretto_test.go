@@ -28,35 +28,6 @@ func TestReadWritePoints(t *testing.T) {
 	}
 }
 
-func TestNewNaorPinkasRistretto(t *testing.T) {
-	ot, err := NewBaseOtRistretto(0, 3, []int{1, 2, 3})
-	if err != nil {
-		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
-	}
-
-	if _, ok := ot.(naorPinkasRistretto); !ok {
-		t.Fatalf("expected type naorPinkasRistretto, got %T", ot)
-	}
-}
-
-func TestNewSimplestRistretto(t *testing.T) {
-	ot, err := NewBaseOtRistretto(1, 3, []int{1, 2, 3})
-	if err != nil {
-		t.Fatalf("got error %v while creating Simplest baseOt", err)
-	}
-
-	if _, ok := ot.(simplestRistretto); !ok {
-		t.Fatalf("expected type simplestRistretto, got %T", ot)
-	}
-}
-
-func TestNewUnknownOtRistretto(t *testing.T) {
-	_, err := NewBaseOtRistretto(2, 3, []int{1, 2, 3})
-	if err == nil {
-		t.Fatal("should get error creating unknown baseOt")
-	}
-}
-
 func TestGenerateKeys(t *testing.T) {
 	s, P := generateKeys()
 	// check point
