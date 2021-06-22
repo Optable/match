@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"io"
@@ -136,12 +137,14 @@ func handle(r psi.Receiver, n int64, f io.ReadCloser) {
 		log.Printf("intersected %d IDs, writing out to %s", len(i), *out)
 		if f, err := os.Create(*out); err == nil {
 			defer f.Close()
+			w := bufio.NewWriterSize(f, 64*1024)
 			for _, id := range i {
 				// and write it
-				if _, err := f.Write(append(id, "\n"...)); err != nil {
+				if _, err := w.Write(append(id, "\n"...)); err != nil {
 					log.Fatal(err)
 				}
 			}
+			w.Flush()
 		} else {
 			log.Fatal(err)
 		}
