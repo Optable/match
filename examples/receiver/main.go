@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"sync"
 	"time"
@@ -45,6 +46,7 @@ func main() {
 	out = flag.String("out", defaultCommonFileName, "A list of IDs that intersect between the receiver and the sender")
 	var once = flag.Bool("once", false, "Exit after processing one receiver")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+	var memprofile = flag.String("memprofile", "", "write mem profile to file")
 
 	var showHelp = flag.Bool("h", false, "Show help message")
 
@@ -121,6 +123,18 @@ func main() {
 
 			if *once {
 				wg.Wait()
+
+				if *memprofile != "" {
+					f, err := os.Create(*memprofile)
+					if err != nil {
+						log.Fatal(err)
+					}
+					runtime.GC() // get up-to-date statistics
+					if err := pprof.WriteHeapProfile(f); err != nil {
+						log.Fatal("could not write memory profile: ", err)
+					}
+				}
+
 				return
 			}
 		}

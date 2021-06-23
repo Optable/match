@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime"
 	"runtime/pprof"
 
 	"github.com/optable/match/internal/util"
@@ -37,6 +38,7 @@ func main() {
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	var showHelp = flag.Bool("h", false, "Show help message")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+	var memprofile = flag.String("memprofile", "", "write mem profile to file")
 
 	log.SetFlags(0)
 	flag.Usage = usage
@@ -93,6 +95,17 @@ func main() {
 	err = s.Send(context.Background(), n, ids)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
 	}
 }
 
