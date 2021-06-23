@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/aes"
 	"crypto/elliptic"
 	"fmt"
 	"io"
@@ -9,18 +8,19 @@ import (
 )
 
 type naorPinkas struct {
-	baseCount int
-	curve     elliptic.Curve
-	encodeLen int
-	msgLen    []int
+	baseCount  int
+	curve      elliptic.Curve
+	encodeLen  int
+	msgLen     []int
+	cipherMode int
 }
 
-func newNaorPinkas(baseCount int, curveName string, msgLen []int) (naorPinkas, error) {
+func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode int) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
 	curve, encodeLen := initCurve(curveName)
-	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
+	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
 func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
@@ -81,14 +81,8 @@ func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
-			// derive key and instantiate AES
-			block, err := aes.NewCipher(K[choice].deriveKey())
-			if err != nil {
-				return err
-			}
-
-			// encrypt plaintext using aes GCM mode
-			ciphertext, err = encrypt(block, plaintext)
+			// encryption
+			ciphertext, err = encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("Error encrypting sender message: %s\n", err)
 			}
@@ -164,7 +158,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := encryptLen(n.msgLen[i])
+		l := encryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
 		for j, _ := range e {
 			e[j] = make([]byte, l)
@@ -173,17 +167,12 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 			}
 		}
 
-		// build keys for decrypting choice messages
+		// build keys for decryption
 		// K = bR
 		K = R.scalarMult(bSecrets[i])
-		// instantiate AES
-		block, err := aes.NewCipher(K.deriveKey())
-		if err != nil {
-			return err
-		}
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(block, e[choices[i]])
+		messages[i], err = decrypt(n.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("Error encrypting sender message: %s\n", err)
 		}

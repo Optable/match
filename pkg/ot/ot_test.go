@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/aes"
 	"crypto/elliptic"
 	"crypto/rand"
 	"testing"
@@ -28,7 +27,7 @@ func TestInitCurve(t *testing.T) {
 }
 
 func TestNewNaorPinkas(t *testing.T) {
-	ot, err := NewBaseOt(NaorPinkas, false, 3, curve, []int{1, 2, 3})
+	ot, err := NewBaseOt(NaorPinkas, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
 		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
 	}
@@ -39,7 +38,7 @@ func TestNewNaorPinkas(t *testing.T) {
 }
 
 func TestNewSimplest(t *testing.T) {
-	ot, err := NewBaseOt(Simplest, false, 3, curve, []int{1, 2, 3})
+	ot, err := NewBaseOt(Simplest, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
 		t.Fatalf("got error %v while creating Simplest baseOt", err)
 	}
@@ -50,14 +49,14 @@ func TestNewSimplest(t *testing.T) {
 }
 
 func TestNewUnknownOt(t *testing.T) {
-	_, err := NewBaseOt(2, false, 3, curve, []int{1, 2, 3})
+	_, err := NewBaseOt(2, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err == nil {
 		t.Fatal("should get error creating unknown baseOt")
 	}
 }
 
 func TestNewNaorPinkasRistretto(t *testing.T) {
-	ot, err := NewBaseOt(NaorPinkas, true, 3, curve, []int{1, 2, 3})
+	ot, err := NewBaseOt(NaorPinkas, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
 		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
 	}
@@ -68,7 +67,7 @@ func TestNewNaorPinkasRistretto(t *testing.T) {
 }
 
 func TestNewSimplestRistretto(t *testing.T) {
-	ot, err := NewBaseOt(Simplest, true, 3, curve, []int{1, 2, 3})
+	ot, err := NewBaseOt(Simplest, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
 		t.Fatalf("got error %v while creating Simplest baseOt", err)
 	}
@@ -79,7 +78,7 @@ func TestNewSimplestRistretto(t *testing.T) {
 }
 
 func TestNewUnknownOtRistretto(t *testing.T) {
-	_, err := NewBaseOt(2, true, 3, curve, []int{1, 2, 3})
+	_, err := NewBaseOt(2, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err == nil {
 		t.Fatal("should get error creating unknown baseOt")
 	}
@@ -96,47 +95,5 @@ func TestDeriveKey(t *testing.T) {
 	key := deriveKey(p)
 	if len(key) != 32 {
 		t.Fatalf("derived key length is not 32, got: %d", len(key))
-	}
-}
-
-func TestEncrypDecrypt(t *testing.T) {
-	c := elliptic.P256()
-	_, px, py, err := elliptic.GenerateKey(c, rand.Reader)
-	if err != nil {
-		t.Fatalf("elliptic curve GenerateKey failed: %s", err)
-	}
-
-	p := elliptic.Marshal(c, px, py)
-	key := deriveKey(p)
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		t.Fatalf("cannot instantiate aes block cipher: %s\n", err)
-	}
-
-	plaintext := []byte("example testing plaintext with special chars: %QWEQW$##%Y^&%^*(*)&, []")
-	ciphertext, err := encrypt(block, plaintext)
-	if err != nil {
-		t.Fatalf("failed to encrypt: %s\n", err)
-	}
-
-	plain, err := decrypt(block, ciphertext)
-	if err != nil {
-		t.Fatalf("failed to decrypt: %s\n", err)
-	}
-
-	if len(plaintext) != len(plain) {
-		t.Fatalf("error in decrypt, want %d len bytes, got %d len bytes", len(plaintext), len(plain))
-
-	}
-
-	equal := true
-	for i, b := range plaintext {
-		if b != plain[i] {
-			equal = false
-		}
-	}
-
-	if !equal {
-		t.Errorf("error in decrypt, want: %s, got: %s", string(plaintext), string(plain))
 	}
 }

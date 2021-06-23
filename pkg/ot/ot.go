@@ -1,10 +1,7 @@
 package ot
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -16,8 +13,11 @@ const (
 )
 
 var (
-	ErrUnknownOt          = fmt.Errorf("cannot create an Ot that follows an unknown protocol")
-	ErrBaseCountMissMatch = fmt.Errorf("provided slices is not the same length as the number of base OT.")
+	ErrUnknownOt           = fmt.Errorf("cannot create an Ot that follows an unknown protocol")
+	ErrBaseCountMissMatch  = fmt.Errorf("provided slices is not the same length as the number of base OT.")
+	ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations.")
+	ErrUnknownMessageSize  = fmt.Errorf("unsupported message length, must be less than 64 bytes.")
+	ErrEmptyMessage        = fmt.Errorf("attempt to perform OT on empty messages.")
 
 	nonceSize = 12 //aesgcm NonceSize
 )
@@ -70,18 +70,18 @@ func (r *Reader) read(p points) (err error) {
 }
 
 // NewBaseOt returns an Ot of type t
-func NewBaseOt(t int, ristretto bool, baseCount int, curveName string, msgLen []int) (Ot, error) {
+func NewBaseOt(t int, ristretto bool, baseCount int, curveName string, msgLen []int, cipherMode int) (Ot, error) {
 	switch t {
 	case NaorPinkas:
 		if ristretto {
-			return newNaorPinkasRistretto(baseCount, msgLen)
+			return newNaorPinkasRistretto(baseCount, msgLen, cipherMode)
 		}
-		return newNaorPinkas(baseCount, curveName, msgLen)
+		return newNaorPinkas(baseCount, curveName, msgLen, cipherMode)
 	case Simplest:
 		if ristretto {
-			return newSimplestRistretto(baseCount, msgLen)
+			return newSimplestRistretto(baseCount, msgLen, cipherMode)
 		}
-		return newSimplest(baseCount, curveName, msgLen)
+		return newSimplest(baseCount, curveName, msgLen, cipherMode)
 	default:
 		return nil, ErrUnknownOt
 	}
@@ -108,41 +108,4 @@ func initCurve(curveName string) (curve elliptic.Curve, encodeLen int) {
 func deriveKey(point []byte) []byte {
 	key := sha256.Sum256(point)
 	return key[:]
-}
-
-// compute ciphertext length in bytes
-func encryptLen(msgLen int) int {
-	return nonceSize + aes.BlockSize + msgLen
-}
-
-// aes GCM block cipher encryption
-func encrypt(block cipher.Block, plainText []byte) (cipherText []byte, err error) {
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonce := make([]byte, aesgcm.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
-	}
-
-	// encrypted cipher text is appended after nonce
-	cipherText = aesgcm.Seal(nonce, nonce, plainText, nil)
-	return
-}
-
-func decrypt(block cipher.Block, cipherText []byte) (plainText []byte, err error) {
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonceSize := aesgcm.NonceSize()
-	nonce, enc := cipherText[:nonceSize], cipherText[nonceSize:]
-
-	if plainText, err = aesgcm.Open(nil, nonce, enc, nil); err != nil {
-		return nil, err
-	}
-	return
 }

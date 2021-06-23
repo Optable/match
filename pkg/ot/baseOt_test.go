@@ -9,13 +9,14 @@ import (
 )
 
 var (
-	network   = "tcp"
-	address   = "127.0.0.1:"
-	curve     = "P256"
-	baseCount = 256
-	messages  = genMsg(baseCount)
-	msgLen    = make([]int, len(messages))
-	choices   = genChoiceBits(baseCount)
+	network    = "tcp"
+	address    = "127.0.0.1:"
+	curve      = "P256"
+	cipherMode = XOR
+	baseCount  = 256
+	messages   = genMsg(baseCount)
+	msgLen     = make([]int, len(messages))
+	choices    = genChoiceBits(baseCount)
 )
 
 func genMsg(n int) [][2][]byte {
@@ -61,7 +62,7 @@ func initReceiver(ot int, ristretto bool, msgLen []int, choices []uint8, msgBus 
 func receiveHandler(conn net.Conn, ot int, ristretto bool, msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
-	sr, err := NewBaseOt(ot, ristretto, baseCount, curve, msgLen)
+	sr, err := NewBaseOt(ot, ristretto, baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		errs <- err
 	}
@@ -95,7 +96,7 @@ func TestSimplestOt(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(Simplest, false, baseCount, curve, msgLen)
+		ss, err := NewBaseOt(Simplest, false, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -128,7 +129,7 @@ func TestSimplestOt(t *testing.T) {
 
 	for i, m := range msg {
 		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed, want to receive msg: %s, got: %s", messages[i][choices[i]], m)
+			t.Fatalf("OT failed got: %v", m)
 		}
 	}
 }
@@ -151,7 +152,7 @@ func TestNaorPinkasOt(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(NaorPinkas, false, baseCount, curve, msgLen)
+		ss, err := NewBaseOt(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -184,7 +185,7 @@ func TestNaorPinkasOt(t *testing.T) {
 
 	for i, m := range msg {
 		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed, want to receive msg: %s, got: %s", messages[i][choices[i]], m)
+			t.Fatalf("OT failed got: %v", m)
 		}
 	}
 }

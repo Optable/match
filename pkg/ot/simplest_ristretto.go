@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/aes"
 	"fmt"
 	"io"
 
@@ -9,15 +8,16 @@ import (
 )
 
 type simplestRistretto struct {
-	baseCount int
-	msgLen    []int
+	baseCount  int
+	msgLen     []int
+	cipherMode int
 }
 
-func newSimplestRistretto(baseCount int, msgLen []int) (simplestRistretto, error) {
+func newSimplestRistretto(baseCount int, msgLen []int, cipherMode int) (simplestRistretto, error) {
 	if len(msgLen) != baseCount {
 		return simplestRistretto{}, ErrBaseCountMissMatch
 	}
-	return simplestRistretto{baseCount: baseCount, msgLen: msgLen}, nil
+	return simplestRistretto{baseCount: baseCount, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
 func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
@@ -59,20 +59,14 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
-			// derive key for aes
+			// derive key for encryption
 			key, err = deriveKeyRistretto(&K[choice])
 			if err != nil {
 				return err
 			}
 
-			// instantiate AES
-			block, err := aes.NewCipher(key)
-			if err != nil {
-				return err
-			}
-
-			// encrypt plaintext using aes GCM mode
-			ciphertext, err := encrypt(block, plaintext)
+			// encrypt
+			ciphertext, err := encrypt(s.cipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("Error encrypting sender message: %s\n", err)
 			}
@@ -135,7 +129,7 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 	key := make([]byte, encodeLen)
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := encryptLen(s.msgLen[i])
+		l := encryptLen(s.cipherMode, s.msgLen[i])
 		// read both msg
 		for j, _ := range e {
 			e[j] = make([]byte, l)
@@ -144,17 +138,12 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 			}
 		}
 
-		// build keys for decrypting choice messages
+		// build keys for decryption
 		K.ScalarMult(&A, &bSecrets[i])
 		key, err = deriveKeyRistretto(&K)
-		// instantiate AES
-		block, err := aes.NewCipher(key)
-		if err != nil {
-			return err
-		}
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(block, e[choices[i]])
+		messages[i], err = decrypt(s.cipherMode, key, choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("Error encrypting sender message: %s\n", err)
 		}

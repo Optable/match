@@ -24,7 +24,7 @@ func TestSimplestRistretto(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(Simplest, true, baseCount, curve, msgLen)
+		ss, err := NewBaseOt(Simplest, true, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -57,7 +57,7 @@ func TestSimplestRistretto(t *testing.T) {
 
 	for i, m := range msg {
 		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed, want to receive msg: %s, got: %s", messages[i][choices[i]], m)
+			t.Fatalf("OT failed got: %v", m)
 		}
 	}
 }
@@ -80,7 +80,7 @@ func TestNaorPinkasRistretto(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(NaorPinkas, true, baseCount, curve, msgLen)
+		ss, err := NewBaseOt(NaorPinkas, true, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -113,7 +113,7 @@ func TestNaorPinkasRistretto(t *testing.T) {
 
 	for i, m := range msg {
 		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed, want to receive msg: %s, got: %s", messages[i][choices[i]], m)
+			t.Fatalf("OT failed got: %v", m)
 		}
 	}
 }

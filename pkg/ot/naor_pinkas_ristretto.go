@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/aes"
 	"fmt"
 	"io"
 
@@ -9,15 +8,16 @@ import (
 )
 
 type naorPinkasRistretto struct {
-	baseCount int
-	msgLen    []int
+	baseCount  int
+	msgLen     []int
+	cipherMode int
 }
 
-func newNaorPinkasRistretto(baseCount int, msgLen []int) (naorPinkasRistretto, error) {
+func newNaorPinkasRistretto(baseCount int, msgLen []int, cipherMode int) (naorPinkasRistretto, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkasRistretto{}, ErrBaseCountMissMatch
 	}
-	return naorPinkasRistretto{baseCount: baseCount, msgLen: msgLen}, nil
+	return naorPinkasRistretto{baseCount: baseCount, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
 func (n naorPinkasRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
@@ -65,19 +65,14 @@ func (n naorPinkasRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err e
 
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
+			// derive key for encryption
 			key, err = deriveKeyRistretto(&K[choice])
 			if err != nil {
 				return err
 			}
 
-			// instantiate AES
-			block, err := aes.NewCipher(key)
-			if err != nil {
-				return err
-			}
-
-			// encrypt plaintext using aes GCM mode
-			ciphertext, err := encrypt(block, plaintext)
+			// encrypt
+			ciphertext, err := encrypt(n.cipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("Error encrypting sender message: %s\n", err)
 			}
@@ -149,7 +144,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := encryptLen(n.msgLen[i])
+		l := encryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
 		for j, _ := range e {
 			e[j] = make([]byte, l)
@@ -162,14 +157,12 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		// K = bR
 		K.ScalarMult(&R, &bSecrets[i])
 		key, err = deriveKeyRistretto(&K)
-		// instantiate AES
-		block, err := aes.NewCipher(key)
 		if err != nil {
 			return err
 		}
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(block, e[choices[i]])
+		messages[i], err = decrypt(n.cipherMode, key, choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("Error encrypting sender message: %s\n", err)
 		}
