@@ -156,7 +156,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		// decrypt the message indexed by choice bit
 		messages[i], err = decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error encrypting sender message: %s\n", err)
+			return fmt.Errorf("Error decrypting sender message: %s\n", err)
 		}
 	}
 

@@ -145,7 +145,7 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		// decrypt the message indexed by choice bit
 		messages[i], err = decrypt(s.cipherMode, key, choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error encrypting sender message: %s\n", err)
+			return fmt.Errorf("Error decrypting sender message: %s\n", err)
 		}
 	}
 
