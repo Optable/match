@@ -95,3 +95,45 @@ func TestXORBytes(t *testing.T) {
 		t.Fatalf("c should be equal to b")
 	}
 }
+
+func BenchmarkXORCipherEncrypt(b *testing.B) {
+	key := make([]byte, 32)
+	rand.Read(key)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		encrypt(XOR, key, 0, plaintext)
+	}
+}
+
+func BenchmarkXORCipherDecrypt(b *testing.B) {
+	key := make([]byte, 32)
+	rand.Read(key)
+	c, _ := encrypt(XOR, key, 0, plaintext)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		decrypt(XOR, key, 0, c)
+	}
+}
+
+func BenchmarkAESCipherEncrypt(b *testing.B) {
+	key := make([]byte, 32)
+	rand.Read(key)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		encrypt(AES, key, 0, plaintext)
+	}
+}
+
+func BenchmarkAESCipherDecrypt(b *testing.B) {
+	key := make([]byte, 32)
+	rand.Read(key)
+	c, _ := encrypt(AES, key, 0, plaintext)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		decrypt(AES, key, 0, c)
+	}
+}

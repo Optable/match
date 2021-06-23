@@ -13,7 +13,7 @@ var (
 	address    = "127.0.0.1:"
 	curve      = "P256"
 	cipherMode = XOR
-	baseCount  = 128
+	baseCount  = 256
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)
