@@ -12,15 +12,13 @@ import (
 const (
 	AES = iota
 	XOR
-
-	hashDigestSize = 64
 )
 
 // xorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
 func xorBytes(a, b []byte) (dst []byte, err error) {
-	n := len(a)
-	if n != len(b) {
+	n := len(b)
+	if n != len(a) {
 		return nil, ErrByteLengthMissMatch
 	}
 
@@ -38,13 +36,16 @@ func xorBytes(a, b []byte) (dst []byte, err error) {
 func xorCipher(key []byte, ind uint8, src []byte) (dst []byte, err error) {
 	// make sure we deal with plaintext less than hashDigest size
 	n := len(src)
-	if n > hashDigestSize {
-		return nil, ErrUnknownMessageSize
-	}
 
 	hash, err := getHash(key, ind)
 	if err != nil {
 		return nil, err
+	}
+
+	if n > blake2b.Size {
+		for len(hash) < n {
+			hash = append(hash, hash[:]...)
+		}
 	}
 
 	return xorBytes(hash[:n], src)

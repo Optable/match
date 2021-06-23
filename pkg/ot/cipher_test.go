@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-var plaintext = []byte("example testing plaintext: %QWEQW$##%Y^&%^*(*)&, []")
+var plaintext = []byte("example testing plaintext that holds important secrets: %QWEQW$##%Y^&%^*(*)&, []")
 
 func TestBlockCipherEncrypDecrypt(t *testing.T) {
 	c := elliptic.P256()

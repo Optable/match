@@ -16,7 +16,6 @@ var (
 	ErrUnknownOt           = fmt.Errorf("cannot create an Ot that follows an unknown protocol")
 	ErrBaseCountMissMatch  = fmt.Errorf("provided slices is not the same length as the number of base OT.")
 	ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations.")
-	ErrUnknownMessageSize  = fmt.Errorf("unsupported message length, must be less than 64 bytes.")
 	ErrEmptyMessage        = fmt.Errorf("attempt to perform OT on empty messages.")
 
 	nonceSize = 12 //aesgcm NonceSize
