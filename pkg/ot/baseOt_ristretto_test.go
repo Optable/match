@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 )
 
 func TestSimplestRistretto(t *testing.T) {
@@ -14,6 +15,8 @@ func TestSimplestRistretto(t *testing.T) {
 	msgBus := make(chan []byte)
 	errs := make(chan error, 5)
 
+	// Start timer
+	start := time.Now()
 	addr, err := initReceiver(Simplest, true, msgLen, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
@@ -50,6 +53,10 @@ func TestSimplestRistretto(t *testing.T) {
 	default:
 	}
 
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for simplest ristretto OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {
 		t.Fatal("OT failed, did not receive any messages")
@@ -69,6 +76,9 @@ func TestNaorPinkasRistretto(t *testing.T) {
 
 	msgBus := make(chan []byte)
 	errs := make(chan error, 5)
+
+	// start timer
+	start := time.Now()
 
 	addr, err := initReceiver(NaorPinkas, true, msgLen, choices, msgBus, errs)
 	if err != nil {
@@ -105,6 +115,10 @@ func TestNaorPinkasRistretto(t *testing.T) {
 		t.Fatal(err)
 	default:
 	}
+
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for NaorPinkas ristretto OT of %d OTs is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {

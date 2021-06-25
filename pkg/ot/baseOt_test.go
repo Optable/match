@@ -12,7 +12,7 @@ var (
 	network    = "tcp"
 	address    = "127.0.0.1:"
 	curve      = "P256"
-	cipherMode = XOR
+	cipherMode = AES
 	baseCount  = 256
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
@@ -86,6 +86,9 @@ func TestSimplestOt(t *testing.T) {
 	msgBus := make(chan []byte)
 	errs := make(chan error, 5)
 
+	// start timer
+	start := time.Now()
+
 	addr, err := initReceiver(Simplest, false, msgLen, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
@@ -122,6 +125,10 @@ func TestSimplestOt(t *testing.T) {
 	default:
 	}
 
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for simplest OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {
 		t.Fatal("OT failed, did not receive any messages")
@@ -141,6 +148,9 @@ func TestNaorPinkasOt(t *testing.T) {
 
 	msgBus := make(chan []byte)
 	errs := make(chan error, 5)
+
+	// start timer
+	start := time.Now()
 
 	addr, err := initReceiver(NaorPinkas, false, msgLen, choices, msgBus, errs)
 	if err != nil {
@@ -177,6 +187,10 @@ func TestNaorPinkasOt(t *testing.T) {
 		t.Fatal(err)
 	default:
 	}
+
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for simplest OT of %d OTs is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {
