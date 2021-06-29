@@ -20,7 +20,7 @@ type iknp struct {
 	prng   *rand.Rand
 }
 
-func newIknp(m, k, baseOt int, ristretto bool, msgLen []int) (iknp, error) {
+func NewIknp(m, k, baseOt int, ristretto bool, msgLen []int) (iknp, error) {
 	// m x k matrix, but send and receive the columns.
 	baseMsgLen := make([]int, k)
 	for i, _ := range baseMsgLen {
