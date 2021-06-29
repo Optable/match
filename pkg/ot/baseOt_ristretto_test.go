@@ -1,6 +1,7 @@
 package ot
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"testing"
@@ -63,8 +64,8 @@ func TestSimplestRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed got: %v", m)
+		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
 }
@@ -126,8 +127,8 @@ func TestNaorPinkasRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed got: %v", m)
+		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
 }
