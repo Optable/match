@@ -145,7 +145,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		// read both msg
 		for j, _ := range e {
 			e[j] = make([]byte, l)
-			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
+			if _, err = io.ReadFull(reader.r, e[j]); err != nil {
 				return err
 			}
 		}

@@ -1,13 +1,15 @@
 package ot
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 	"time"
 )
 
 const (
-	iknpCurve = "p256"
+	iknpCurve      = "p256"
+	iknpCipherMode = XOR
 )
 
 type iknp struct {
@@ -18,14 +20,14 @@ type iknp struct {
 	prng   *rand.Rand
 }
 
-func newIknp(m, k, baseOt, cipherMode int, ristretto bool, msgLen []int) (iknp, error) {
+func newIknp(m, k, baseOt int, ristretto bool, msgLen []int) (iknp, error) {
 	// m x k matrix, but send and receive the columns.
 	baseMsgLen := make([]int, k)
 	for i, _ := range baseMsgLen {
 		baseMsgLen[i] = m
 	}
 
-	ot, err := NewBaseOt(baseOt, ristretto, k, iknpCurve, baseMsgLen, cipherMode)
+	ot, err := NewBaseOt(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
 	if err != nil {
 		return iknp{}, err
 	}
@@ -37,11 +39,8 @@ func newIknp(m, k, baseOt, cipherMode int, ristretto bool, msgLen []int) (iknp, 
 func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if _, err = ext.prng.Read(s); err != nil {
+	if err = sampleBitSlice(ext.prng, s); err != nil {
 		return err
-	}
-	for i := range s {
-		s[i] = uint8(s[i]) % 2
 	}
 
 	// act as receiver in baseOT to receive q^j
@@ -53,7 +52,29 @@ func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	// transpose q to m x k matrix for easier row operations
 	q = transpose(q)
 
+	var key, ciphertext []byte
 	// encrypt messages and send them
+	for i := range messages {
+		for choice, plaintext := range messages[i] {
+			key = q[i]
+			if choice == 1 {
+				key, err = xorBytes(q[i], s)
+				if err != nil {
+					return err
+				}
+			}
+
+			ciphertext, err = encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			if err != nil {
+				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+			}
+
+			// send ciphertext
+			if _, err = rw.Write(ciphertext); err != nil {
+				return err
+			}
+		}
+	}
 
 	return
 }
@@ -81,7 +102,11 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	for j := range baseMsgs {
 		// []uint8 = []byte, since byte is an alias to uint8
 		baseMsgs[j][0] = Tt[j]
-		baseMsgs[j][1] = xorSlice(Tt[j], choices)
+		// method from cipher.go
+		baseMsgs[j][1], err = xorBytes(Tt[j], choices)
+		if err != nil {
+			return err
+		}
 	}
 
 	// ready to do baseOT, act as sender to send the columns
@@ -89,17 +114,27 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		return err
 	}
 
+	e := make([][]byte, 2)
 	// receive encrypted messages.
+	for i := range choices {
+		// compute # of bytes to be read
+		l := encryptLen(iknpCipherMode, ext.msgLen[i])
+		// read both msg
+		for j, _ := range e {
+			e[j] = make([]byte, l)
+			if _, err = io.ReadFull(rw, e[j]); err != nil {
+				return err
+			}
+		}
+
+		// decrypt received ciphertext using key (choices[i], t_i)
+		messages[i], err = decrypt(iknpCipherMode, T[i], choices[i], e[choices[i]])
+		if err != nil {
+			return fmt.Errorf("Error decrypting sender messages: %s\n", err)
+		}
+	}
 
 	return
-}
-
-func xorSlice(a, b []uint8) []uint8 {
-	c := make([]uint8, len(a))
-	for i := range a {
-		c[i] = a[i] ^ b[i]
-	}
-	return c
 }
 
 // transpose returns the transpose of a 2D slices of *big.Int
@@ -122,10 +157,8 @@ func transpose(matrix [][]uint8) [][]uint8 {
 // slightly expensive operation, maybe math/rand suffices
 // We might benefit from fitting bits in byte slices, and extracting them later on?
 func sampleRandomBitMatrix(prng *rand.Rand, matrix [][]uint8) (err error) {
-	col := len(matrix[0])
 	for row := range matrix {
-		matrix[row], err = sampleBitSlice(prng, col)
-		if err != nil {
+		if err = sampleBitSlice(prng, matrix[row]); err != nil {
 			return err
 		}
 	}
@@ -134,24 +167,13 @@ func sampleRandomBitMatrix(prng *rand.Rand, matrix [][]uint8) (err error) {
 }
 
 // sampleBitSlice returns a slice of uint8 of pseudorandom bits.
-func sampleBitSlice(prng *rand.Rand, n int) ([]uint8, error) {
-	b := make([]uint8, n)
-	if _, err := prng.Read(b); err != nil {
-		return nil, err
+func sampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
+	if _, err = prng.Read(b); err != nil {
+		return err
 	}
 	for i := range b {
 		b[i] = uint8(b[i]) % 2
 	}
 
-	return b, nil
-}
-
-// Turns out this func is 7 times slower than the one above
-func sampleBitSliceInt(prng *rand.Rand, n int) []uint8 {
-	b := make([]uint8, n)
-	for i := range b {
-		b[i] = uint8(prng.Intn(2))
-	}
-
-	return b
+	return
 }

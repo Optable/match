@@ -7,19 +7,13 @@ import (
 )
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
-var n = 100000
+var s = make([]uint8, 1000)
 
 func BenchmarkSampleBitSlice(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := sampleBitSlice(r, n)
+		err := sampleBitSlice(r, s)
 		if err != nil {
 			b.Log(err)
 		}
-	}
-}
-
-func BenchmarkSampleBitSliceInt(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		sampleBitSliceInt(r, n)
 	}
 }

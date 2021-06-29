@@ -31,7 +31,7 @@ func xorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// xorCipher returns the result of H(key, ind) XOR src
+// xorCipher returns the result of H(ind, key) XOR src
 // note that encrypt and decrypt in XOR cipher are the same.
 func xorCipher(key []byte, ind uint8, src []byte) (dst []byte, err error) {
 	// make sure we deal with plaintext less than hashDigest size
