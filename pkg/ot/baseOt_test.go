@@ -13,7 +13,7 @@ var (
 	network    = "tcp"
 	address    = "127.0.0.1:"
 	curve      = "P256"
-	cipherMode = AES
+	cipherMode = XOR
 	baseCount  = 256
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
@@ -43,7 +43,7 @@ func genChoiceBits(n int) []uint8 {
 	return choices
 }
 
-func initReceiver(ot int, ristretto bool, msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+func initReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -55,21 +55,16 @@ func initReceiver(ot int, ristretto bool, msgLen []int, choices []uint8, msgBus 
 			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
 
-		go receiveHandler(conn, ot, ristretto, msgLen, choices, msgBus, errs)
+		go receiveHandler(conn, ot, choices, msgBus, errs)
 	}()
 	return l.Addr().String(), nil
 }
 
-func receiveHandler(conn net.Conn, ot int, ristretto bool, msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
+func receiveHandler(conn net.Conn, ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
-	sr, err := NewBaseOt(ot, ristretto, baseCount, curve, msgLen, cipherMode)
-	if err != nil {
-		errs <- err
-	}
-
 	msg := make([][]byte, baseCount)
-	err = sr.Receive(choices, msg, conn)
+	err := ot.Receive(choices, msg, conn)
 	if err != nil {
 		errs <- err
 	}
@@ -90,7 +85,12 @@ func TestSimplestOt(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	addr, err := initReceiver(Simplest, false, msgLen, choices, msgBus, errs)
+	ot, err := NewBaseOt(Simplest, false, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating Simplest OT: %s", err)
+	}
+
+	addr, err := initReceiver(ot, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,12 +100,8 @@ func TestSimplestOt(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(Simplest, false, baseCount, curve, msgLen, cipherMode)
-		if err != nil {
-			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
-		}
 
-		err = ss.Send(messages, conn)
+		err = ot.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -153,7 +149,12 @@ func TestNaorPinkasOt(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	addr, err := initReceiver(NaorPinkas, false, msgLen, choices, msgBus, errs)
+	ot, err := NewBaseOt(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating NaorPinkas OT: %s", err)
+	}
+
+	addr, err := initReceiver(ot, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,12 +164,8 @@ func TestNaorPinkasOt(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
-		if err != nil {
-			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
-		}
 
-		err = ss.Send(messages, conn)
+		err = ot.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -191,7 +188,7 @@ func TestNaorPinkasOt(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for simplest OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for NaorPinkas OT of %d OTs is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {

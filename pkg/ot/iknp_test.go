@@ -21,7 +21,7 @@ func BenchmarkSampleBitSlice(b *testing.B) {
 	}
 }
 
-func initIknpReceiver(ristretto bool, msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+func initIknpReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -33,21 +33,16 @@ func initIknpReceiver(ristretto bool, msgLen []int, choices []uint8, msgBus chan
 			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
 
-		go iknpReceiveHandler(conn, ristretto, msgLen, choices, msgBus, errs)
+		go iknpReceiveHandler(conn, ot, choices, msgBus, errs)
 	}()
 	return l.Addr().String(), nil
 }
 
-func iknpReceiveHandler(conn net.Conn, ristretto bool, msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
+func iknpReceiveHandler(conn net.Conn, ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
-	sr, err := NewIknp(3, 128, Simplest, ristretto, msgLen)
-	if err != nil {
-		errs <- err
-	}
-
-	msg := make([][]byte, 3)
-	err = sr.Receive(choices, msg, conn)
+	msg := make([][]byte, baseCount)
+	err := ot.Receive(choices, msg, conn)
 	if err != nil {
 		errs <- err
 	}
@@ -58,36 +53,21 @@ func iknpReceiveHandler(conn net.Conn, ristretto bool, msgLen []int, choices []u
 }
 
 func TestIknpOtExtension(t *testing.T) {
-	msgsIknp := make([][2][]byte, 3)
-	msgsIknp[0] = [2][]byte{
-		[]byte("Test 1"),
-		[]byte("Test 2"),
+	for i, m := range messages {
+		msgLen[i] = len(m[0])
 	}
-
-	msgsIknp[1] = [2][]byte{
-		[]byte("Simplest OT"),
-		[]byte("Naor-pinkas"),
-	}
-
-	msgsIknp[2] = [2][]byte{
-		[]byte("IKNP OT extension"),
-		[]byte("blavlablalvlalsda"),
-	}
-
-	msgLenIknp := make([]int, len(msgsIknp))
-	for i, m := range msgsIknp {
-		msgLenIknp[i] = len(m[0])
-	}
-
-	choicesIknp := []uint8{1, 1, 1}
 
 	msgBus := make(chan []byte)
 	errs := make(chan error, 5)
 
 	// start timer
 	start := time.Now()
+	ot, err := NewIknp(baseCount, 256, Simplest, false, msgLen)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	addr, err := initIknpReceiver(false, msgLenIknp, choicesIknp, msgBus, errs)
+	addr, err := initIknpReceiver(ot, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,12 +77,11 @@ func TestIknpOtExtension(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewIknp(3, 128, Simplest, false, msgLen)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		err = ss.Send(msgsIknp, conn)
+		err = ot.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -125,20 +104,16 @@ func TestIknpOtExtension(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for IKNP OT of %d OTs is: %v\n", 3, end.Sub(start))
+	t.Logf("Time taken for IKNP OT of %d OTs is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {
 		t.Fatal("OT failed, did not receive any messages")
 	}
 
-	for i := 0; i < 3; i++ {
-		t.Log(string(msg[i]))
-	}
-
 	for i, m := range msg {
-		if bytes.Compare(m, msgsIknp[i][choicesIknp[i]]) != 0 {
-			t.Fatalf("OT failed got: %v, want %v", m, msgsIknp[i][choicesIknp[i]])
+		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
 }

@@ -18,7 +18,12 @@ func TestSimplestRistretto(t *testing.T) {
 
 	// Start timer
 	start := time.Now()
-	addr, err := initReceiver(Simplest, true, msgLen, choices, msgBus, errs)
+	ot, err := NewBaseOt(Simplest, true, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating simplest ristretto OT: %s", err)
+	}
+
+	addr, err := initReceiver(ot, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,12 +33,8 @@ func TestSimplestRistretto(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(Simplest, true, baseCount, curve, msgLen, cipherMode)
-		if err != nil {
-			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
-		}
 
-		err = ss.Send(messages, conn)
+		err = ot.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -81,7 +82,12 @@ func TestNaorPinkasRistretto(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	addr, err := initReceiver(NaorPinkas, true, msgLen, choices, msgBus, errs)
+	ot, err := NewBaseOt(NaorPinkas, true, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating Naor-Pinkas ristretto OT: %s", err)
+	}
+
+	addr, err := initReceiver(ot, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,12 +97,8 @@ func TestNaorPinkasRistretto(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(NaorPinkas, true, baseCount, curve, msgLen, cipherMode)
-		if err != nil {
-			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
-		}
 
-		err = ss.Send(messages, conn)
+		err = ot.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)

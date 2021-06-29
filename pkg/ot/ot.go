@@ -27,27 +27,27 @@ type Ot interface {
 	Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) error
 }
 
-type Writer struct {
+type writer struct {
 	w     io.Writer
 	curve elliptic.Curve
 }
 
-type Reader struct {
+type reader struct {
 	r         io.Reader
 	curve     elliptic.Curve
 	encodeLen int
 }
 
-func newWriter(w io.Writer, c elliptic.Curve) *Writer {
-	return &Writer{w: w, curve: c}
+func newWriter(w io.Writer, c elliptic.Curve) *writer {
+	return &writer{w: w, curve: c}
 }
 
-func newReader(r io.Reader, c elliptic.Curve, l int) *Reader {
-	return &Reader{r: r, curve: c, encodeLen: l}
+func newReader(r io.Reader, c elliptic.Curve, l int) *reader {
+	return &reader{r: r, curve: c, encodeLen: l}
 }
 
 // Write writes the marshalled elliptic curve point to writer
-func (w *Writer) write(p points) (err error) {
+func (w *writer) write(p points) (err error) {
 	if _, err = w.w.Write(elliptic.Marshal(w.curve, p.x, p.y)); err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (w *Writer) write(p points) (err error) {
 }
 
 // Read reads a marshalled elliptic curve point from reader and stores it in point
-func (r *Reader) read(p points) (err error) {
+func (r *reader) read(p points) (err error) {
 	pt := make([]byte, r.encodeLen)
 	if _, err = io.ReadFull(r.r, pt); err != nil {
 		return err
