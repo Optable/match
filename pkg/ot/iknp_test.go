@@ -3,23 +3,10 @@ package ot
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"net"
 	"testing"
 	"time"
 )
-
-var r = rand.New(rand.NewSource(time.Now().UnixNano()))
-var s = make([]uint8, 1000)
-
-func BenchmarkSampleBitSlice(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		err := sampleBitSlice(r, s)
-		if err != nil {
-			b.Log(err)
-		}
-	}
-}
 
 func initIknpReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)

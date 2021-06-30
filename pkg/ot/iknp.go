@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	iknpCurve      = "p256"
+	iknpCurve      = "P256"
 	iknpCipherMode = XOR
 )
 
@@ -21,7 +21,7 @@ type iknp struct {
 }
 
 func NewIknp(m, k, baseOt int, ristretto bool, msgLen []int) (iknp, error) {
-	// m x k matrix, but send and receive the columns.
+	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i, _ := range baseMsgLen {
 		baseMsgLen[i] = m
@@ -85,31 +85,30 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// Sample m x k matrix T
-	T := make([][]uint8, ext.m)
-	for row := range T {
-		T[row] = make([]uint8, ext.k)
+	t := make([][]uint8, ext.m)
+	for row := range t {
+		t[row] = make([]uint8, ext.k)
 	}
 
-	if err = sampleRandomBitMatrix(ext.prng, T); err != nil {
+	if err = sampleRandomBitMatrix(ext.prng, t); err != nil {
 		return err
 	}
 
 	// compute k x m transpose to access columns easier
-	Tt := transpose(T)
+	tr := transpose(t)
 
-	// make k pairs of m bytes baseOT messages: {T^j, T^j xor choices}
+	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
 	baseMsgs := make([][2][]byte, ext.k)
 	for j := range baseMsgs {
 		// []uint8 = []byte, since byte is an alias to uint8
-		baseMsgs[j][0] = Tt[j]
-		// method from cipher.go
-		baseMsgs[j][1], err = xorBytes(Tt[j], choices)
+		baseMsgs[j][0] = tr[j]
+		baseMsgs[j][1], err = xorBytes(tr[j], choices)
 		if err != nil {
 			return err
 		}
 	}
 
-	// ready to do baseOT, act as sender to send the columns
+	// act as sender in baseOT to send k columns
 	if err = ext.baseOt.Send(baseMsgs, rw); err != nil {
 		return err
 	}
@@ -128,7 +127,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = decrypt(iknpCipherMode, T[i], choices[i], e[choices[i]])
+		messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("Error decrypting sender messages: %s\n", err)
 		}
@@ -137,7 +136,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	return
 }
 
-// transpose returns the transpose of a 2D slices of *big.Int
+// transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
 func transpose(matrix [][]uint8) [][]uint8 {
 	n := len(matrix)
@@ -152,10 +151,8 @@ func transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// sampleRandomBitMatrix takes a 2D slices of *big.Int
-// and calls crypto/rand.Int(2) for each slot in the matrix.
-// slightly expensive operation, maybe math/rand suffices
-// We might benefit from fitting bits in byte slices, and extracting them later on?
+// sampleRandomBitMatrix fills each entry in the given 2D slices of uint8
+// with pseudorandom bit values
 func sampleRandomBitMatrix(prng *rand.Rand, matrix [][]uint8) (err error) {
 	for row := range matrix {
 		if err = sampleBitSlice(prng, matrix[row]); err != nil {
@@ -166,7 +163,7 @@ func sampleRandomBitMatrix(prng *rand.Rand, matrix [][]uint8) (err error) {
 	return
 }
 
-// sampleBitSlice returns a slice of uint8 of pseudorandom bits.
+// sampleBitSlice returns a slice of uint8 of pseudorandom bits
 func sampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
 	if _, err = prng.Read(b); err != nil {
 		return err
