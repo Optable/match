@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	plaintext = []byte("example testing plaintext that holds important secrets: %QWEQW$##%Y^&%^*(*)&, []m")
-	aesKey    = make([]byte, 16)
-	xorKey    = make([]byte, len(plaintext))
+	p      = []byte("example testing plaintext that holds important secrets: %QWEQW$##%Y^&%^*(*)&, []m")
+	aesKey = make([]byte, 16)
+	xorKey = make([]byte, len(p))
 )
 
 func init() {
@@ -17,7 +17,7 @@ func init() {
 }
 
 func TestCTREncrypDecrypt(t *testing.T) {
-	ciphertext, err := encrypt(CTR, aesKey, 0, plaintext)
+	ciphertext, err := encrypt(CTR, aesKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,13 +27,13 @@ func TestCTREncrypDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(plaintext, plain) != 0 {
-		t.Errorf("error in decrypt, want: %s, got: %s", string(plaintext), string(plain))
+	if bytes.Compare(p, plain) != 0 {
+		t.Errorf("error in decrypt, want: %s, got: %s", string(p), string(plain))
 	}
 }
 
 func TestGCMEncrypDecrypt(t *testing.T) {
-	ciphertext, err := encrypt(GCM, aesKey, 0, plaintext)
+	ciphertext, err := encrypt(GCM, aesKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,57 +43,82 @@ func TestGCMEncrypDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(plaintext, plain) != 0 {
-		t.Errorf("error in decrypt, want: %s, got: %s", string(plaintext), string(plain))
+	if bytes.Compare(p, plain) != 0 {
+		t.Errorf("error in decrypt, want: %s, got: %s", string(p), string(plain))
 	}
 }
 
-func TestXORCipherWithShakeEncryptDecrypt(t *testing.T) {
-	ciphertext, err := xorCipherWithShake(xorKey, 0, plaintext)
+func TestXORShakeEncryptDecrypt(t *testing.T) {
+	ciphertext, err := encrypt(XORShake, xorKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := xorCipherWithShake(xorKey, 1, ciphertext)
+	plain, err := decrypt(XORShake, xorKey, 1, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(plaintext, plain) == 0 {
+	if bytes.Compare(p, plain) == 0 {
 		t.Fatalf("decryption should not work!")
 	}
 
-	plain, err = xorCipherWithShake(xorKey, 0, ciphertext)
+	plain, err = decrypt(XORShake, xorKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(plaintext, plain) != 0 {
+	if bytes.Compare(p, plain) != 0 {
 		t.Fatalf("Decryption should have worked")
 	}
 }
 
-func TestXORCipherEncryptDecrypt(t *testing.T) {
-	ciphertext, err := encrypt(XOR, xorKey, 0, plaintext)
+func TestXORBlake2EncryptDecrypt(t *testing.T) {
+	ciphertext, err := xorCipherWithBlake2(xorKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := decrypt(XOR, xorKey, 1, ciphertext)
+	plain, err := decrypt(XORBlake2, xorKey, 1, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(plaintext, plain) == 0 {
+	if bytes.Compare(p, plain) == 0 {
 		t.Fatalf("decryption should not work!")
 	}
 
-	plain, err = decrypt(XOR, xorKey, 0, ciphertext)
+	plain, err = xorCipherWithBlake2(xorKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(plaintext, plain) != 0 {
+	if bytes.Compare(p, plain) != 0 {
+		t.Fatalf("Decryption should have worked")
+	}
+}
+
+func TestXORBlake3EncryptDecrypt(t *testing.T) {
+	ciphertext, err := encrypt(XORBlake3, xorKey, 0, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plain, err := decrypt(XORBlake3, xorKey, 1, ciphertext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Compare(p, plain) == 0 {
+		t.Fatalf("decryption should not work!")
+	}
+
+	plain, err = decrypt(XORBlake3, xorKey, 0, ciphertext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Compare(p, plain) != 0 {
 		t.Fatalf("Decryption should have worked")
 	}
 }
@@ -124,12 +149,12 @@ func TestXORBytes(t *testing.T) {
 
 func BenchmarkXORCipherWithShakeEncrypt(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		xorCipherWithShake(xorKey, 0, plaintext)
+		xorCipherWithShake(xorKey, 0, p)
 	}
 }
 
 func BenchmarkXORCipherWithShakeDecrypt(b *testing.B) {
-	c, err := xorCipherWithShake(xorKey, 0, plaintext)
+	c, err := xorCipherWithShake(xorKey, 0, p)
 	if err != nil {
 		b.Log(err)
 	}
@@ -140,32 +165,50 @@ func BenchmarkXORCipherWithShakeDecrypt(b *testing.B) {
 	}
 }
 
-func BenchmarkXORCipherEncrypt(b *testing.B) {
+func BenchmarkXORCipherWithBlake2Encrypt(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		xorCipher(xorKey, 0, plaintext)
+		xorCipherWithBlake2(xorKey, 0, p)
 	}
 }
 
 func BenchmarkXORCipherDecrypt(b *testing.B) {
-	c, err := xorCipher(xorKey, 0, plaintext)
+	c, err := xorCipherWithBlake2(xorKey, 0, p)
 	if err != nil {
 		b.Log(err)
 	}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		xorCipher(xorKey, 0, c)
+		xorCipherWithBlake2(xorKey, 0, c)
+	}
+}
+
+func BenchmarkXORCipherWithBlake3Encrypt(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		xorCipherWithBlake3(xorKey, 0, p)
+	}
+}
+
+func BenchmarkXORCipherWithBlake3Decrypt(b *testing.B) {
+	c, err := xorCipherWithBlake3(xorKey, 0, p)
+	if err != nil {
+		b.Log(err)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		xorCipherWithBlake3(xorKey, 0, c)
 	}
 }
 
 func BenchmarkAesGcmEncrypt(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		gcmEncrypt(aesKey, plaintext)
+		gcmEncrypt(aesKey, p)
 	}
 }
 
 func BenchmarkAesGcmDecrypt(b *testing.B) {
-	c, _ := gcmEncrypt(aesKey, plaintext)
+	c, _ := gcmEncrypt(aesKey, p)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -175,12 +218,12 @@ func BenchmarkAesGcmDecrypt(b *testing.B) {
 
 func BenchmarkAesCtrEncrypt(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ctrEncrypt(aesKey, plaintext)
+		ctrEncrypt(aesKey, p)
 	}
 }
 
 func BenchmarkAesCtrDecrypt(b *testing.B) {
-	c, err := ctrEncrypt(aesKey, plaintext)
+	c, err := ctrEncrypt(aesKey, p)
 	if err != nil {
 		b.Log(err)
 	}

@@ -13,7 +13,7 @@ var (
 	network    = "tcp"
 	address    = "127.0.0.1:"
 	curve      = "P256"
-	cipherMode = XOR
+	cipherMode = XORBlake3
 	baseCount  = 256
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
@@ -129,7 +129,7 @@ func TestSimplestOt(t *testing.T) {
 
 	for i, m := range msg {
 		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
-			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
+			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
 		}
 	}
 }
@@ -193,7 +193,7 @@ func TestNaorPinkasOt(t *testing.T) {
 
 	for i, m := range msg {
 		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
-			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
+			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
 		}
 	}
 }

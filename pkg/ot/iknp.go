@@ -12,7 +12,7 @@ import (
 
 const (
 	iknpCurve      = "P256"
-	iknpCipherMode = XOR
+	iknpCipherMode = XORBlake3
 )
 
 type iknp struct {

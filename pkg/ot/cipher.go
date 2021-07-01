@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
@@ -14,11 +15,10 @@ import (
 const (
 	CTR = iota
 	GCM
-	XOR
+	XORBlake2
+	XORBlake3
+	XORShake
 )
-
-// Since shake can hash t
-//variable length hash digest, let's use it as a PRG oracle.
 
 // xorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
@@ -37,15 +37,42 @@ func xorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// Shake from the Sha3 family produce variable length hash digest
-// perfect for doing xor cipher.
-func xorCipherWithShake(key []byte, ind uint8, src []byte) (dst []byte, err error) {
+// Blake3 has XOF which is perfect for doing xor cipher.
+func xorCipherWithBlake3(key []byte, ind uint8, src []byte) (dst []byte, err error) {
 	hash := make([]byte, len(src))
-	shakeHash(key, ind, hash)
+	err = getBlake3Hash(key, ind, hash)
+	if err != nil {
+		return nil, err
+	}
 	return xorBytes(hash, src)
 }
 
-func shakeHash(key []byte, ind uint8, dst []byte) {
+func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
+	h := blake3.New()
+	h.Write(key)
+	h.Write([]byte{ind})
+
+	// convert to *digest to take a snapshot of the hashstate for XOF
+	d := h.Digest()
+	n, err := d.Read(dst)
+	if err != nil {
+		return err
+	}
+	if n != len(dst) {
+		return fmt.Errorf("XOF didn't produce wanted length hash digest")
+	}
+
+	return nil
+}
+
+// Shake from the Sha3 family has XOF which is perfect for doing xor cipher.
+func xorCipherWithShake(key []byte, ind uint8, src []byte) (dst []byte, err error) {
+	hash := make([]byte, len(src))
+	getShakeHash(key, ind, hash)
+	return xorBytes(hash, src)
+}
+
+func getShakeHash(key []byte, ind uint8, dst []byte) {
 	h := sha3.NewShake256()
 	h.Write(key)
 	h.Write([]byte{ind})
@@ -54,34 +81,26 @@ func shakeHash(key []byte, ind uint8, dst []byte) {
 
 // xorCipher returns the result of H(ind, key) XOR src
 // note that encrypt and decrypt in XOR cipher are the same.
-func xorCipher(key []byte, ind uint8, src []byte) (dst []byte, err error) {
-	// make sure we deal with plaintext less than hashDigest size
-	n := len(src)
-
-	hash, err := getHash(key, ind)
+func xorCipherWithBlake2(key []byte, ind uint8, src []byte) (dst []byte, err error) {
+	hash := make([]byte, len(src))
+	err = getBlake2Hash(key, ind, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	if n > blake2b.Size {
-		for len(hash) < n {
-			hash = append(hash, hash[:]...)
-		}
-	}
-
-	return xorBytes(hash[:n], src)
+	return xorBytes(hash, src)
 }
 
 // getHash produce hash digest of the key and index
-func getHash(key []byte, ind uint8) (hash []byte, err error) {
-	h, err := blake2b.New512(nil)
+func getBlake2Hash(key []byte, ind uint8, dst []byte) (err error) {
+	d, err := blake2b.NewXOF(uint32(len(dst)), nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	h.Write(key)
-	h.Write([]byte{ind})
-	hash = h.Sum(nil)
+	d.Write(key)
+	d.Write([]byte{ind})
+	d.Read(dst)
 
 	return
 }
@@ -115,7 +134,6 @@ func ctrDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-
 	iv, c, mac := ciphertext[:aes.BlockSize], ciphertext[aes.BlockSize:len(ciphertext)-32], ciphertext[len(ciphertext)-32:]
 	plaintext = make([]byte, len(c))
 	stream := cipher.NewCTR(block, iv)
@@ -181,11 +199,15 @@ func encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 		return ctrEncrypt(key, plaintext)
 	case GCM:
 		return gcmEncrypt(key, plaintext)
-	case XOR:
-		fallthrough
-	default:
-		return xorCipher(key, ind, plaintext)
+	case XORBlake2:
+		return xorCipherWithBlake2(key, ind, plaintext)
+	case XORBlake3:
+		return xorCipherWithBlake3(key, ind, plaintext)
+	case XORShake:
+		return xorCipherWithShake(key, ind, plaintext)
 	}
+
+	return nil, fmt.Errorf("Wrong encrypt mode")
 }
 
 func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
@@ -194,11 +216,15 @@ func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 		return ctrDecrypt(key, ciphertext)
 	case GCM:
 		return gcmDecrypt(key, ciphertext)
-	case XOR:
-		fallthrough
-	default:
-		return xorCipher(key, ind, ciphertext)
+	case XORBlake2:
+		return xorCipherWithBlake2(key, ind, ciphertext)
+	case XORBlake3:
+		return xorCipherWithBlake3(key, ind, ciphertext)
+	case XORShake:
+		return xorCipherWithShake(key, ind, ciphertext)
 	}
+
+	return nil, fmt.Errorf("Wrong decrypt mode")
 }
 
 // compute ciphertext length in bytes
@@ -208,7 +234,7 @@ func encryptLen(mode int, msgLen int) int {
 		return aes.BlockSize + msgLen
 	case GCM:
 		return nonceSize + aes.BlockSize + msgLen
-	case XOR:
+	case XORBlake2, XORBlake3, XORShake:
 		fallthrough
 	default:
 		return msgLen
