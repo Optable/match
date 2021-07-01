@@ -8,6 +8,26 @@ import (
 	"time"
 )
 
+var s = make([]uint8, 100000000)
+
+func BenchmarkSampleBitSlice(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		sampleBitSlice(r, s)
+	}
+}
+
+func BenchmarkOptimizedSampleBitSlice(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		optimizedSampleBitSlice(r, s)
+	}
+}
+
+func BenchmarkOptimizedSampleBitSlice2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		optimizedSampleBitSlice2(r, s)
+	}
+}
+
 func initIknpReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {

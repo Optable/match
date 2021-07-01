@@ -1,18 +1,24 @@
 package ot
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/binary"
+	"fmt"
 
 	"golang.org/x/crypto/blake2b"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
-	AES = iota
+	CTR = iota
+	GCM
 	XOR
 )
+
+// Since shake can hash t
+//variable length hash digest, let's use it as a PRG oracle.
 
 // xorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
@@ -29,6 +35,21 @@ func xorBytes(a, b []byte) (dst []byte, err error) {
 	}
 
 	return
+}
+
+// Shake from the Sha3 family produce variable length hash digest
+// perfect for doing xor cipher.
+func xorCipherWithShake(key []byte, ind uint8, src []byte) (dst []byte, err error) {
+	hash := make([]byte, len(src))
+	shakeHash(key, ind, hash)
+	return xorBytes(hash, src)
+}
+
+func shakeHash(key []byte, ind uint8, dst []byte) {
+	h := sha3.NewShake256()
+	h.Write(key)
+	h.Write([]byte{ind})
+	h.Read(dst)
 }
 
 // xorCipher returns the result of H(ind, key) XOR src
@@ -59,16 +80,61 @@ func getHash(key []byte, ind uint8) (hash []byte, err error) {
 	}
 
 	h.Write(key)
-	buf := make([]byte, binary.MaxVarintLen16)
-	binary.PutUvarint(buf, uint64(ind))
-	h.Write(buf)
+	h.Write([]byte{ind})
 	hash = h.Sum(nil)
 
 	return
 }
 
-// aes GCM block cipher encryption
-func blockCipherEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
+// aes CTR + HMAC encrypt decrypt
+func ctrEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	l := aes.BlockSize + len(plaintext)
+	ciphertext = make([]byte, l+32)
+	if _, err := rand.Read(ciphertext[:aes.BlockSize]); err != nil {
+		return nil, err
+	}
+
+	stream := cipher.NewCTR(block, ciphertext[:aes.BlockSize])
+	stream.XORKeyStream(ciphertext[aes.BlockSize:l], plaintext)
+
+	h := sha3.NewShake256()
+	// reuse IV as key for mac
+	h.Write(ciphertext[:aes.BlockSize])
+	h.Write(ciphertext[aes.BlockSize:l])
+	h.Read(ciphertext[l:])
+	return
+}
+
+func ctrDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	iv, c, mac := ciphertext[:aes.BlockSize], ciphertext[aes.BlockSize:len(ciphertext)-32], ciphertext[len(ciphertext)-32:]
+	plaintext = make([]byte, len(c))
+	stream := cipher.NewCTR(block, iv)
+
+	// verify mac
+	mac2 := make([]byte, 32)
+	h := sha3.NewShake256()
+	h.Write(iv)
+	h.Write(c)
+	h.Read(mac2)
+	if bytes.Compare(mac, mac2) != 0 {
+		return nil, fmt.Errorf("Cipher text is not authenticated.")
+	}
+	stream.XORKeyStream(plaintext, c)
+	return
+}
+
+// aes GCM block encryption decryption
+func gcmEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -89,7 +155,7 @@ func blockCipherEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err er
 	return
 }
 
-func blockCipherDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
+func gcmDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -111,8 +177,10 @@ func blockCipherDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err er
 
 func encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
 	switch mode {
-	case AES:
-		return blockCipherEncrypt(key, plaintext)
+	case CTR:
+		return ctrEncrypt(key, plaintext)
+	case GCM:
+		return gcmEncrypt(key, plaintext)
 	case XOR:
 		fallthrough
 	default:
@@ -122,8 +190,10 @@ func encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 
 func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
 	switch mode {
-	case AES:
-		return blockCipherDecrypt(key, ciphertext)
+	case CTR:
+		return ctrDecrypt(key, ciphertext)
+	case GCM:
+		return gcmDecrypt(key, ciphertext)
 	case XOR:
 		fallthrough
 	default:
@@ -134,7 +204,9 @@ func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 // compute ciphertext length in bytes
 func encryptLen(mode int, msgLen int) int {
 	switch mode {
-	case AES:
+	case CTR:
+		return aes.BlockSize + msgLen
+	case GCM:
 		return nonceSize + aes.BlockSize + msgLen
 	case XOR:
 		fallthrough

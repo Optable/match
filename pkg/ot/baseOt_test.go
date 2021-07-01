@@ -18,15 +18,15 @@ var (
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)
+	r          = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func genMsg(n int) [][2][]byte {
-	rand.Seed(time.Now().UnixNano())
 	data := make([][2][]byte, n)
 	for i := 0; i < n; i++ {
 		for j, _ := range data[i] {
 			data[i][j] = make([]byte, 64)
-			rand.Read(data[i][j])
+			r.Read(data[i][j])
 		}
 	}
 
@@ -35,11 +35,7 @@ func genMsg(n int) [][2][]byte {
 
 func genChoiceBits(n int) []uint8 {
 	choices := make([]uint8, n)
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i, _ := range choices {
-		choices[i] = uint8(r.Intn(2))
-	}
-
+	optimizedSampleBitSlice2(r, choices)
 	return choices
 }
 
