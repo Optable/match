@@ -56,7 +56,7 @@ func TestIknpOtExtension(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewIknp(baseCount, 256, Simplest, false, msgLen)
+	ot, err := NewIknp(baseCount, 128, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestImprovedIknpOtExtension(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedIknp(baseCount, 256, Simplest, false, msgLen)
+	ot, err := NewImprovedIknp(baseCount, 128, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}

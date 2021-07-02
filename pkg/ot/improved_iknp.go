@@ -2,6 +2,7 @@ package ot
 
 import (
 	"fmt"
+	//"golang.org/x/crypto/sha3"
 	"io"
 	"math/rand"
 	"time"
@@ -61,12 +62,13 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 			}
 		}
 		// unmask e and store it in q.
-		q[i], err = xorCipherWithPSG(ext.g, seeds[i], e[s[i]])
+		//fmt.Printf("seeds[i]:\n%v\n, e[s[i]]:\n%v\n", seeds[i], e[s[i]])
+		q[i], err = xorCipherWithBlake3(seeds[i], s[i], e[s[i]])
+		//q[i], err = xorCipherWithPRG(ext.g, seeds[i], e[s[i]])
 	}
 
+	//fmt.Printf("q:\n%v\n", q)
 	q = transpose(q)
-	k, _ := xorBytes(q[0], s)
-	fmt.Printf("key0:\n%v, key1:\n%v\n", q[0], k)
 
 	// encrypt messages and send them
 	var key, ciphertext []byte
@@ -127,26 +129,27 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	// compute actual t^j, u^j and send them masked: t^j xor G(s)
 	// u^j = t^j xor choice
 	var u []uint8
+	//u := make([][]uint8, ext.k)
 	for row := range t {
+		//u, err = xorBytes(t[row], choices)
 		u, err = xorBytes(t[row], choices)
 		if err != nil {
 			return err
 		}
 
-		maskedTj, err := xorCipherWithPSG(ext.g, baseMsgs[row][0], t[row])
+		maskedTj, err := xorCipherWithBlake3(baseMsgs[row][0], 0, t[row])
+		//maskedTj, err := xorCipherWithPRG(ext.g, baseMsgs[row][0], t[row])
 		if err != nil {
 			return err
 		}
 
-		maskedUj, err := xorCipherWithPSG(ext.g, baseMsgs[row][1], u)
+		maskedUj, err := xorCipherWithBlake3(baseMsgs[row][1], 1, u)
+		//maskedUj, err := xorCipherWithPRG(ext.g, baseMsgs[row][1], u)
 		if err != nil {
 			return err
 		}
 
-		if row == 0 {
-			fmt.Println(maskedTj, maskedUj)
-		}
-
+		//fmt.Printf("seeds:\n%v\nmaskedT:\n%v\nmaskedU\n%v\n", baseMsgs[row], maskedTj, maskedUj)
 		// send t^j
 		if _, err = rw.Write(maskedTj); err != nil {
 			return err
@@ -158,9 +161,9 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		}
 	}
 
+	//fmt.Printf("t:\n%v\nu:\n%v\n", t, u)
 	t = transpose(t)
 
-	fmt.Printf("choice bit: %d, key:\n%v\n", choices[0], t[0])
 	// receive encrypted messages.
 	e := make([][]byte, 2)
 	for i := range choices {
