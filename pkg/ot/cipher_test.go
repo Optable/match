@@ -171,7 +171,7 @@ func BenchmarkXORCipherWithBlake2Encrypt(b *testing.B) {
 	}
 }
 
-func BenchmarkXORCipherDecrypt(b *testing.B) {
+func BenchmarkXORCipherWithBlake2Decrypt(b *testing.B) {
 	c, err := xorCipherWithBlake2(xorKey, 0, p)
 	if err != nil {
 		b.Log(err)

@@ -37,6 +37,21 @@ func xorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
+// basically H(seed) xor src, but since H is an XOF, we will model it as a pseudorandom generator.
+func xorCipherWithPSG(g *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
+	tmp := make([]byte, len(src)/8)
+	g.Reset()
+	g.Write(seed)
+	_, err = g.Digest().Read(tmp)
+	if err != nil {
+		return nil, err
+	}
+
+	dst = make([]byte, len(src))
+	extractBytesToBits(tmp, dst)
+	return xorBytes(src, dst)
+}
+
 // Blake3 has XOF which is perfect for doing xor cipher.
 func xorCipherWithBlake3(key []byte, ind uint8, src []byte) (dst []byte, err error) {
 	hash := make([]byte, len(src))
@@ -54,12 +69,9 @@ func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 
 	// convert to *digest to take a snapshot of the hashstate for XOF
 	d := h.Digest()
-	n, err := d.Read(dst)
+	_, err := d.Read(dst)
 	if err != nil {
 		return err
-	}
-	if n != len(dst) {
-		return fmt.Errorf("XOF didn't produce wanted length hash digest")
 	}
 
 	return nil

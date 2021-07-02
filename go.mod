@@ -10,5 +10,6 @@ require (
 	github.com/gtank/ristretto255 v0.1.2
 	github.com/intel-go/cpuid v0.0.0-20210602155658-5747e5cec0d9 // indirect
 	github.com/spaolacci/murmur3 v1.1.0
+	github.com/zeebo/blake3 v0.1.1 // indirect
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
 )

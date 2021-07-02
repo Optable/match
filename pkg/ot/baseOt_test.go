@@ -14,7 +14,7 @@ var (
 	address    = "127.0.0.1:"
 	curve      = "P256"
 	cipherMode = XORBlake3
-	baseCount  = 256
+	baseCount  = 512
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)
@@ -35,7 +35,7 @@ func genMsg(n int) [][2][]byte {
 
 func genChoiceBits(n int) []uint8 {
 	choices := make([]uint8, n)
-	optimizedSampleBitSlice2(r, choices)
+	sampleBitSlice(r, choices)
 	return choices
 }
 
