@@ -3,10 +3,25 @@ package ot
 import (
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"testing"
+
+	"github.com/zeebo/blake3"
 )
 
 var plaintext = []byte("example testing plaintext that holds important secrets: %QWEQW$##%Y^&%^*(*)&, []")
+
+func BenchmarkSha(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		sha256.Sum256(plaintext)
+	}
+}
+
+func BenchmarkBlake3(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		blake3.Sum256(plaintext)
+	}
+}
 
 func TestBlockCipherEncrypDecrypt(t *testing.T) {
 	c := elliptic.P256()

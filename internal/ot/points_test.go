@@ -3,9 +3,10 @@ package ot
 import (
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"math/big"
 	"testing"
+
+	"github.com/zeebo/blake3"
 )
 
 var (
@@ -83,7 +84,7 @@ func TestDeriveKeyPoints(t *testing.T) {
 	p := newPoints(c, bx, by)
 	key := p.deriveKey()
 
-	key2 := sha256.Sum256(elliptic.Marshal(c, bx, by))
+	key2 := blake3.Sum256(elliptic.Marshal(c, bx, by))
 	if string(key) != string(key2[:]) || len(key) != 32 {
 		t.Fatal("Error in points deriveKey")
 	}

@@ -27,7 +27,7 @@ func TestSimplestRistretto(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(Simplest, true, baseCount, curve, msgLen, cipherMode)
+		ss, err := NewBaseOT(Simplest, true, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -90,7 +90,7 @@ func TestNaorPinkasRistretto(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(NaorPinkas, true, baseCount, curve, msgLen, cipherMode)
+		ss, err := NewBaseOT(NaorPinkas, true, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}

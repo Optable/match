@@ -11,9 +11,9 @@ import (
 var (
 	network    = "tcp"
 	address    = "127.0.0.1:"
-	curve      = "P256"
+	curve      = P256
 	cipherMode = AES
-	baseCount  = 256
+	baseCount  = 10000
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)
@@ -62,7 +62,7 @@ func initReceiver(ot int, ristretto bool, msgLen []int, choices []uint8, msgBus 
 func receiveHandler(conn net.Conn, ot int, ristretto bool, msgLen []int, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
-	sr, err := NewBaseOt(ot, ristretto, baseCount, curve, msgLen, cipherMode)
+	sr, err := NewBaseOT(ot, ristretto, baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		errs <- err
 	}
@@ -78,7 +78,7 @@ func receiveHandler(conn net.Conn, ot int, ristretto bool, msgLen []int, choices
 	}
 }
 
-func TestSimplestOt(t *testing.T) {
+func TestSimplestOT(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -99,7 +99,7 @@ func TestSimplestOt(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(Simplest, false, baseCount, curve, msgLen, cipherMode)
+		ss, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -141,7 +141,7 @@ func TestSimplestOt(t *testing.T) {
 	}
 }
 
-func TestNaorPinkasOt(t *testing.T) {
+func TestNaorPinkasOT(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -162,7 +162,7 @@ func TestNaorPinkasOt(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOt(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+		ss, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
