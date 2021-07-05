@@ -135,11 +135,11 @@ func computeMaskedRows(r *rand.Rand, s1, s2, p1, p2 []byte) (c1, c2 []byte, err 
 	k := len(s1)
 	mask1 := make([]byte, k)
 	mask2 := make([]byte, k)
-	if err = sampleBitSliceWithSeed(r, int64(binary.BigEndian.Uint64(s1)), mask1); err != nil {
+	if err = sampleBitSliceWithSeed(r, s1, mask1); err != nil {
 		return nil, nil, err
 	}
 
-	if err = sampleBitSliceWithSeed(r, int64(binary.BigEndian.Uint64(s2)), mask2); err != nil {
+	if err = sampleBitSliceWithSeed(r, s2, mask2); err != nil {
 		return nil, nil, err
 	}
 
@@ -190,8 +190,8 @@ func sampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 }
 
 // sampleBitSliceWithSeed returns a slice of uint8 of seeded pseudorandom bits
-func sampleBitSliceWithSeed(r *rand.Rand, seed int64, b []uint8) (err error) {
-	r.Seed(seed)
+func sampleBitSliceWithSeed(r *rand.Rand, seed []byte, b []uint8) (err error) {
+	r.Seed(int64(binary.BigEndian.Uint64(seed)))
 	return sampleBitSlice(r, b)
 }
 

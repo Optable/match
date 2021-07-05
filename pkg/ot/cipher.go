@@ -38,13 +38,11 @@ func xorBytes(a, b []byte) (dst []byte, err error) {
 }
 
 // basically H(seed) xor src, but since H is an XOF, we will model it as a pseudorandom generator.
-func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
+func xorCipherWithPRG(s blake2b.XOF, seed []byte, src []byte) (dst []byte, err error) {
 	dst = make([]byte, len(src))
 	s.Reset()
 	s.Write(seed)
-
-	d := s.Digest()
-	_, err = d.Read(dst)
+	s.Read(dst)
 
 	return xorBytes(src, dst)
 }

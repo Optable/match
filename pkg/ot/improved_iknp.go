@@ -2,12 +2,10 @@ package ot
 
 import (
 	"fmt"
-	//"golang.org/x/crypto/sha3"
+	"golang.org/x/crypto/blake2b"
 	"io"
 	"math/rand"
 	"time"
-
-	"github.com/zeebo/blake3"
 )
 
 type imprvIknp struct {
@@ -16,7 +14,7 @@ type imprvIknp struct {
 	k      int
 	msgLen []int
 	prng   *rand.Rand
-	g      *blake3.Hasher
+	g      blake2b.XOF
 }
 
 func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp, error) {
@@ -30,10 +28,14 @@ func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp,
 	if err != nil {
 		return imprvIknp{}, err
 	}
+	g, err := blake2b.NewXOF(blake2b.OutputLengthUnknown, nil)
+	if err != nil {
+		return imprvIknp{}, err
+	}
 
 	return imprvIknp{baseOt: ot, m: m, k: k, msgLen: msgLen,
 		prng: rand.New(rand.NewSource(time.Now().UnixNano())),
-		g:    blake3.New()}, nil
+		g:    g}, nil
 }
 
 func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {

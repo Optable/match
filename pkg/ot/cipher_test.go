@@ -3,9 +3,6 @@ package ot
 import (
 	"bytes"
 	"testing"
-
-	//"golang.org/x/crypto/sha3"
-	"github.com/zeebo/blake3"
 )
 
 var (
@@ -17,17 +14,6 @@ var (
 func init() {
 	r.Read(aesKey)
 	r.Read(xorKey)
-}
-
-func TestXORwithPRG(t *testing.T) {
-	h := blake3.New()
-	seed := []byte{1, 1, 0, 1, 0, 1, 1, 0}
-	src := []byte{0, 0, 1, 0, 1, 0, 0, 1}
-	d, _ := xorCipherWithPRG(h, seed, src)
-	e, _ := xorCipherWithPRG(h, seed, d)
-	if bytes.Compare(src, e) != 0 {
-		t.Logf("xor is not equal!")
-	}
 }
 
 func TestCTREncrypDecrypt(t *testing.T) {
