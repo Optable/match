@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/dhpsi"
-	"github.com/optable/match/pkg/npsi"
 	"github.com/optable/match/pkg/psi"
 )
 
@@ -54,15 +52,18 @@ func main() {
 	}
 
 	// validate protocol
+	var psi_type int
 	switch *protocol {
 	case "npsi":
-		fallthrough
+		psi_type = psi.NPSI
 	case "dhpsi":
-		log.Printf("operating with protocol %s", *protocol)
+		psi_type = psi.DHPSI
 	default:
 		log.Printf("unsupported protocol %s", *protocol)
 		showUsageAndExit(0)
 	}
+
+	log.Printf("operating with protocol %s", *protocol)
 
 	// open file
 	f, err := os.Open(*file)
@@ -96,8 +97,14 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			// enable nagle
+			switch v := c.(type) {
+			// enable nagle
+			case *net.TCPConn:
+				v.SetNoDelay(false)
+			}
 			// make the receiver
-			receiver := newReceiver(*protocol, c)
+			receiver, _ := psi.NewReceiver(psi_type, c)
 			// and hand it off
 			wg.Add(1)
 			go func() {
@@ -113,17 +120,6 @@ func main() {
 			}
 		}
 	}
-}
-
-func newReceiver(protocol string, rw io.ReadWriter) psi.Receiver {
-	switch protocol {
-	case "npsi":
-		return npsi.NewReceiver(rw)
-	case "dhpsi":
-		return dhpsi.NewReceiver(rw)
-	}
-
-	return nil
 }
 
 func handle(r psi.Receiver, n int64, f io.ReadCloser) {

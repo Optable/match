@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
-	"net"
 	"sync"
 
 	"github.com/optable/match/internal/hash"
@@ -23,11 +22,6 @@ type Receiver struct {
 // NewReceiver returns a receiver initialized to
 // use rw as the communication layer
 func NewReceiver(rw io.ReadWriter) *Receiver {
-	switch v := rw.(type) {
-	// enable nagle
-	case *net.TCPConn:
-		v.SetNoDelay(false)
-	}
 	return &Receiver{rw: rw}
 }
 
