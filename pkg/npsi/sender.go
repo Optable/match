@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
 
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/util"
@@ -22,11 +21,6 @@ type Sender struct {
 // NewSender returns a sender initialized to
 // use rw as the communication layer
 func NewSender(rw io.ReadWriter) *Sender {
-	switch v := rw.(type) {
-	// enable nagle
-	case *net.TCPConn:
-		v.SetNoDelay(false)
-	}
 	return &Sender{rw: rw}
 }
 
