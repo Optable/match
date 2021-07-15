@@ -57,8 +57,7 @@ func freshes(total int) <-chan []byte {
 	return out
 }
 
-// Prefix a byte value with the local preset prefix
-// and add \r\n at the end
+// prefix a byte value with the local preset prefix
 func prefix(value []byte) []byte {
 	// make final string
 	out := make([]byte, len(Prefix)+hex.EncodedLen(len(value)))
@@ -67,7 +66,8 @@ func prefix(value []byte) []byte {
 	copy(out, Prefix)
 	hex.Encode(out[len(Prefix):], value)
 	//  and return this
-	return append(out, "\r\n"...)
+	//return append(out, "\r\n"...)
+	return out
 }
 
 // mixes will read c1 & c2 to exhaustion, add the prefix,
