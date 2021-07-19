@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// validate protocol
-	var psi_type int
+	var psi_type psi.Protocol
 	switch *protocol {
 	case "npsi":
 		psi_type = psi.NPSI

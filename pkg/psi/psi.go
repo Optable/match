@@ -12,21 +12,33 @@ import (
 const (
 	DHPSI = iota
 	NPSI
+	BPSI
 )
 
+// Protocol is the matching protocol enumeration
+type Protocol int
+
+var (
+	ProtocolDHPSI Protocol = DHPSI
+	ProtocolNPSI  Protocol = NPSI
+	ProtocolBPSI  Protocol = BPSI
+)
+
+// Sender is the sender side of the PSI operation
 type Sender interface {
 	Send(ctx context.Context, n int64, identifiers <-chan []byte) error
 }
 
+// Receiver side of the PSI operation
 type Receiver interface {
 	Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error)
 }
 
-func NewSender(protocol int, rw io.ReadWriter) (Sender, error) {
+func NewSender(protocol Protocol, rw io.ReadWriter) (Sender, error) {
 	switch protocol {
-	case DHPSI:
+	case ProtocolDHPSI:
 		return dhpsi.NewSender(rw), nil
-	case NPSI:
+	case ProtocolNPSI:
 		return npsi.NewSender(rw), nil
 
 	default:
@@ -34,14 +46,27 @@ func NewSender(protocol int, rw io.ReadWriter) (Sender, error) {
 	}
 }
 
-func NewReceiver(protocol int, rw io.ReadWriter) (Receiver, error) {
+func NewReceiver(protocol Protocol, rw io.ReadWriter) (Receiver, error) {
 	switch protocol {
-	case DHPSI:
+	case ProtocolDHPSI:
 		return dhpsi.NewReceiver(rw), nil
-	case NPSI:
+	case ProtocolNPSI:
 		return npsi.NewReceiver(rw), nil
 
 	default:
 		return nil, fmt.Errorf("PSI receiver protocol %d not supported", protocol)
+	}
+}
+
+func (p Protocol) String() string {
+	switch p {
+	case ProtocolDHPSI:
+		return "dhpsi"
+	case ProtocolNPSI:
+		return "npsi"
+	case ProtocolBPSI:
+		return "bpsi"
+	default:
+		return "undefined"
 	}
 }
