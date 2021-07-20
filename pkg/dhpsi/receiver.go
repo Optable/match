@@ -118,6 +118,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 					// we can match this local identifier with one received
 					// from the sender
 					matchedIDs <- i
+					delete(remoteIDs, p)
 				}
 			}
 		}
