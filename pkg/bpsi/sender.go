@@ -6,6 +6,7 @@ import (
 
 	"github.com/devopsfaith/bloomfilter"
 	baseBloomfilter "github.com/devopsfaith/bloomfilter/bloomfilter"
+	"github.com/optable/match/internal/util"
 )
 
 // stage 1: load all local IDs into a bloom filter
@@ -29,10 +30,41 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
+	// create the bloom filter
+	s.bf = baseBloomfilter.New(bloomfilter.Config{N: (uint)(n), P: 0.5, HashName: bloomfilter.HASHER_OPTIMAL})
+	// stage 1: load all local IDs into a bloom filter
+	stage1 := func() error {
+		for id := range identifiers {
+			s.bf.Add(id)
+		}
+		return nil
+	}
+
+	// stage 2: serialize the bloomfilter out into rw
+	stage2 := func() error {
+		if b, err := s.bf.MarshalBinary(); err == nil {
+			if _, err := s.rw.Write(b); err != nil {
+				return err
+			}
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	// run stage1
+	if err := util.Sel(ctx, stage1); err != nil {
+		return err
+	}
+
+	// run stage2
+	if err := util.Sel(ctx, stage2); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (s *Sender) sendAll(identifiers <-chan []byte) error {
-	baseBloomfilter.New(bloomfilter.EmptyConfig)
+	return nil
 }

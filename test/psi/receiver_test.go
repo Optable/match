@@ -9,6 +9,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/optable/match/pkg/psi"
 	"github.com/optable/match/test/emails"
 )
 
@@ -34,7 +35,7 @@ func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, c
 	defer close(intersectionsBus)
 	r := initTestDataSource(common, receiverLen-commonLen)
 
-	rec, _ := newReceiver(protocol, conn)
+	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
 	ii, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
@@ -76,7 +77,7 @@ func testReceiver(protocol int, common []byte, s test_size) error {
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
-		snd, _ := newSender(protocol, conn)
+		snd, _ := psi.NewSender(psi.Protocol(protocol), conn)
 		err = snd.Send(context.Background(), int64(s.senderLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
@@ -125,7 +126,7 @@ func TestDHPSIReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(s.commonLen)
 		// test
-		if err := testReceiver(psiDHPSI, common, s); err != nil {
+		if err := testReceiver(psi.DHPSI, common, s); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
 	}
@@ -137,7 +138,7 @@ func TestNPSIReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(s.commonLen)
 		// test
-		if err := testReceiver(psiNPSI, common, s); err != nil {
+		if err := testReceiver(psi.NPSI, common, s); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
 	}

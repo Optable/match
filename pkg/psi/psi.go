@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/optable/match/pkg/bpsi"
 	"github.com/optable/match/pkg/dhpsi"
 	"github.com/optable/match/pkg/npsi"
 )
@@ -40,6 +41,8 @@ func NewSender(protocol Protocol, rw io.ReadWriter) (Sender, error) {
 		return dhpsi.NewSender(rw), nil
 	case ProtocolNPSI:
 		return npsi.NewSender(rw), nil
+	case ProtocolBPSI:
+		return bpsi.NewSender(rw), nil
 
 	default:
 		return nil, fmt.Errorf("PSI sender protocol %d not supported", protocol)

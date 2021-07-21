@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/optable/match/pkg/psi"
 	"github.com/optable/match/test/emails"
 )
 
@@ -36,7 +37,7 @@ func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int) (ad
 func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn) {
 	r := initTestDataSource(common, receiverLen-commonLen)
 	// do a nil receive, ignore the results
-	rec, _ := newReceiver(protocol, conn)
+	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
 	_, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	if err != nil {
 		// hmm - send this to the main thread with a channel
@@ -51,7 +52,7 @@ func testSender(protocol int, addr string, common []byte, commonLen, senderLen i
 	if err != nil {
 		return err
 	}
-	snd, _ := newSender(protocol, conn)
+	snd, _ := psi.NewSender(psi.Protocol(protocol), conn)
 	err = snd.Send(context.Background(), int64(senderLen), r)
 	if err != nil {
 		return err
@@ -78,9 +79,13 @@ func testSenderByProtocol(p int, t *testing.T) {
 }
 
 func TestDHPSISender(t *testing.T) {
-	testSenderByProtocol(psiDHPSI, t)
+	testSenderByProtocol(psi.DHPSI, t)
 }
 
 func TestNPSISender(t *testing.T) {
-	testSenderByProtocol(psiNPSI, t)
+	testSenderByProtocol(psi.NPSI, t)
+}
+
+func TestBPSISender(t *testing.T) {
+	testSenderByProtocol(psi.BPSI, t)
 }
