@@ -2,9 +2,9 @@
 
 ## protocol
 
-The naive hashing protocol (npsi) [1] is the most commonly used, but it is an *insecure* solution for PSI. The protocol has a major security flaw if the elements are taken from a domain which does not have very large entropy. In that case, _P<sub>2</sub>_ (the receiver) can recover all elements in the set of _P<sub>1</sub>_ (the sender) by running a brute force attack.
+In the naive private set intersection (NPSI) [1], both parties agree on a non-cryptographic hash function, apply it to their inputs and then compare the resulting hashes. It is the most commonly used protocol due to its efficiency and ease for implementation, but it is *insecure*. The protocol has a major security flaw if the elements are taken from a small domain or a domain that does not have high entroy. In that case, _P<sub>2</sub>_ (the receiver) can recover all elements in the set of _P<sub>1</sub>_ (the sender) by running a brute force attack.
 
-In the protocol, _P<sub>2</sub>_ samples a random 32 bytes salt _K_ and sends it to _P<sub>1</sub>_. Both parties then use a non cryptographic Hash function ([Highway Hash](github.com/dgryski/go-highway) to hash their input identifiers seeded with _K_. _P<sub>1</sub>_ then randomly permutes its hash values _H<sub>x</sub>_ and sends them to _P<sub>2</sub>_, who computes the intersection of both hashed identifiers.
+In the protocol, _P<sub>2</sub>_ samples a random 32 bytes salt _K_ and sends it to _P<sub>1</sub>_. Both parties then use a non-cryptographic hash function ([Highway Hash](github.com/dgryski/go-highway)) to hash their input identifiers seeded with _K_. _P<sub>1</sub>_ sends the hash values _H<sub>x</sub>_ to _P<sub>2</sub>_, who computes the intersection of both hashed identifiers.
 
 ## data flow
 
@@ -14,7 +14,7 @@ X                                                 Y
 
 receive K        <------------------------------  generate K (32 bytes)
 
-hwh(K,X) -> H_X  ------------------------------>  intersect(H_X, hwh(K,Y) -> H_Y)
+hwh(K,X) -> H_X  ------------------------------>  intersect(H_X, hwh(K,Y) -> H_Y))
 
 hwh(K,I): Highway hash of input I seeded with K
 ```
