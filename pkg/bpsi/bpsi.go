@@ -1,10 +1,8 @@
 package bpsi
 
-import (
-	"github.com/devopsfaith/bloomfilter"
-	bf "github.com/devopsfaith/bloomfilter/bloomfilter"
-)
-
-func SendAll(identifiers <-chan []byte) {
-	bf.New(bloomfilter.EmptyConfig)
+func max(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
 }
