@@ -55,6 +55,8 @@ func NewReceiver(protocol Protocol, rw io.ReadWriter) (Receiver, error) {
 		return dhpsi.NewReceiver(rw), nil
 	case ProtocolNPSI:
 		return npsi.NewReceiver(rw), nil
+	case ProtocolBPSI:
+		return bpsi.NewReceiver(rw), nil
 
 	default:
 		return nil, fmt.Errorf("PSI receiver protocol %d not supported", protocol)
