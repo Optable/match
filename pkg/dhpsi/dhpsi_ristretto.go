@@ -51,7 +51,9 @@ func NewRistretto(t int) (Ristretto, error) {
 	}
 }
 
-// "github.com/bwesterb/go-ristretto"
+// DeriveMultiply derives src to a ristretto point
+// and multiplies it with the private key
+// and stores it into dst.
 func (g GR) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	var p gr.Point
 	// derive
@@ -62,6 +64,7 @@ func (g GR) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	q.BytesInto(dst)
 }
 
+// Multiply multiplies src with private key and stores it into dst.
 func (g GR) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	// multiply
 	var p gr.Point
@@ -70,7 +73,9 @@ func (g GR) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	p.BytesInto(dst)
 }
 
-// "github.com/gtank/ristretto255"
+// DeriveMultiply derives src to a ristretto point
+// and multiplies it with the private key
+// and stores it into dst.
 func (r R255) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	var p = r255.NewElement()
 	// derive
@@ -84,6 +89,7 @@ func (r R255) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	copy(dst[:], tmp)
 }
 
+// Multiply multiplies src with private key and stores it into dst.
 func (r R255) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	// multiply
 	var p = r255.NewElement()
@@ -94,5 +100,3 @@ func (r R255) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	tmp = p.Encode(tmp)
 	copy(dst[:], tmp)
 }
-
-// built-in

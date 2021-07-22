@@ -6,10 +6,9 @@ import (
 	"log"
 )
 
-// ReadLine blocks until a whole line can be read or
+// SafeReadLine blocks until a whole line can be read or
 // r returns an error.
-//  TODO: Cannot read more than n bytes
-// ***warning: expects lines to be \n separated***
+// warning: expects lines to be \n separated
 func SafeReadLine(r *bufio.Reader) (line []byte, err error) {
 	line, err = r.ReadBytes('\n')
 	if len(line) > 1 {
@@ -19,7 +18,7 @@ func SafeReadLine(r *bufio.Reader) (line []byte, err error) {
 	return
 }
 
-// Exhaust all the identifiers in r,
+// Exhaust consumes all the identifiers in r,
 // The format of an indentifier is string\n
 func Exhaust(n int64, r io.Reader) <-chan []byte {
 	// make the output channel
