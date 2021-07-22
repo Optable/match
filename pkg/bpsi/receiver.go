@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	baseBloomfilter "github.com/devopsfaith/bloomfilter/bloomfilter"
 	"github.com/optable/match/internal/util"
 )
 
@@ -33,7 +32,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is
 //  string
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
-	var bf = &baseBloomfilter.Bloomfilter{}
+	var bf bloomfilter
 	var intersected [][]byte
 
 	// stage 1: read the bloomfilter from the remote side
@@ -57,8 +56,10 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// unmarshal into bf
-		if err := bf.UnmarshalBinary(b); err != nil {
+		if bf_, err := UnmarshalBinary(b); err != nil {
 			return err
+		} else {
+			bf = bf_
 		}
 
 		return nil
