@@ -5,8 +5,9 @@ import (
 	base_bf "github.com/devopsfaith/bloomfilter/bloomfilter"
 )
 
-// ProbCollide is the fixed collisition probability parameter for the bloomfilter
-const ProbCollide = 0.00000001
+// FalsePositive is the fixed false positive rate parameter for the bloomfilter,
+// expressed in terms of 0-1 is 0% - 100%
+const FalsePositive = 1e-6
 
 // bloomfilter type to wrap around
 // an actual implementation
@@ -25,7 +26,7 @@ type devopsfaith struct {
 // NewBloomfilter returns a new bloomfilter able to
 // contain n items with a ProbCollide chance of collision (0-1: 0% to 100%)
 func NewBloomfilter(n int64) bloomfilter {
-	var bf = base_bf.New(root_bf.Config{N: (uint)(max(n, 1)), P: ProbCollide, HashName: root_bf.HASHER_OPTIMAL})
+	var bf = base_bf.New(root_bf.Config{N: (uint)(max(n, 1)), P: FalsePositive, HashName: root_bf.HASHER_OPTIMAL})
 	return devopsfaith{bf: bf}
 }
 
