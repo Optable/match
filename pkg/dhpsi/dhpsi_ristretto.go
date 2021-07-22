@@ -21,10 +21,14 @@ type Ristretto interface {
 	Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte)
 }
 
+// GR uses ristretto implementation from
+// "github.com/bwesterb/go-ristretto"
 type GR struct {
 	key *gr.Scalar
 }
 
+// R255 uses ristretto implementation from
+// "github.com/gtank/ristretto255"
 type R255 struct {
 	key *r255.Scalar
 }
@@ -33,6 +37,8 @@ type Native struct {
 	key [EncodedLen]byte
 }
 
+// NewRistretto returns a new Ristretto of a given
+// ristretto implementation.
 func NewRistretto(t int) (Ristretto, error) {
 	switch t {
 	case RistrettoTypeGR:
