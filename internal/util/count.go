@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// Count the number of lines in a file
+// Count counts the number of lines in a file
 func Count(r io.Reader) (int64, error) {
 	var n int64
 	scanner := bufio.NewScanner(r)

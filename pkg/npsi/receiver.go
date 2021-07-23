@@ -14,7 +14,7 @@ import (
 // stage 1: P2 samples a random salt K and sends it to P1.
 // stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
 
-// Receiver side of the NPSI protocol
+// Receiver represents the receiver side of the NPSI protocol
 type Receiver struct {
 	rw io.ReadWriter
 }
@@ -25,7 +25,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 	return &Receiver{rw: rw}
 }
 
-// Intersect on matchables read from the identifiers channel,
+// Intersect intersects on matchables read from the identifiers channel,
 // returning the matching intersection, using the NPSI protocol.
 // The format of an indentifier is
 //  string

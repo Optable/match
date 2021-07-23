@@ -22,6 +22,7 @@ type Receiver interface {
 	Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error)
 }
 
+// NewSender instantiates a sender of a given PSI protocol.
 func NewSender(protocol int, rw io.ReadWriter) (Sender, error) {
 	switch protocol {
 	case DHPSI:
@@ -34,6 +35,7 @@ func NewSender(protocol int, rw io.ReadWriter) (Sender, error) {
 	}
 }
 
+// NewReceiver instantiates a receiver of a given PSI protocol.
 func NewReceiver(protocol int, rw io.ReadWriter) (Receiver, error) {
 	switch protocol {
 	case DHPSI:

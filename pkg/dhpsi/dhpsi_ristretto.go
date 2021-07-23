@@ -16,15 +16,25 @@ const (
 	RistrettoNative
 )
 
+// Ristretto represents a ristretto point on an edward2559 curve.
+//
+// The method DeriveMultiply converts an identifier to a ristretto point
+// and multiply it with the secret key.
+// Multiply operates on ristretto point directly and multiply it with
+// the secret key.
 type Ristretto interface {
 	DeriveMultiply(dst *[EncodedLen]byte, src []byte)
 	Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte)
 }
 
+// GR uses ristretto implementation from
+// "github.com/bwesterb/go-ristretto"
 type GR struct {
 	key *gr.Scalar
 }
 
+// R255 uses ristretto implementation from
+// "github.com/gtank/ristretto255"
 type R255 struct {
 	key *r255.Scalar
 }
@@ -33,6 +43,8 @@ type Native struct {
 	key [EncodedLen]byte
 }
 
+// NewRistretto returns a new Ristretto of a given
+// ristretto implementation.
 func NewRistretto(t int) (Ristretto, error) {
 	switch t {
 	case RistrettoTypeGR:
@@ -51,7 +63,9 @@ func NewRistretto(t int) (Ristretto, error) {
 	}
 }
 
-// "github.com/bwesterb/go-ristretto"
+// DeriveMultiply derives src to a ristretto point
+// and multiplies it with the private key
+// and stores it into dst.
 func (g GR) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	var p gr.Point
 	// derive
@@ -62,6 +76,7 @@ func (g GR) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	q.BytesInto(dst)
 }
 
+// Multiply multiplies src with private key and stores it into dst.
 func (g GR) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	// multiply
 	var p gr.Point
@@ -70,7 +85,9 @@ func (g GR) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	p.BytesInto(dst)
 }
 
-// "github.com/gtank/ristretto255"
+// DeriveMultiply derives src to a ristretto point
+// and multiplies it with the private key
+// and stores it into dst.
 func (r R255) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	var p = r255.NewElement()
 	// derive
@@ -84,6 +101,7 @@ func (r R255) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
 	copy(dst[:], tmp)
 }
 
+// Multiply multiplies src with private key and stores it into dst.
 func (r R255) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	// multiply
 	var p = r255.NewElement()
@@ -94,5 +112,3 @@ func (r R255) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
 	tmp = p.Encode(tmp)
 	copy(dst[:], tmp)
 }
-
-// built-in

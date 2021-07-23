@@ -12,7 +12,7 @@ const (
 	HashLen = 32
 )
 
-// Common generates the common segment
+// Common generates the common matchable identifiers
 func Common(n int) (common []byte) {
 	common = make([]byte, n*HashLen)
 	if _, err := rand.Read(common); err != nil {
@@ -21,7 +21,7 @@ func Common(n int) (common []byte) {
 	return
 }
 
-// Mix in from common and add n new fresh matchables
+// Mix mixes identifiers from common and n new fresh matchables
 func Mix(common []byte, n int) <-chan []byte {
 	// setup the streams
 	c1 := commons(common)
@@ -71,7 +71,7 @@ func prefix(value []byte) []byte {
 }
 
 // mixes will read c1 & c2 to exhaustion, add the prefix,
-// write the output a channel and then close it
+// write the output to a channel and then close it
 func mixes(c1, c2 <-chan []byte) <-chan []byte {
 	var ws sync.WaitGroup
 	out := make(chan []byte)
