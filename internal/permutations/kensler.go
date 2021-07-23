@@ -41,7 +41,7 @@ func NewKensler(l int64) (kensler, error) {
 	return kensler{l: uint32(l), p: uint32(i.Int64())}, nil
 }
 
-// Shuffle using the kensler algorithm
+// Shuffle uses the Kensler algorithm
 // with n the number to permute/the index of the permutation vector.
 // This is not totally appropriate for our application
 // since this only works on uint32 size.
