@@ -29,6 +29,8 @@ func NewKensler(l int64) (kensler, error) {
 	if l > math.MaxUint32 {
 		return kensler{}, fmt.Errorf("value %d is larger than the maximal value allowable for kensler (%d)", l, math.MaxUint32)
 	}
+	// make sure l is at least 2
+	l = max(l, 2)
 	// make a seed
 	var max = big.NewInt(l - 1)
 	i, err := rand.Int(rand.Reader, max)

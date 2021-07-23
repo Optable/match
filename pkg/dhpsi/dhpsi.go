@@ -34,7 +34,8 @@ type DeriveMultiplyShuffler struct {
 	//permutations []int64
 	p permutations.Permutations
 	// buffered in the order received by Shuffle()
-	b [][EncodedLen]byte
+	//b [][EncodedLen]byte
+	b map[int64][EncodedLen]byte
 }
 
 type Writer struct {
@@ -54,9 +55,9 @@ func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMulti
 	}
 	// create the permutations
 	p, _ := permutations.NewKensler(n)
-	// and create the encoder
-	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, p: p, b: make([][EncodedLen]byte, n)}, nil
-
+	// and create the buffer map & encoder
+	b := make(map[int64][EncodedLen]byte, int(float64(n)*0.75))
+	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, p: p, b: b}, nil
 }
 
 // Shuffle one identifier. First derive and then multiply by the
@@ -94,8 +95,8 @@ func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 	if enc.seq == enc.max {
 		// flush the rest of the sequence
 		for i := enc.sent; i < enc.max; i++ {
-			pos := enc.p.Shuffle(i)
-			if _, err = enc.w.Write(enc.b[pos][:]); err != nil {
+			b := enc.b[enc.p.Shuffle(i)]
+			if _, err = enc.w.Write(b[:]); err != nil {
 				return
 			}
 		}

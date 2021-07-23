@@ -51,7 +51,7 @@ func TestModelSingle(t *testing.T) {
 	// output & sequence should be the same
 	for k, v := range output {
 		if v != shuffle[k] {
-			t.Errorf("expected %d got %d", v, output[k])
+			t.Errorf("expected %d got %d", v, shuffle[k])
 		}
 	}
 
