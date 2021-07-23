@@ -31,10 +31,8 @@ type DeriveMultiplyShuffler struct {
 	max, seq, sent int64
 	gr             Ristretto
 	// precomputed order to send things in
-	//permutations []int64
 	p permutations.Permutations
 	// buffered in the order received by Shuffle()
-	//b [][EncodedLen]byte
 	b map[int64][EncodedLen]byte
 }
 
