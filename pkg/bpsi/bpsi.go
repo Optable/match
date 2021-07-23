@@ -1,7 +1,9 @@
 package bpsi
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	root_bf "github.com/devopsfaith/bloomfilter"
@@ -17,12 +19,19 @@ const (
 	BloomfilterTypeBitsAndBloom
 )
 
+type Bloomfilter int
+
+var (
+	BloomfilterDevopsfaith  Bloomfilter = BloomfilterTypeDevopsfaith
+	BloomfilterBitsAndBloom Bloomfilter = BloomfilterTypeBitsAndBloom
+)
+
 // bloomfilter type to wrap around
 // an actual implementation
 type bloomfilter interface {
 	Add(identifier []byte)
 	Check(identifier []byte) bool
-	MarshalBinary() ([]byte, error)
+	WriteTo(rw io.Writer) (int64, error)
 }
 
 // devopsfaith implementation of the
@@ -39,7 +48,7 @@ type bitsAndBloom struct {
 
 // NewBloomfilter instantiates a bloomfilter
 // with the given type and number of items to be inserted.
-func NewBloomfilter(t int, n int64) (bloomfilter, error) {
+func NewBloomfilter(t Bloomfilter, n int64) (bloomfilter, error) {
 	switch t {
 	case BloomfilterTypeDevopsfaith:
 		var bf = base_bf.New(root_bf.Config{N: (uint)(max(n, 1)), P: FalsePositive, HashName: root_bf.HASHER_OPTIMAL})
@@ -47,9 +56,11 @@ func NewBloomfilter(t int, n int64) (bloomfilter, error) {
 	case BloomfilterTypeBitsAndBloom:
 		return bitsAndBloom{bf: bloom.NewWithEstimates(uint(n), FalsePositive)}, nil
 	default:
-		return nil, fmt.Errorf("unsupported ristretto type %d", t)
+		return nil, fmt.Errorf("unsupported bloomfilter type %d", t)
 	}
 }
+
+func NewBloomfilterFrom(r io.Reader)
 
 // Add an identifier to a devopsfaith bloomfilter
 func (bf devopsfaith) Add(identifier []byte) {
@@ -61,12 +72,21 @@ func (bf devopsfaith) Check(identifier []byte) bool {
 	return bf.bf.Check(identifier)
 }
 
-// MarshalBinary marshals the entire bloomfilter and return the bytes
-func (bf devopsfaith) MarshalBinary() ([]byte, error) {
-	return bf.bf.MarshalBinary()
+// WriteTo marshals the entire bloomfilter to rw
+func (bf devopsfaith) WriteTo(rw io.Writer) (int64, error) {
+	if b, err := bf.bf.MarshalBinary(); err == nil {
+		l := int64(len(b))
+		if err := binary.Write(rw, binary.BigEndian, l); err != nil {
+			return 0, err
+		}
+		n, err := rw.Write(b)
+		return int64(n), err
+	} else {
+		return 0, err
+	}
 }
 
-// Add an identifier to a devopsfaith bloomfilter
+// Add an identifier to a bitsAndBloom bloomfilter
 func (bf bitsAndBloom) Add(identifier []byte) {
 	bf.bf.Add(identifier)
 }
@@ -77,26 +97,15 @@ func (bf bitsAndBloom) Check(identifier []byte) bool {
 }
 
 // MarshalBinary marshals the entire bloomfilter and return the bytes
-func (bf bitsAndBloom) MarshalBinary() ([]byte, error) {
-	return bf.bf.MarshalJSON()
+func (bf bitsAndBloom) WriteTo(rw io.Writer) (int64, error) {
+	return bf.bf.WriteTo(rw)
 }
 
-// UnmarshalBinary b into a new bloomfilter
-func UnmarshalBinary(b []byte) (bloomfilter, error) {
-	var bf = &base_bf.Bloomfilter{}
-	if err := bf.UnmarshalBinary(b); err != nil {
-		return nil, err
-	}
-	return devopsfaith{bf: bf}, nil
-}
-
-// UnmarshalJSON unmarshals b into a new bloomfilter (this needs to be chanegd to merge with UnmarshalBinary above)
-func UnmarshalJSON(b []byte) (bloomfilter, error) {
+// ReadFrom r into a new bitsAndBloom bloomfilter
+func ReadFrom(r io.Reader) (bloomfilter, int64, error) {
 	var bf = &bloom.BloomFilter{}
-	if err := bf.UnmarshalJSON(b); err != nil {
-		return nil, err
-	}
-	return bitsAndBloom{bf: bf}, nil
+	n, err := bf.ReadFrom(r)
+	return bitsAndBloom{bf: bf}, n, err
 }
 
 // max would be great in the stdlib

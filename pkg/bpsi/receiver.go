@@ -2,7 +2,6 @@ package bpsi
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -37,32 +36,12 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// stage 1: read the bloomfilter from the remote side
 	stage1 := func() error {
-		// what's the size of the structure?
-		var l uint64
-		if err := binary.Read(r.rw, binary.BigEndian, &l); err != nil {
-			return err
-		}
-		// allocate the right sized buffer
-		b := make([]byte, l)
-		// read all and process errors
-		if n, err := io.ReadFull(r.rw, b); err == nil {
-			// did not read the expected lenght?
-			if uint64(n) != l {
-				return ErrReadingBloomfilter
-			}
+		if _bf, _, err := ReadFrom(r.rw); err == nil {
+			bf = _bf
+			return nil
 		} else {
-			// ReadFull generated an error?
 			return err
 		}
-
-		// unmarshal into bf
-		if bf_, err := UnmarshalJSON(b); err != nil {
-			return err
-		} else {
-			bf = bf_
-		}
-
-		return nil
 	}
 
 	// stage 2: read local IDs and compare with the remote bloomfilter

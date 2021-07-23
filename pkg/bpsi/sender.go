@@ -2,7 +2,6 @@ package bpsi
 
 import (
 	"context"
-	"encoding/binary"
 	"io"
 
 	"github.com/optable/match/internal/util"
@@ -41,20 +40,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 
 	// stage 2: serialize the bloomfilter out into rw
 	stage2 := func() error {
-		if b, err := s.bf.MarshalBinary(); err == nil {
-			// send out the size of the structure
-			var l uint64 = uint64(len(b))
-			if err := binary.Write(s.rw, binary.BigEndian, l); err != nil {
-				return err
-			}
-			// send out the structure
-			if _, err := s.rw.Write(b); err != nil {
-				return err
-			}
-			return nil
-		} else {
-			return err
-		}
+		_, err := s.bf.WriteTo(s.rw)
+		return err
 	}
 
 	// run stage1
