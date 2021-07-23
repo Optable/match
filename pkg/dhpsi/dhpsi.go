@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	// EncodedLen is the lenght of one encoded ristretto point
+	// EncodedLen is the length of an encoded ristretto point
 	EncodedLen = 32
-	// PrefixedLen is the length of one prefixed email identifier
+	// PrefixedLen is the length of a prefixed email identifier
 	EmailPrefixedLen = 66
 )
 
@@ -25,7 +25,9 @@ var (
 // Writers
 //
 
-// types
+// DeriveMultiplyParallelShuffler contains the necessary
+// machineries to derive identifiers into ristretto point
+// multiply them with secret key and permute them.
 type DeriveMultiplyShuffler struct {
 	w              io.Writer
 	max, seq, sent int64
@@ -45,8 +47,7 @@ type Writer struct {
 // and shuffles matchable values on n sequences of bytes to be sent out.
 // It first computes a permutation table and subsequently sends out sequences ordered
 // by the precomputed permutation table.
-//
-// This is the first stage of doing a DHPSI exchange.
+// This is the first stage of doing a DH exchange.
 func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMultiplyShuffler, error) {
 	if err := binary.Write(w, binary.BigEndian, &n); err != nil {
 		return nil, err
@@ -58,7 +59,7 @@ func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMulti
 	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, p: p, b: b}, nil
 }
 
-// Shuffle one identifier. First derive and then multiply by the
+// Shuffle shuffles one identifier. First derive and then multiply by the
 // precomputed scalar, then write out to the underlying writer while following
 // the order of permutations created at NewDeriveMultiplyShuffler.
 // Returns ErrUnexpectedPoint when the whole expected sequence has been sent.
@@ -118,7 +119,7 @@ func NewWriter(w io.Writer, n int64) (*Writer, error) {
 	return &Writer{w: w, max: n}, nil
 }
 
-// Write out the fixed length point to the underlying writer
+// Write writes out the fixed length point to the underlying writer
 // while sequencing. Returns ErrUnexpectedPoint if called past
 // the configured encoder size
 func (w *Writer) Write(point [EncodedLen]byte) (err error) {
@@ -140,7 +141,6 @@ func (w *Writer) Write(point [EncodedLen]byte) (err error) {
 // READERS
 //
 
-// types
 type MultiplyReader struct {
 	r  *Reader
 	gr Ristretto
@@ -162,7 +162,7 @@ func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
 	}
 }
 
-// Read a point from the underyling reader, multiply it with ristretto
+// Read reads a point from the underyling reader, multiply it with ristretto
 // and write it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
@@ -175,7 +175,7 @@ func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
 	}
 }
 
-// Max is the expected number of matchable
+// Max returns the expected number of matchable
 // this decoder will receive
 func (dec *MultiplyReader) Max() int64 {
 	return dec.r.max
@@ -192,7 +192,7 @@ func NewReader(r io.Reader) (*Reader, error) {
 	return &Reader{r: r, max: max}, nil
 }
 
-// Read a point from the underyling reader and
+// Read reads a point from the underyling reader and
 // write it into p. Returns io.EOF when
 // the sequence has been completely read.
 func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
@@ -209,7 +209,7 @@ func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 	return nil
 }
 
-// Max is the expected number of matchable
+// Max returns the expected number of matchable
 // this decoder will receive
 func (dec *Reader) Max() int64 {
 	return dec.max

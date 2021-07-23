@@ -12,7 +12,10 @@ import (
 // WRITERS
 //
 
-// types
+// DeriveMultiplyParallelShuffler contains the necessary
+// machineries to derive identifiers into ristretto point
+// multiply them with secret key and permute them, all in
+// a parallel fashion.
 type DeriveMultiplyParallelShuffler struct {
 	w        io.Writer
 	seq, max int64
@@ -27,10 +30,11 @@ type DeriveMultiplyParallelShuffler struct {
 	points [][EncodedLen]byte
 }
 
-// NewShufflerDirectEncoder returns a dhpsi encoder that hashes, encrypts
+// NewDeriveMultiplyParallelShuffler returns a dhpsi encoder that hashes, encrypts
 // and shuffles matchable values on n sequences of bytes to be sent out.
 // It first computes a permutation table and subsequently sends out sequences ordered
-// by the precomputed permutation table. This is the first stage of doing a DH exchange.
+// by the precomputed permutation table.
+// This is the first stage of doing a DH exchange.
 //
 // This version operates on multiple cores in parallel
 func NewDeriveMultiplyParallelShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMultiplyParallelShuffler, error) {
@@ -48,7 +52,7 @@ func NewDeriveMultiplyParallelShuffler(w io.Writer, n int64, gr Ristretto) (*Der
 	return enc, nil
 }
 
-// Shuffle one prefixed ID. First derive and then multiply by the
+// Shuffle shuffles one prefixed ID. First derive and then multiply by the
 // precomputed scaler, written out to the underlying writer while following
 // the order of permutations created at NewDeriveMultiplyShuffler.
 // Returns ErrUnexpectedEncodeByte when the whole expected sequence has been sent.
@@ -265,7 +269,7 @@ func copy_out(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
 	return
 }
 
-// Read a point from the underyling reader, multiply it with ristretto
+// Read reads a point from the underyling reader, multiply it with ristretto
 // and write it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (dec *MultiplyParallelReader) Read(point *[EncodedLen]byte) (err error) {
@@ -287,7 +291,7 @@ func (dec *MultiplyParallelReader) Read(point *[EncodedLen]byte) (err error) {
 	return nil
 }
 
-// Max is the expected number of matchable
+// Max returns the expected number of matchable
 // this decoder will receive
 func (dec *MultiplyParallelReader) Max() int64 {
 	return dec.r.max
