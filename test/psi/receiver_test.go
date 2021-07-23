@@ -61,7 +61,7 @@ func parseCommon(b []byte) (out []string) {
 	return
 }
 
-func testReceiver(protocol int, common []byte, s test_size, exactPSI bool) error {
+func testReceiver(protocol int, common []byte, s test_size, deterministic bool) error {
 	// setup channels
 	var intersectionsBus = make(chan []byte)
 	var errs = make(chan error, 2)
@@ -99,8 +99,8 @@ func testReceiver(protocol int, common []byte, s test_size, exactPSI bool) error
 	// turn the common chunk into a slice of
 	// string IDs
 	var c = parseCommon(common)
-	// is this an exact type of PSI? if not remove all false positives first
-	if !exactPSI {
+	// is this a deterministic PSI? if not remove all false positives first
+	if !deterministic {
 		// filter out intersections to
 		// have only IDs present in common
 		intersections = filterIntersect(intersections, c)

@@ -2,7 +2,6 @@ package bpsi
 
 import (
 	"context"
-	"encoding/binary"
 	"io"
 
 	"github.com/optable/match/internal/util"
@@ -29,7 +28,8 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
-	s.bf = NewBloomfilter(n)
+	// pick a bloomfilter implementation
+	s.bf, _ = NewBloomfilter(BloomfilterTypeBitsAndBloom, n)
 	// stage 1: load all local IDs into a bloom filter
 	stage1 := func() error {
 		for id := range identifiers {
@@ -40,20 +40,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 
 	// stage 2: serialize the bloomfilter out into rw
 	stage2 := func() error {
-		if b, err := s.bf.MarshalBinary(); err == nil {
-			// send out the size of the structure
-			var l uint64 = uint64(len(b))
-			if err := binary.Write(s.rw, binary.BigEndian, l); err != nil {
-				return err
-			}
-			// send out the structure
-			if _, err := s.rw.Write(b); err != nil {
-				return err
-			}
-			return nil
-		} else {
-			return err
-		}
+		_, err := s.bf.WriteTo(s.rw)
+		return err
 	}
 
 	// run stage1
