@@ -34,13 +34,6 @@ func TestModelSingle(t *testing.T) {
 		seq++
 
 		if seq == max {
-			/*
-				for _, pos := range enc.permutations[enc.sent:] {
-					if _, err = enc.w.Write(enc.b[pos][:]); err != nil {
-						return
-					}
-				}
-			*/
 			for i := sent; i < max; i++ {
 				pos := p.Shuffle(i)
 				output[i] = cache[pos]
