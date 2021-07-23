@@ -10,6 +10,10 @@ import (
 // WRITERS
 //
 
+// DeriveMultiplyParallelShuffler contains the necessary
+// machineries to derive identifiers into ristretto point
+// multiply them with secret key and permute them, all in
+// a parallel fashion.
 type DeriveMultiplyParallelShuffler struct {
 	w        io.Writer
 	seq, max int64

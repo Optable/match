@@ -16,6 +16,12 @@ const (
 	RistrettoNative
 )
 
+// Ristretto represents a ristretto point on an edward2559 curve.
+//
+// The method DeriveMultiply converts an identifier to a ristretto point
+// and multiply it with the secret key.
+// Multiply operates on ristretto point directly and multiply it with
+// the secret key.
 type Ristretto interface {
 	DeriveMultiply(dst *[EncodedLen]byte, src []byte)
 	Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte)

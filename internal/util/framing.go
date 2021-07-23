@@ -19,7 +19,8 @@ func SafeReadLine(r *bufio.Reader) (line []byte, err error) {
 }
 
 // Exhaust consumes all the identifiers in r,
-// The format of an indentifier is string\n
+// It expects that each indentifier is line separated with \n
+// at the end of each line.
 func Exhaust(n int64, r io.Reader) <-chan []byte {
 	// make the output channel
 	var identifiers = make(chan []byte)
