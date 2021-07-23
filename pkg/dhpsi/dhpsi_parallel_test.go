@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/optable/match/internal/permutations"
 	"github.com/optable/match/test/emails"
 )
 
@@ -23,7 +24,7 @@ func TestDeriveMultiplyParallelShuffler(t *testing.T) {
 	// save test matchables
 	var sent [][]byte
 	// save the permutations
-	var permutations []int64
+	var permutations permutations.Permutations
 	// save test encoded ristretto points
 	var received [][EncodedLen]byte
 	// setup sequence
@@ -75,7 +76,7 @@ func TestDeriveMultiplyParallelShuffler(t *testing.T) {
 
 	// check that sequences are permutated as expected
 	for k, v := range received {
-		trimmed := sent[permutations[k]][:32]
+		trimmed := sent[permutations.Shuffle(int64(k))][:32]
 		if !compare(v, trimmed) {
 			t.Fatalf("shuffle sequence is broken")
 		}

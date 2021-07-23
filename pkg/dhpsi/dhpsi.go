@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/optable/match/internal/permutations"
 )
 
 const (
@@ -31,9 +33,9 @@ type DeriveMultiplyShuffler struct {
 	max, seq, sent int64
 	gr             Ristretto
 	// precomputed order to send things in
-	permutations []int64
+	p permutations.Permutations
 	// buffered in the order received by Shuffle()
-	b [][EncodedLen]byte
+	b map[int64][EncodedLen]byte
 }
 
 type Writer struct {
@@ -50,9 +52,11 @@ func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMulti
 	if err := binary.Write(w, binary.BigEndian, &n); err != nil {
 		return nil, err
 	}
-	// and create the encoder
-	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
-
+	// create the permutations
+	p, _ := permutations.NewKensler(n)
+	// and create the buffer map & encoder
+	b := make(map[int64][EncodedLen]byte, int(float64(n)*0.75))
+	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, p: p, b: b}, nil
 }
 
 // Shuffle shuffles one identifier. First derive and then multiply by the
@@ -72,13 +76,15 @@ func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 
 	// we follow the permutation matrix and send
 	// or cache incoming matchables
-	next := enc.permutations[enc.sent]
+	//next := enc.permutations[enc.sent]
+	next := enc.p.Shuffle(enc.sent)
 	if next == enc.seq {
 		//  we fall perfectly in sequence, write it out
 		_, err = enc.w.Write(point[:])
 		enc.sent++
 	} else {
 		// cache the current sequence
+		// in the correct, non permutated order
 		enc.b[enc.seq] = point
 	}
 	enc.seq++
@@ -86,8 +92,10 @@ func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 	// have cached hashes left to send.
 	// flush the buffer, in enc.permutations order
 	if enc.seq == enc.max {
-		for _, pos := range enc.permutations[enc.sent:] {
-			if _, err = enc.w.Write(enc.b[pos][:]); err != nil {
+		// flush the rest of the sequence
+		for i := enc.sent; i < enc.max; i++ {
+			b := enc.b[enc.p.Shuffle(i)]
+			if _, err = enc.w.Write(b[:]); err != nil {
 				return
 			}
 		}
@@ -97,24 +105,8 @@ func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 
 // Permutations returns the permutation matrix
 // that was computed on initialization
-func (enc *DeriveMultiplyShuffler) Permutations() []int64 {
-	return enc.permutations
-}
-
-// InvertedPermutations returns the reverse of the permutation matrix
-// that was computed on initialization
-func (enc *DeriveMultiplyShuffler) InvertedPermutations() []int64 {
-	return invertedPermutations(enc.permutations)
-}
-
-// invertedPermutations returns the reverse of the permutation matrix
-// that was computed on initialization
-func invertedPermutations(in []int64) []int64 {
-	var invertedpermutations = make([]int64, len(in))
-	for i := 0; i < len(invertedpermutations); i++ {
-		invertedpermutations[in[i]] = int64(i)
-	}
-	return invertedpermutations
+func (enc *DeriveMultiplyShuffler) Permutations() permutations.Permutations {
+	return enc.p
 }
 
 // NewWriter creates a writer that first sends out

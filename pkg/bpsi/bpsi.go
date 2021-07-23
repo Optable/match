@@ -60,8 +60,6 @@ func NewBloomfilter(t Bloomfilter, n int64) (bloomfilter, error) {
 	}
 }
 
-func NewBloomfilterFrom(r io.Reader)
-
 // Add an identifier to a devopsfaith bloomfilter
 func (bf devopsfaith) Add(identifier []byte) {
 	bf.bf.Add(identifier)

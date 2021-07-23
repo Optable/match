@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"io"
 	"sync"
+
+	"github.com/optable/match/internal/permutations"
 )
 
 //
@@ -19,7 +21,7 @@ type DeriveMultiplyParallelShuffler struct {
 	seq, max int64
 	gr       Ristretto
 	// precomputed order to send things in
-	permutations []int64
+	p permutations.Permutations
 	// pre-processing batch buffer
 	b dmBatch
 	// batch sync
@@ -42,8 +44,10 @@ func NewDeriveMultiplyParallelShuffler(w io.Writer, n int64, gr Ristretto) (*Der
 	}
 	// create the first batch
 	b := makeDMBatch(0, min(batchSize, n))
+	// create the permutations
+	p, _ := permutations.NewKensler(n)
 	// and create the encoder
-	enc := &DeriveMultiplyParallelShuffler{w: w, max: n, gr: gr, permutations: initP(n), b: b, points: make([][EncodedLen]byte, n)}
+	enc := &DeriveMultiplyParallelShuffler{w: w, max: n, gr: gr, p: p, b: b, points: make([][EncodedLen]byte, n)}
 	enc.wg.Add(1)
 	return enc, nil
 }
@@ -90,8 +94,9 @@ func (enc *DeriveMultiplyParallelShuffler) Shuffle(identifier []byte) (err error
 	if enc.seq == enc.max {
 		// wait for all batches to finish
 		enc.wg.Wait()
-		for _, p := range enc.permutations {
-			if _, err = enc.w.Write(enc.points[p][:]); err != nil {
+		for i := int64(0); i < enc.max; i++ {
+			pos := enc.p.Shuffle(i)
+			if _, err = enc.w.Write(enc.points[pos][:]); err != nil {
 				return
 			}
 		}
@@ -101,14 +106,8 @@ func (enc *DeriveMultiplyParallelShuffler) Shuffle(identifier []byte) (err error
 
 // Permutations returns the permutation matrix
 // that was computed on initialization
-func (enc *DeriveMultiplyParallelShuffler) Permutations() []int64 {
-	return enc.permutations
-}
-
-// InvertedPermutations returns the reverse of the permutation matrix
-// that was computed on initialization
-func (enc *DeriveMultiplyParallelShuffler) InvertedPermutations() []int64 {
-	return invertedPermutations(enc.permutations)
+func (enc *DeriveMultiplyParallelShuffler) Permutations() permutations.Permutations {
+	return enc.p
 }
 
 //
@@ -211,7 +210,7 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 				err := r.Read(&b.batch[j])
 				if err != nil {
 					// cancel everything
-					closed <- true
+					close(closed)
 					return
 				}
 			}

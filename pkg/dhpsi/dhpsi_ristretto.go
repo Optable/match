@@ -13,7 +13,7 @@ import (
 const (
 	RistrettoTypeGR = iota
 	RistrettoTypeR255
-	RistrettoNative
+	RistrettoNil
 )
 
 // Ristretto represents a ristretto point on an edward2559 curve.
