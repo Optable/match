@@ -9,6 +9,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/optable/match/pkg/psi"
 	"github.com/optable/match/test/emails"
 )
 
@@ -34,7 +35,7 @@ func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, c
 	defer close(intersectionsBus)
 	r := initTestDataSource(common, receiverLen-commonLen)
 
-	rec, _ := newReceiver(protocol, conn)
+	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
 	ii, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
@@ -60,7 +61,7 @@ func parseCommon(b []byte) (out []string) {
 	return
 }
 
-func testReceiver(protocol int, common []byte, s test_size) error {
+func testReceiver(protocol int, common []byte, s test_size, deterministic bool) error {
 	// setup channels
 	var intersectionsBus = make(chan []byte)
 	var errs = make(chan error, 2)
@@ -76,7 +77,7 @@ func testReceiver(protocol int, common []byte, s test_size) error {
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
-		snd, _ := newSender(protocol, conn)
+		snd, _ := psi.NewSender(psi.Protocol(protocol), conn)
 		err = snd.Send(context.Background(), int64(s.senderLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
@@ -94,6 +95,17 @@ func testReceiver(protocol int, common []byte, s test_size) error {
 		return err
 	default:
 	}
+
+	// turn the common chunk into a slice of
+	// string IDs
+	var c = parseCommon(common)
+	// is this a deterministic PSI? if not remove all false positives first
+	if !deterministic {
+		// filter out intersections to
+		// have only IDs present in common
+		intersections = filterIntersect(intersections, c)
+	}
+
 	// right amount?
 	if len(common)/emails.HashLen != len(intersections) {
 		return fmt.Errorf("expected %d intersections and got %d", len(common)/emails.HashLen, len(intersections))
@@ -103,14 +115,13 @@ func testReceiver(protocol int, common []byte, s test_size) error {
 		return string(intersections[i]) > string(intersections[j])
 	})
 	// sort common
-	c := parseCommon(common)
 	sort.Slice(c, func(i, j int) bool {
 		return string(c[i]) > string(c[j])
 	})
 
 	// matching?
 	for k, v := range intersections {
-		s1 := string(c[k])
+		s1 := c[k]
 		s2 := string(v)
 		if s1 != s2 {
 			return fmt.Errorf("expected to intersect, got %s != %s (%d %d)", s1, s2, len(s1), len(s2))
@@ -119,13 +130,31 @@ func testReceiver(protocol int, common []byte, s test_size) error {
 	return nil
 }
 
+func filterIntersect(intersections [][]byte, common []string) [][]byte {
+	var out [][]byte
+	// index common
+	var c = make(map[string]bool)
+	for _, id := range common {
+		c[id] = true
+	}
+
+	// go over intersections
+	// and make sure its a member of common
+	for _, id := range intersections {
+		if c[string(id)] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 func TestDHPSIReceiver(t *testing.T) {
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
 		common := emails.Common(s.commonLen)
 		// test
-		if err := testReceiver(psiDHPSI, common, s); err != nil {
+		if err := testReceiver(psi.DHPSI, common, s, true); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
 	}
@@ -137,7 +166,19 @@ func TestNPSIReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(s.commonLen)
 		// test
-		if err := testReceiver(psiNPSI, common, s); err != nil {
+		if err := testReceiver(psi.NPSI, common, s, true); err != nil {
+			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
+}
+
+func TestBPSIReceiver(t *testing.T) {
+	for _, s := range test_sizes {
+		t.Logf("testing scenario %s", s.scenario)
+		// generate common data
+		common := emails.Common(s.commonLen)
+		// test
+		if err := testReceiver(psi.BPSI, common, s, false); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
 	}
