@@ -29,7 +29,8 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
-	s.bf = NewBloomfilter(n)
+	// pick a bloomfilter implementation
+	s.bf, _ = NewBloomfilter(BloomfilterTypeBitsAndBloom, n)
 	// stage 1: load all local IDs into a bloom filter
 	stage1 := func() error {
 		for id := range identifiers {

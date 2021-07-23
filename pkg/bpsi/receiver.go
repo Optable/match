@@ -56,7 +56,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// unmarshal into bf
-		if bf_, err := UnmarshalBinary(b); err != nil {
+		if bf_, err := UnmarshalJSON(b); err != nil {
 			return err
 		} else {
 			bf = bf_

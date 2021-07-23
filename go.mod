@@ -3,6 +3,7 @@ module github.com/optable/match
 go 1.16
 
 require (
+	github.com/bits-and-blooms/bloom/v3 v3.0.1 // indirect
 	github.com/bwesterb/go-ristretto v1.2.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/dchest/siphash v1.2.2
