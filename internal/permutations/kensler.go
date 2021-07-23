@@ -1,3 +1,9 @@
+// Andrew Kensler, a researcher at Pixar, introduced an interesting technique for generating the permutation of an array
+// in his 2013 paper, Correlated Multi-Jittered Sampling.
+//
+// reference:             https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf
+// further comments from: https://afnan.io/posts/2019-04-05-explaining-the-hashed-permutation/
+//
 package permutations
 
 import (
@@ -6,16 +12,6 @@ import (
 	"math"
 	"math/big"
 )
-
-/*
-
-Andrew Kensler, a researcher at Pixar, introduced an interesting technique for generating the permutation of an array
-in his 2013 paper, Correlated Multi-Jittered Sampling.
-
-reference:             https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf
-further comments from: https://afnan.io/posts/2019-04-05-explaining-the-hashed-permutation/
-
-*/
 
 // kensler shuffler
 // l The desired size of the permutation vector
