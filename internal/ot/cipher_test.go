@@ -2,7 +2,10 @@ package ot
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"testing"
+
+	"github.com/zeebo/blake3"
 )
 
 var (
@@ -14,6 +17,18 @@ var (
 func init() {
 	r.Read(aesKey)
 	r.Read(xorKey)
+}
+
+func BenchmarkSha(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		sha256.Sum256(p)
+	}
+}
+
+func BenchmarkBlake3(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		blake3.Sum256(p)
+	}
 }
 
 func TestCTREncrypDecrypt(t *testing.T) {

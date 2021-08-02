@@ -39,7 +39,7 @@ func genChoiceBits(n int) []uint8 {
 	return choices
 }
 
-func initReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+func initReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -56,7 +56,7 @@ func initReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- erro
 	return l.Addr().String(), nil
 }
 
-func receiveHandler(conn net.Conn, ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
+func receiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
 	msg := make([][]byte, baseCount)
@@ -70,7 +70,7 @@ func receiveHandler(conn net.Conn, ot Ot, choices []uint8, msgBus chan<- []byte,
 	}
 }
 
-func TestSimplestOt(t *testing.T) {
+func TestSimplestOT(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -81,7 +81,7 @@ func TestSimplestOt(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	ot, err := NewBaseOt(Simplest, false, baseCount, curve, msgLen, cipherMode)
+	ot, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		t.Fatalf("Error creating Simplest OT: %s", err)
 	}
@@ -94,10 +94,14 @@ func TestSimplestOt(t *testing.T) {
 	go func() {
 		conn, err := net.Dial(network, addr)
 		if err != nil {
-			errs <- fmt.Errorf("cannot dial: %s", err)
+			errs <- fmt.Errorf("Cannot dial: %s", err)
+		}
+		ss, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+		if err != nil {
+			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
 
-		err = ot.Send(messages, conn)
+		err = ss.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("send encountered error: %s", err)
 			close(msgBus)
@@ -134,7 +138,7 @@ func TestSimplestOt(t *testing.T) {
 	}
 }
 
-func TestNaorPinkasOt(t *testing.T) {
+func TestNaorPinkasOT(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -145,7 +149,7 @@ func TestNaorPinkasOt(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	ot, err := NewBaseOt(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+	ot, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		t.Fatalf("Error creating NaorPinkas OT: %s", err)
 	}
@@ -160,8 +164,12 @@ func TestNaorPinkasOt(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
+		ss, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+		if err != nil {
+			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
+		}
 
-		err = ot.Send(messages, conn)
+		err = ss.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)

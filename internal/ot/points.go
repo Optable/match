@@ -3,8 +3,9 @@ package ot
 import (
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"math/big"
+
+	"github.com/zeebo/blake3"
 )
 
 // high level api for operating on elliptic curve points.
@@ -44,7 +45,7 @@ func (p points) isOnCurve() bool {
 // deriveKey returns a key of 32 byte from an elliptic curve point
 func (p points) deriveKey() []byte {
 	buf := elliptic.Marshal(p.curve, p.x, p.y)
-	key := sha256.Sum256(buf)
+	key := blake3.Sum256(buf)
 	return key[:]
 }
 
@@ -55,4 +56,10 @@ func generateKeyWithPoints(curve elliptic.Curve) ([]byte, points, error) {
 	}
 
 	return secret, newPoints(curve, x, y), nil
+}
+
+// deriveKey returns a key of 32 byte from an elliptic curve point
+func deriveKey(point []byte) []byte {
+	key := blake3.Sum256(point)
+	return key[:]
 }

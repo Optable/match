@@ -10,7 +10,7 @@ import (
 )
 
 type imprvIknp struct {
-	baseOt Ot
+	baseOT OT
 	m      int
 	k      int
 	msgLen []int
@@ -25,13 +25,13 @@ func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp,
 		baseMsgLen[i] = k
 	}
 
-	ot, err := NewBaseOt(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
+	ot, err := NewBaseOT(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
 	if err != nil {
 		return imprvIknp{}, err
 	}
 	g := blake3.New()
 
-	return imprvIknp{baseOt: ot, m: m, k: k, msgLen: msgLen,
+	return imprvIknp{baseOT: ot, m: m, k: k, msgLen: msgLen,
 		prng: rand.New(rand.NewSource(time.Now().UnixNano())),
 		g:    g}, nil
 }
@@ -45,7 +45,7 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
 	seeds := make([][]uint8, ext.k)
-	if err = ext.baseOt.Receive(s, seeds, rw); err != nil {
+	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return err
 	}
 
@@ -120,7 +120,7 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	}
 
 	// act as sender in baseOT to send k columns
-	if err = ext.baseOt.Send(baseMsgs, rw); err != nil {
+	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
 		return err
 	}
 

@@ -59,7 +59,7 @@ func initImprovedIKNPReceiver(choices []uint8, msgBus chan<- []byte, errs chan<-
 	return l.Addr().String(), nil
 }
 
-func iknpReceiveHandler(conn net.Conn, ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
+func iknpReceiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
 	msg := make([][]byte, baseCount)

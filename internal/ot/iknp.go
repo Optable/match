@@ -14,26 +14,26 @@ const (
 )
 
 type iknp struct {
-	baseOt Ot
+	baseOT OT
 	m      int
 	k      int
 	msgLen []int
 	prng   *rand.Rand
 }
 
-func NewIKNP(m, k, baseOt int, ristretto bool, msgLen []int) (iknp, error) {
+func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = m
 	}
 
-	ot, err := NewBaseOt(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
+	ot, err := NewBaseOT(baseOT, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
 	if err != nil {
 		return iknp{}, err
 	}
 
-	return iknp{baseOt: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	return iknp{baseOT: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
 func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
@@ -45,7 +45,7 @@ func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 
 	// act as receiver in baseOT to receive q^j
 	q := make([][]uint8, ext.k)
-	if err = ext.baseOt.Receive(s, q, rw); err != nil {
+	if err = ext.baseOT.Receive(s, q, rw); err != nil {
 		return err
 	}
 
@@ -102,7 +102,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// act as sender in baseOT to send k columns
-	if err = ext.baseOt.Send(baseMsgs, rw); err != nil {
+	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
 		return err
 	}
 
@@ -114,7 +114,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		// compute # of bytes to be read
 		l := encryptLen(iknpCipherMode, ext.msgLen[i])
 		// read both msg
-		for j, _ := range e {
+		for j := range e {
 			e[j] = make([]byte, l)
 			if _, err = io.ReadFull(rw, e[j]); err != nil {
 				return err

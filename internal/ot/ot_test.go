@@ -27,9 +27,9 @@ func TestInitCurve(t *testing.T) {
 }
 
 func TestNewNaorPinkas(t *testing.T) {
-	ot, err := NewBaseOt(NaorPinkas, false, 3, curve, []int{1, 2, 3}, cipherMode)
+	ot, err := NewBaseOT(NaorPinkas, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
-		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
+		t.Fatalf("got error %v while creating NaorPinkas baseOT", err)
 	}
 
 	if _, ok := ot.(naorPinkas); !ok {
@@ -38,9 +38,9 @@ func TestNewNaorPinkas(t *testing.T) {
 }
 
 func TestNewSimplest(t *testing.T) {
-	ot, err := NewBaseOt(Simplest, false, 3, curve, []int{1, 2, 3}, cipherMode)
+	ot, err := NewBaseOT(Simplest, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
-		t.Fatalf("got error %v while creating Simplest baseOt", err)
+		t.Fatalf("got error %v while creating Simplest baseOT", err)
 	}
 
 	if _, ok := ot.(simplest); !ok {
@@ -48,17 +48,17 @@ func TestNewSimplest(t *testing.T) {
 	}
 }
 
-func TestNewUnknownOt(t *testing.T) {
-	_, err := NewBaseOt(2, false, 3, curve, []int{1, 2, 3}, cipherMode)
+func TestNewUnknownOT(t *testing.T) {
+	_, err := NewBaseOT(2, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err == nil {
-		t.Fatal("should get error creating unknown baseOt")
+		t.Fatal("should get error creating unknown baseOT")
 	}
 }
 
 func TestNewNaorPinkasRistretto(t *testing.T) {
-	ot, err := NewBaseOt(NaorPinkas, true, 3, curve, []int{1, 2, 3}, cipherMode)
+	ot, err := NewBaseOT(NaorPinkas, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
-		t.Fatalf("got error %v while creating NaorPinkas baseOt", err)
+		t.Fatalf("got error %v while creating NaorPinkas baseOT", err)
 	}
 
 	if _, ok := ot.(naorPinkasRistretto); !ok {
@@ -67,9 +67,9 @@ func TestNewNaorPinkasRistretto(t *testing.T) {
 }
 
 func TestNewSimplestRistretto(t *testing.T) {
-	ot, err := NewBaseOt(Simplest, true, 3, curve, []int{1, 2, 3}, cipherMode)
+	ot, err := NewBaseOT(Simplest, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
-		t.Fatalf("got error %v while creating Simplest baseOt", err)
+		t.Fatalf("got error %v while creating Simplest baseOT", err)
 	}
 
 	if _, ok := ot.(simplestRistretto); !ok {
@@ -77,10 +77,10 @@ func TestNewSimplestRistretto(t *testing.T) {
 	}
 }
 
-func TestNewUnknownOtRistretto(t *testing.T) {
-	_, err := NewBaseOt(2, true, 3, curve, []int{1, 2, 3}, cipherMode)
+func TestNewUnknownOTRistretto(t *testing.T) {
+	_, err := NewBaseOT(2, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err == nil {
-		t.Fatal("should get error creating unknown baseOt")
+		t.Fatal("should get error creating unknown baseOT")
 	}
 }
 
