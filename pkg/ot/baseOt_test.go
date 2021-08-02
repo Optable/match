@@ -14,7 +14,7 @@ var (
 	address    = "127.0.0.1:"
 	curve      = "P256"
 	cipherMode = XORBlake3
-	baseCount  = 128
+	baseCount  = 1024
 	messages   = genMsg(baseCount)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)
@@ -24,7 +24,7 @@ var (
 func genMsg(n int) [][2][]byte {
 	data := make([][2][]byte, n)
 	for i := 0; i < n; i++ {
-		for j, _ := range data[i] {
+		for j := range data[i] {
 			data[i][j] = make([]byte, 64)
 			r.Read(data[i][j])
 		}
@@ -48,7 +48,7 @@ func initReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- erro
 	go func() {
 		conn, err := l.Accept()
 		if err != nil {
-			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
+			errs <- fmt.Errorf("cannot create connection in listen accept: %s", err)
 		}
 
 		go receiveHandler(conn, ot, choices, msgBus, errs)
@@ -94,12 +94,12 @@ func TestSimplestOt(t *testing.T) {
 	go func() {
 		conn, err := net.Dial(network, addr)
 		if err != nil {
-			errs <- fmt.Errorf("Cannot dial: %s", err)
+			errs <- fmt.Errorf("cannot dial: %s", err)
 		}
 
 		err = ot.Send(messages, conn)
 		if err != nil {
-			errs <- fmt.Errorf("Send encountered error: %s", err)
+			errs <- fmt.Errorf("send encountered error: %s", err)
 			close(msgBus)
 		}
 
@@ -128,7 +128,7 @@ func TestSimplestOt(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
 		}
 	}
@@ -192,7 +192,7 @@ func TestNaorPinkasOt(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
 		}
 	}

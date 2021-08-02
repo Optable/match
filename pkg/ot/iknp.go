@@ -21,10 +21,10 @@ type iknp struct {
 	prng   *rand.Rand
 }
 
-func NewIknp(m, k, baseOt int, ristretto bool, msgLen []int) (iknp, error) {
+func NewIKNP(m, k, baseOt int, ristretto bool, msgLen []int) (iknp, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
-	for i, _ := range baseMsgLen {
+	for i := range baseMsgLen {
 		baseMsgLen[i] = m
 	}
 
@@ -66,7 +66,7 @@ func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 
 			ciphertext, err = encrypt(iknpCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
-				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
@@ -124,7 +124,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		// decrypt received ciphertext using key (choices[i], t_i)
 		messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error decrypting sender messages: %s\n", err)
+			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}
 	}
 

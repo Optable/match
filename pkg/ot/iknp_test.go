@@ -15,7 +15,34 @@ func BenchmarkSampleBitSlice(b *testing.B) {
 	}
 }
 
-func initIknpReceiver(ot Ot, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+func initIKNPReceiver(choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+	ot, err := NewIKNP(baseCount, 128, Simplest, false, msgLen)
+	if err != nil {
+		errs <- fmt.Errorf("Error initiating ot: %s", err)
+	}
+
+	l, err := net.Listen(network, address)
+	if err != nil {
+		errs <- fmt.Errorf("net listen encountered error: %s", err)
+	}
+
+	go func() {
+		conn, err := l.Accept()
+		if err != nil {
+			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
+		}
+
+		go iknpReceiveHandler(conn, ot, choices, msgBus, errs)
+	}()
+	return l.Addr().String(), nil
+}
+
+func initImprovedIKNPReceiver(choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+	ot, err := NewImprovedIknp(baseCount, 128, Simplest, false, msgLen)
+	if err != nil {
+		errs <- fmt.Errorf("Error initiating ot: %s", err)
+	}
+
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -46,7 +73,7 @@ func iknpReceiveHandler(conn net.Conn, ot Ot, choices []uint8, msgBus chan<- []b
 	}
 }
 
-func TestIknpOtExtension(t *testing.T) {
+func TestIKNPOT(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -56,12 +83,12 @@ func TestIknpOtExtension(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewIknp(baseCount, 128, Simplest, false, msgLen)
+	ot, err := NewIKNP(baseCount, 128, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr, err := initIknpReceiver(ot, choices, msgBus, errs)
+	addr, err := initIKNPReceiver(choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,13 +133,13 @@ func TestIknpOtExtension(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("IKNP OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
 }
 
-func TestImprovedIknpOtExtension(t *testing.T) {
+func TestImprovedIKNP(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -127,7 +154,7 @@ func TestImprovedIknpOtExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr, err := initIknpReceiver(ot, choices, msgBus, errs)
+	addr, err := initImprovedIKNPReceiver(choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +199,7 @@ func TestImprovedIknpOtExtension(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("Improved IKNP OT failed at meesage %d, got: %v, want %v from %v", i, m, messages[i][choices[i]], messages[i])
 		}
 	}

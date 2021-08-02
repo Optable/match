@@ -37,13 +37,13 @@ func xorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// basically H(seed) xor src, but since H is an XOF, we will model it as a pseudorandom generator.
-func xorCipherWithPRG(s blake2b.XOF, seed []byte, src []byte) (dst []byte, err error) {
+// H(seed) xor src, where H is modeled as a pseudorandom generator.
+func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
 	dst = make([]byte, len(src))
 	s.Reset()
 	s.Write(seed)
-	s.Read(dst)
-
+	d := s.Digest()
+	d.Read(dst)
 	return xorBytes(src, dst)
 }
 
@@ -151,8 +151,8 @@ func ctrDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
 	h.Write(iv)
 	h.Write(c)
 	h.Read(mac2)
-	if bytes.Compare(mac, mac2) != 0 {
-		return nil, fmt.Errorf("Cipher text is not authenticated.")
+	if !bytes.Equal(mac, mac2) {
+		return nil, fmt.Errorf("cipher text is not authenticated")
 	}
 	stream.XORKeyStream(plaintext, c)
 	return
@@ -214,7 +214,7 @@ func encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 		return xorCipherWithShake(key, ind, plaintext)
 	}
 
-	return nil, fmt.Errorf("Wrong encrypt mode")
+	return nil, fmt.Errorf("wrong encrypt mode")
 }
 
 func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
@@ -231,7 +231,7 @@ func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 		return xorCipherWithShake(key, ind, ciphertext)
 	}
 
-	return nil, fmt.Errorf("Wrong decrypt mode")
+	return nil, fmt.Errorf("wrong decrypt mode")
 }
 
 // compute ciphertext length in bytes

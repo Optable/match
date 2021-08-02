@@ -2,10 +2,11 @@ package ot
 
 import (
 	"fmt"
-	"golang.org/x/crypto/blake2b"
 	"io"
 	"math/rand"
 	"time"
+
+	"github.com/zeebo/blake3"
 )
 
 type imprvIknp struct {
@@ -14,13 +15,13 @@ type imprvIknp struct {
 	k      int
 	msgLen []int
 	prng   *rand.Rand
-	g      blake2b.XOF
+	g      *blake3.Hasher
 }
 
 func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp, error) {
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
-	for i, _ := range baseMsgLen {
+	for i := range baseMsgLen {
 		baseMsgLen[i] = k
 	}
 
@@ -28,10 +29,7 @@ func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp,
 	if err != nil {
 		return imprvIknp{}, err
 	}
-	g, err := blake2b.NewXOF(blake2b.OutputLengthUnknown, nil)
-	if err != nil {
-		return imprvIknp{}, err
-	}
+	g := blake3.New()
 
 	return imprvIknp{baseOt: ot, m: m, k: k, msgLen: msgLen,
 		prng: rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -56,7 +54,7 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	e := make([][]byte, 2)
 	for i := range q {
 		// read both msg
-		for j, _ := range e {
+		for j := range e {
 			// each column is m bytes long
 			e[j] = make([]byte, ext.m)
 			if _, err = io.ReadFull(rw, e[j]); err != nil {
@@ -64,9 +62,7 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 			}
 		}
 		// unmask e and store it in q.
-		//fmt.Printf("seeds[i]:\n%v\n, e[s[i]]:\n%v\n", seeds[i], e[s[i]])
-		q[i], err = xorCipherWithBlake3(seeds[i], s[i], e[s[i]])
-		//q[i], err = xorCipherWithPRG(ext.g, seeds[i], e[s[i]])
+		q[i], err = xorCipherWithPRG(ext.g, seeds[i], e[s[i]])
 	}
 
 	//fmt.Printf("q:\n%v\n", q)
@@ -86,7 +82,7 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 
 			ciphertext, err = encrypt(iknpCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
-				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
@@ -139,19 +135,16 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 			return err
 		}
 
-		maskedTj, err := xorCipherWithBlake3(baseMsgs[row][0], 0, t[row])
-		//maskedTj, err := xorCipherWithPRG(ext.g, baseMsgs[row][0], t[row])
+		maskedTj, err := xorCipherWithPRG(ext.g, baseMsgs[row][0], t[row])
 		if err != nil {
 			return err
 		}
 
-		maskedUj, err := xorCipherWithBlake3(baseMsgs[row][1], 1, u)
-		//maskedUj, err := xorCipherWithPRG(ext.g, baseMsgs[row][1], u)
+		maskedUj, err := xorCipherWithPRG(ext.g, baseMsgs[row][1], u)
 		if err != nil {
 			return err
 		}
 
-		//fmt.Printf("seeds:\n%v\nmaskedT:\n%v\nmaskedU\n%v\n", baseMsgs[row], maskedTj, maskedUj)
 		// send t^j
 		if _, err = rw.Write(maskedTj); err != nil {
 			return err
@@ -163,16 +156,15 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		}
 	}
 
-	//fmt.Printf("t:\n%v\nu:\n%v\n", t, u)
 	t = transpose(t)
 
 	// receive encrypted messages.
 	e := make([][]byte, 2)
 	for i := range choices {
-		// compute # of bytes to be read
+		// compute nb of bytes to be read
 		l := encryptLen(iknpCipherMode, ext.msgLen[i])
 		// read both msg
-		for j, _ := range e {
+		for j := range e {
 			e[j] = make([]byte, l)
 			if _, err = io.ReadFull(rw, e[j]); err != nil {
 				return err
@@ -182,7 +174,7 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		// decrypt received ciphertext using key (choices[i], t_i)
 		messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error decrypting sender messages: %s\n", err)
+			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}
 	}
 

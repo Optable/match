@@ -27,7 +27,7 @@ func TestCTREncrypDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) != 0 {
+	if !bytes.Equal(p, plain) {
 		t.Errorf("error in decrypt, want: %s, got: %s", string(p), string(plain))
 	}
 }
@@ -43,7 +43,7 @@ func TestGCMEncrypDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) != 0 {
+	if !bytes.Equal(p, plain) {
 		t.Errorf("error in decrypt, want: %s, got: %s", string(p), string(plain))
 	}
 }
@@ -59,7 +59,7 @@ func TestXORShakeEncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) == 0 {
+	if bytes.Equal(p, plain) {
 		t.Fatalf("decryption should not work!")
 	}
 
@@ -68,7 +68,7 @@ func TestXORShakeEncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) != 0 {
+	if !bytes.Equal(p, plain) {
 		t.Fatalf("Decryption should have worked")
 	}
 }
@@ -84,7 +84,7 @@ func TestXORBlake2EncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) == 0 {
+	if bytes.Equal(p, plain) {
 		t.Fatalf("decryption should not work!")
 	}
 
@@ -93,7 +93,7 @@ func TestXORBlake2EncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) != 0 {
+	if !bytes.Equal(p, plain) {
 		t.Fatalf("Decryption should have worked")
 	}
 }
@@ -109,7 +109,7 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) == 0 {
+	if bytes.Equal(p, plain) {
 		t.Fatalf("decryption should not work!")
 	}
 
@@ -118,7 +118,7 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(p, plain) != 0 {
+	if !bytes.Equal(p, plain) {
 		t.Fatalf("Decryption should have worked")
 	}
 }
@@ -133,7 +133,7 @@ func TestXORBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(c, a) == 0 || bytes.Compare(c, b) == 0 {
+	if bytes.Equal(c, a) || bytes.Equal(c, b) {
 		t.Fatalf("c should not be equal to a nor b")
 	}
 
@@ -142,7 +142,7 @@ func TestXORBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(c, b) != 0 {
+	if !bytes.Equal(c, b) {
 		t.Fatalf("c should be equal to b")
 	}
 }

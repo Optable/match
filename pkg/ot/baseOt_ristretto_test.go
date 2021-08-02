@@ -65,7 +65,7 @@ func TestSimplestRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
@@ -129,7 +129,7 @@ func TestNaorPinkasRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if bytes.Compare(m, messages[i][choices[i]]) != 0 {
+		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
