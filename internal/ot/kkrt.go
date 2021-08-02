@@ -49,6 +49,17 @@ func NewKKRT(m, k, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
 }
 
 func (ext kkrt) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+	// sample random 16 byte secret key for AES-128
+	sk := make([]uint8, 16)
+	if _, err = ext.prng.Read(sk); err != nil {
+		return nil
+	}
+
+	// send the secret key
+	if _, err := rw.Write(sk); err != nil {
+		return err
+	}
+
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
 	if err = util.SampleBitSlice(ext.prng, s); err != nil {
@@ -91,30 +102,37 @@ func (ext kkrt) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	return
 }
 
-func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
+func (ext kkrt) Receive(choices [][]uint8, messages [][]byte, rw io.ReadWriter) (err error) {
 	if len(choices) != len(messages) || len(choices) != ext.m {
 		return ErrBaseCountMissMatch
 	}
 
-	// Sample k x m matrix T
-	t, err := util.SampleRandomBitMatrix(ext.prng, ext.k, ext.m)
+	// receive AES-128 secret key
+	sk := make([]byte, 16)
+	if _, err = io.ReadFull(rw, sk); err != nil {
+		return err
+	}
+
+	// Sample m x k matrix T
+	t, err := util.SampleRandomBitMatrix(ext.prng, ext.m, ext.k)
 	if err != nil {
 		return err
 	}
 
-	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
-	baseMsgs := make([][2][]byte, ext.k)
-	for j := range baseMsgs {
+	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
+	baseMsgs := make([][2][]byte, ext.m)
+	for i := range baseMsgs {
 		// []uint8 = []byte, since byte is an alias to uint8
-		baseMsgs[j][0] = t[j]
-		baseMsgs[j][1], err = xorBytes(t[j], choices)
+		baseMsgs[i][0] = t[i]
+		// do we need mod 2 for each bytes from the return of pseudorandomCode?
+		baseMsgs[i][1], err = xorBytes(t[i], pseudorandomCode(sk, ext.k, choices[i]))
 		if err != nil {
 			return err
 		}
 	}
 
 	// act as sender in baseOT to send k columns
-	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
+	if err = ext.baseOT.Send(util.Transpose3D(baseMsgs), rw); err != nil {
 		return err
 	}
 
@@ -134,10 +152,10 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
-		if err != nil {
-			return fmt.Errorf("error decrypting sender messages: %s", err)
-		}
+		//messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
+		//if err != nil {
+		//	return fmt.Errorf("error decrypting sender messages: %s", err)
+		//}
 	}
 
 	return

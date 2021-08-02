@@ -24,6 +24,24 @@ const (
 	XORShake
 )
 
+// pseudorandomCode is implemented as follows:
+// C(x) = AES(1||x) || AES(2||x) || AES(3||x) || AES(4||X)
+// for the KKRT n choose 1 OPRF
+// secretKey is a 16 byte slice for AES-128
+// k is the desired number of bytes
+// on success, pseudorandomCode returns a byte slice of length k.
+func pseudorandomCode(secretKey []byte, k int, input []byte) []byte {
+	block, _ := aes.NewCipher(secretKey)
+	dst := make([]byte, aes.BlockSize*4)
+	block.Encrypt(dst[:aes.BlockSize], append([]byte{1}, input...))
+	block.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], append([]byte{2}, input...))
+	block.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], append([]byte{3}, input...))
+	block.Encrypt(dst[aes.BlockSize*3:], append([]byte{4}, input...))
+
+	// return desired number of bytes
+	return dst[:k]
+}
+
 // xorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
 func xorBytes(a, b []byte) (dst []byte, err error) {

@@ -17,6 +17,23 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+// Transpose3D returns the transpose of a 3D slices of uint8
+// from (m x 2 x k) to (k x 2 x m)
+func Transpose3D(matrix [][2][]uint8) [][2][]uint8 {
+	n := len(matrix)
+	tr := make([][2][]uint8, len(matrix[0][0]))
+
+	for row := range tr {
+		for b := range tr[row] {
+			tr[row][b] = make([]uint8, n)
+			for col := range tr[row][b] {
+				tr[row][b][col] = matrix[col][b][row]
+			}
+		}
+	}
+	return tr
+}
+
 // SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
 // with pseudorandom bit values
 func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
