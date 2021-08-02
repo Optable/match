@@ -7,6 +7,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/optable/match/internal/util"
 )
 
 var (
@@ -35,7 +37,7 @@ func genMsg(n int) [][2][]byte {
 
 func genChoiceBits(n int) []uint8 {
 	choices := make([]uint8, n)
-	sampleBitSlice(r, choices)
+	util.SampleBitSlice(r, choices)
 	return choices
 }
 

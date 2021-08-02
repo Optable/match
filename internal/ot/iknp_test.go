@@ -6,12 +6,14 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/optable/match/internal/util"
 )
 
 func BenchmarkSampleBitSlice(b *testing.B) {
 	s := make([]uint8, 1)
 	for i := 0; i < b.N; i++ {
-		sampleBitSlice(r, s)
+		util.SampleBitSlice(r, s)
 	}
 }
 

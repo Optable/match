@@ -6,8 +6,16 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 )
+
+/*
+1 out of 2 IKNP OT extension
+from the paper: Extending Oblivious Transfers Efficiently
+by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
+reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
+*/
 
 type imprvIknp struct {
 	baseOT OT
@@ -39,7 +47,7 @@ func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp,
 func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = sampleBitSlice(ext.prng, s); err != nil {
+	if err = util.SampleBitSlice(ext.prng, s); err != nil {
 		return err
 	}
 
@@ -66,7 +74,7 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	//fmt.Printf("q:\n%v\n", q)
-	q = transpose(q)
+	q = util.Transpose(q)
 
 	// encrypt messages and send them
 	var key, ciphertext []byte
@@ -102,7 +110,7 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 
 	// compute actual messages to be sent
 	// t is pseudorandom binary matrix
-	t, err := sampleRandomBitMatrix(ext.prng, ext.k, ext.m)
+	t, err := util.SampleRandomBitMatrix(ext.prng, ext.k, ext.m)
 	if err != nil {
 		return err
 	}
@@ -112,7 +120,7 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	for j := range baseMsgs {
 		for b := range baseMsgs[j] {
 			baseMsgs[j][b] = make([]byte, ext.k)
-			err = sampleBitSlice(ext.prng, baseMsgs[j][b])
+			err = util.SampleBitSlice(ext.prng, baseMsgs[j][b])
 			if err != nil {
 				return err
 			}
@@ -156,7 +164,7 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		}
 	}
 
-	t = transpose(t)
+	t = util.Transpose(t)
 
 	// receive encrypted messages.
 	e := make([][]byte, 2)
