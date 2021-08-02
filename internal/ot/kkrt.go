@@ -1,5 +1,16 @@
 package ot
 
+/*
+1 out of N OT extension
+based on IKNP 1 out of 2 OT extension
+from the paper: Improved OT extension for Transferring Short Secrets
+by Vladimir Kolesnikov and Ranjit Kumaresan in 2013, and later
+from the paper: Efficient Batched Oblivious PRF with Applications to Private Set Intersection
+by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016.
+Reference:	https://eprint.iacr.org/2013/491.pdf (Improved IKNP)
+			http://dx.doi.org/10.1145/2976749.2978381 (KKRT)
+*/
+
 import (
 	"fmt"
 	"io"
@@ -9,19 +20,12 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-/*
-1 out of 2 IKNP OT extension
-from the paper: Extending Oblivious Transfers Efficiently
-by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
-reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
-*/
-
 const (
-	iknpCurve      = "P256"
-	iknpCipherMode = XORBlake3
+	kkrtCurve      = "P256"
+	kkrtCipherMode = XORBlake3
 )
 
-type iknp struct {
+type kkrt struct {
 	baseOT OT
 	m      int
 	k      int
@@ -29,7 +33,7 @@ type iknp struct {
 	prng   *rand.Rand
 }
 
-func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
+func NewKKRT(m, k, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -38,13 +42,13 @@ func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 
 	ot, err := NewBaseOT(baseOT, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
 	if err != nil {
-		return iknp{}, err
+		return kkrt{}, err
 	}
 
-	return iknp{baseOT: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	return kkrt{baseOT: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
-func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (ext kkrt) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
 	if err = util.SampleBitSlice(ext.prng, s); err != nil {
@@ -87,7 +91,7 @@ func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	return
 }
 
-func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
+func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
 	if len(choices) != len(messages) || len(choices) != ext.m {
 		return ErrBaseCountMissMatch
 	}

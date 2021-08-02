@@ -12,6 +12,10 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+/*
+Various cipher suite implementation in golang
+*/
+
 const (
 	CTR = iota
 	GCM

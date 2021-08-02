@@ -6,6 +6,10 @@ import (
 	"io"
 )
 
+/*
+OT interface
+*/
+
 const (
 	NaorPinkas = iota
 	Simplest

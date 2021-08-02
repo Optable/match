@@ -7,6 +7,13 @@ import (
 	"math/big"
 )
 
+/*
+1 out of 2 base OT
+from the paper: The Simplest Protocol for Oblivious Transfer
+by Tung Chou and Claudio Orlandi in 2015
+Reference: https://eprint.iacr.org/2015/267.pdf
+*/
+
 type simplest struct {
 	baseCount  int
 	curve      elliptic.Curve

@@ -7,6 +7,13 @@ import (
 	gr "github.com/bwesterb/go-ristretto"
 )
 
+/*
+1 out of 2 base OT
+from the paper: Efficient Oblivious Transfer Protocol
+by Moni Naor and Benny Pinkas in 2001.
+reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
+*/
+
 type naorPinkasRistretto struct {
 	baseCount  int
 	msgLen     []int

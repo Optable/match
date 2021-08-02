@@ -7,6 +7,10 @@ import (
 	gr "github.com/bwesterb/go-ristretto"
 )
 
+/*
+OT interface
+*/
+
 var encodeLen = 32 //ristretto point encoded length, as well as aes key
 
 type writerRistretto struct {
