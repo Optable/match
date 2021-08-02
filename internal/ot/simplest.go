@@ -48,7 +48,7 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 
 	// make a slice of point B, 1 for each OT, and receive them
 	B := make([]points, s.baseCount)
-	for i, _ := range B {
+	for i := range B {
 		B[i] = newPoints(s.curve, new(big.Int), new(big.Int))
 		if err := reader.read(B[i]); err != nil {
 			return err
@@ -61,7 +61,7 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	for i := 0; i < s.baseCount; i++ {
 		// sanity check
 		if !B[i].isOnCurve() {
-			return fmt.Errorf("Point A received from sender is not on curve: %s", s.curve.Params().Name)
+			return fmt.Errorf("point A received from sender is not on curve: %s", s.curve.Params().Name)
 		}
 
 		// k0 = aB
@@ -74,7 +74,7 @@ func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 			// encrypt plaintext using aes GCM mode
 			ciphertext, err = encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
 			if err != nil {
-				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
@@ -104,7 +104,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 
 	// sanity check
 	if !A.isOnCurve() {
-		return fmt.Errorf("Point A received from sender is not on curve: %s", s.curve.Params().Name)
+		return fmt.Errorf("point A received from sender is not on curve: %s", s.curve.Params().Name)
 	}
 
 	// Generate points B, 1 for each OT
@@ -132,7 +132,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 				return err
 			}
 		default:
-			return fmt.Errorf("Choice bits should be binary, got %v", choices[i])
+			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
@@ -143,9 +143,9 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		// compute # of bytes to be read.
 		l := encryptLen(s.cipherMode, s.msgLen[i])
 		// read both msg
-		for j, _ := range e {
+		for j := range e {
 			e[j] = make([]byte, l)
-			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
+			if _, err = io.ReadFull(reader.r, e[j]); err != nil {
 				return err
 			}
 		}
@@ -156,7 +156,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		// decrypt the message indexed by choice bit
 		messages[i], err = decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error decrypting sender message: %s\n", err)
+			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/optable/match/internal/permutations"
 	"github.com/optable/match/test/emails"
 )
 
@@ -17,20 +18,7 @@ const (
 
 type ShufflerEncoder interface {
 	Shuffle([]byte) (err error)
-	Permutations() []int64
-}
-
-// test loopback ristretto just copies data out
-// and does no treatment
-type NilRistretto int
-
-func (g NilRistretto) DeriveMultiply(dst *[EncodedLen]byte, src []byte) {
-	// return first 32 bytes of matchable
-	copy(dst[:], src[:32])
-}
-func (g NilRistretto) Multiply(dst *[EncodedLen]byte, src [EncodedLen]byte) {
-	// passthrought
-	copy(dst[:], src[:])
+	Permutations() permutations.Permutations
 }
 
 // returns true if b1 and b2 have the same bytes
@@ -47,15 +35,14 @@ func compare(b1 [EncodedLen]byte, b2 []byte) bool {
 }
 
 // emulate probably an advertiser
-func sender(e ShufflerEncoder, r Ristretto, matchables <-chan []byte) ([][]byte, []int64, error) {
+func sender(e ShufflerEncoder, r Ristretto, matchables <-chan []byte) ([][]byte, permutations.Permutations, error) {
 	// save test matchables
 	var sent [][]byte
-	// save the permutations
-	var p []int64
 	var encoder ShufflerEncoder
 	// setup stage 1
 	encoder = e
-	p = encoder.Permutations()
+	// save the permutations
+	p := encoder.Permutations()
 	for matchable := range matchables {
 		sent = append(sent, matchable)
 		if err := encoder.Shuffle(matchable); err != nil {
@@ -102,62 +89,6 @@ func receiver(r io.Reader, n int64) ([][EncodedLen]byte, error) {
 	return received, nil
 }
 
-func BenchmarkDeriveMultiplyEncoder100000(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var ws sync.WaitGroup
-		// pick a ristretto implementation
-		gr := NilRistretto(0)
-		// get an io pipe to read results
-		rcv, snd := io.Pipe()
-		// setup a matchables generator
-		common := emails.Common(10000)
-		matchables := emails.Mix(common, 90000)
-		// setup sequence
-		ws.Add(2)
-		// test
-		go func() {
-			// Probably advertiser
-			defer ws.Done()
-			e, _ := NewDeriveMultiplyShuffler(snd, 100000, gr)
-			sender(e, gr, matchables)
-		}()
-		go func() {
-			// Probably publisher
-			defer ws.Done()
-			receiver(rcv, 100000)
-		}()
-		ws.Wait()
-	}
-}
-
-func BenchmarkDeriveMultiplyParallelEncoder100000(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var ws sync.WaitGroup
-		// pick a ristretto implementation
-		gr := NilRistretto(0)
-		// get an io pipe to read results
-		rcv, snd := io.Pipe()
-		// setup a matchables generator
-		common := emails.Common(10000)
-		matchables := emails.Mix(common, 90000)
-		// setup sequence
-		ws.Add(2)
-		// test
-		go func() {
-			// Probably advertiser
-			defer ws.Done()
-			e, _ := NewDeriveMultiplyParallelShuffler(snd, 100000, gr)
-			sender(e, gr, matchables)
-		}()
-		go func() {
-			// Probably publisher
-			defer ws.Done()
-			receiver(rcv, 100000)
-		}()
-		ws.Wait()
-	}
-}
-
 // Test the shuffler
 func TestDeriveMultiplyShuffler(t *testing.T) {
 	var ws sync.WaitGroup
@@ -172,7 +103,7 @@ func TestDeriveMultiplyShuffler(t *testing.T) {
 	// save test matchables
 	var sent [][]byte
 	// save the permutations
-	var permutations []int64
+	var permutations permutations.Permutations
 	// save test encoded ristretto points
 	var received [][EncodedLen]byte
 	// setup sequence
@@ -224,7 +155,7 @@ func TestDeriveMultiplyShuffler(t *testing.T) {
 
 	// check that sequences are permutated as expected
 	for k, v := range received {
-		trimmed := sent[permutations[k]][:32]
+		trimmed := sent[permutations.Shuffle(int64(k))][:32]
 		if !compare(v, trimmed) {
 			t.Fatalf("shuffle sequence is broken")
 		}

@@ -1,6 +1,7 @@
 package ot
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"testing"
@@ -17,7 +18,12 @@ func TestSimplestRistretto(t *testing.T) {
 
 	// Start timer
 	start := time.Now()
-	addr, err := initReceiver(Simplest, true, msgLen, choices, msgBus, errs)
+	ot, err := NewBaseOT(Simplest, true, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating simplest ristretto OT: %s", err)
+	}
+
+	addr, err := initReceiver(ot, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,8 +69,8 @@ func TestSimplestRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed got: %v", m)
+		if !bytes.Equal(m, messages[i][choices[i]]) {
+			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
 }
@@ -80,7 +86,12 @@ func TestNaorPinkasRistretto(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	addr, err := initReceiver(NaorPinkas, true, msgLen, choices, msgBus, errs)
+	ot, err := NewBaseOT(NaorPinkas, true, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating Naor-Pinkas ristretto OT: %s", err)
+	}
+
+	addr, err := initReceiver(ot, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,8 +137,8 @@ func TestNaorPinkasRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if string(m) != string(messages[i][choices[i]]) {
-			t.Fatalf("OT failed got: %v", m)
+		if !bytes.Equal(m, messages[i][choices[i]]) {
+			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
 	}
 }

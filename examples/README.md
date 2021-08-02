@@ -2,7 +2,7 @@
 
 The standard match operation involves a *sender* and a *receiver*. The sender performs an intersection match with a receiver, such that the receiver learns the result of the intersection, and the sender learns nothing. Protocols such as PSI allow the sender and receiver to  protect, to varying degrees of security guarantees and without a trusted third-party, private data records that are used as inputs in performing the intersection match.
 
-The examples support both dhpsi and npsi, and the protocol can be selected with the *-proto* argument. Note that *npsi* is the default.
+The examples support dhpsi, npsi and bpsi: the protocol can be selected with the *-proto* argument. Note that *npsi* is the default.
 
 ## 1. generate some data
 `go run generate.go`

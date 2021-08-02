@@ -23,8 +23,7 @@ func HashWrite(w io.Writer, u uint64) error {
 	return binary.Write(w, binary.BigEndian, u)
 }
 
-// ReadAll from r until io.EOF and write into a
-// channel.
+// ReadAll reads from r until io.EOF and writes into a channel.
 // note that binary.Read will return EOF only if no bytes
 // are read and if an EOF happens after reading some but not all the bytes,
 // Read returns ErrUnexpectedEOF.

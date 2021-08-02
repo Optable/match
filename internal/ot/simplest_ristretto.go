@@ -42,14 +42,13 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 
 	// make a slice of ristretto points to receive B from receiver.
 	B := make([]gr.Point, s.baseCount)
-	for i, _ := range B {
+	for i := range B {
 		if err := r.read(&B[i]); err != nil {
 			return err
 		}
 	}
 
 	K := make([]gr.Point, 2)
-	key := make([]byte, encodeLen)
 	// encrypt plaintext messages and send it.
 	for i := 0; i < s.baseCount; i++ {
 		// k0 = aB
@@ -60,7 +59,7 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
 			// derive key for encryption
-			key, err = deriveKeyRistretto(&K[choice])
+			key, err := deriveKeyRistretto(&K[choice])
 			if err != nil {
 				return err
 			}
@@ -68,7 +67,7 @@ func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err err
 			// encrypt
 			ciphertext, err := encrypt(s.cipherMode, key, uint8(choice), plaintext)
 			if err != nil {
-				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
@@ -119,19 +118,18 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 				return err
 			}
 		default:
-			return fmt.Errorf("Choice bits should be binary, got %v", choices[i])
+			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
 	// receive encrypted messages, and decrypt it.
 	e := make([][]byte, 2)
 	var K gr.Point
-	key := make([]byte, encodeLen)
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
 		l := encryptLen(s.cipherMode, s.msgLen[i])
 		// read both msg
-		for j, _ := range e {
+		for j := range e {
 			e[j] = make([]byte, l)
 			if _, err := io.ReadFull(r.r, e[j]); err != nil {
 				return err
@@ -140,12 +138,15 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 
 		// build keys for decryption
 		K.ScalarMult(&A, &bSecrets[i])
-		key, err = deriveKeyRistretto(&K)
+		key, err := deriveKeyRistretto(&K)
+		if err != nil {
+			return err
+		}
 
 		// decrypt the message indexed by choice bit
 		messages[i], err = decrypt(s.cipherMode, key, choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error decrypting sender message: %s\n", err)
+			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
 	}
 

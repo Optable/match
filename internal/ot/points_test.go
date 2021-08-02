@@ -23,7 +23,6 @@ func TestNewPoints(t *testing.T) {
 	c, _ = initCurve(curve)
 	x := big.NewInt(1)
 	y := big.NewInt(2)
-
 	points := newPoints(c, x, y)
 	n := points.curve.Params().Name
 	if n != "P-256" {

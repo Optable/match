@@ -97,8 +97,6 @@ func HashAllParallel(h hash.Hasher, identifiers <-chan []byte) <-chan hashPair {
 	}()
 
 	// turn the lights off on your way out
-	// it has to happen after at least once batch
-	// has been sent for processing
 	go func() {
 		wg.Wait()
 		close(pairs)

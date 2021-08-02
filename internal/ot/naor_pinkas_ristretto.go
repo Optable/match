@@ -48,14 +48,13 @@ func (n naorPinkasRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err e
 
 	// make a slice of ristretto points to receive K0.
 	pointK0 := make([]gr.Point, n.baseCount)
-	for i, _ := range pointK0 {
+	for i := range pointK0 {
 		if err := reader.read(&pointK0[i]); err != nil {
 			return err
 		}
 	}
 
 	K := make([]gr.Point, 2)
-	key := make([]byte, encodeLen)
 	// encrypt plaintext message and send them.
 	for i := 0; i < n.baseCount; i++ {
 		// compute K0 = rK0
@@ -66,7 +65,7 @@ func (n naorPinkasRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err e
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// derive key for encryption
-			key, err = deriveKeyRistretto(&K[choice])
+			key, err := deriveKeyRistretto(&K[choice])
 			if err != nil {
 				return err
 			}
@@ -74,7 +73,7 @@ func (n naorPinkasRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err e
 			// encrypt
 			ciphertext, err := encrypt(n.cipherMode, key, uint8(choice), plaintext)
 			if err != nil {
-				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
@@ -134,19 +133,18 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 				return err
 			}
 		default:
-			return fmt.Errorf("Choice bits should be binary, got %v", choices[i])
+			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
 	e := make([][]byte, 2)
 	var K gr.Point
-	key := make([]byte, encodeLen)
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
 		l := encryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
-		for j, _ := range e {
+		for j := range e {
 			e[j] = make([]byte, l)
 			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
 				return err
@@ -156,7 +154,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		// build keys for decrypting choice messages
 		// K = bR
 		K.ScalarMult(&R, &bSecrets[i])
-		key, err = deriveKeyRistretto(&K)
+		key, err := deriveKeyRistretto(&K)
 		if err != nil {
 			return err
 		}
@@ -164,7 +162,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		// decrypt the message indexed by choice bit
 		messages[i], err = decrypt(n.cipherMode, key, choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error decrypting sender message: %s\n", err)
+			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
 	}
 

@@ -58,7 +58,7 @@ func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 
 	// make a slice of points to receive K0.
 	pointK0 := make([]points, n.baseCount)
-	for i, _ := range pointK0 {
+	for i := range pointK0 {
 		pointK0[i] = newPoints(n.curve, new(big.Int), new(big.Int))
 		if err := reader.read(pointK0[i]); err != nil {
 			return err
@@ -71,7 +71,7 @@ func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	for i := 0; i < n.baseCount; i++ {
 		// sanity check
 		if !pointK0[i].isOnCurve() {
-			return fmt.Errorf("Point A received from sender is not on curve: %s", n.curve.Params().Name)
+			return fmt.Errorf("point A received from sender is not on curve: %s", n.curve.Params().Name)
 		}
 
 		// compute K0 = rK0
@@ -84,7 +84,7 @@ func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 			// encryption
 			ciphertext, err = encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
 			if err != nil {
-				return fmt.Errorf("Error encrypting sender message: %s\n", err)
+				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
@@ -120,7 +120,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 
 	// sanity check
 	if !A.isOnCurve() || !R.isOnCurve() {
-		return fmt.Errorf("Points received from sender is not on curve: %s", n.curve.Params().Name)
+		return fmt.Errorf("points received from sender is not on curve: %s", n.curve.Params().Name)
 	}
 
 	// Generate points B, 1 for each OT
@@ -149,7 +149,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 				return err
 			}
 		default:
-			return fmt.Errorf("Choice bits should be binary, got %v", choices[i])
+			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
@@ -160,7 +160,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		// compute # of bytes to be read.
 		l := encryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
-		for j, _ := range e {
+		for j := range e {
 			e[j] = make([]byte, l)
 			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
 				return err
@@ -174,7 +174,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		// decrypt the message indexed by choice bit
 		messages[i], err = decrypt(n.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
 		if err != nil {
-			return fmt.Errorf("Error decrypting sender message: %s\n", err)
+			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
 	}
 
