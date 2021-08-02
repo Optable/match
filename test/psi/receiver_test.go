@@ -13,10 +13,6 @@ import (
 	"github.com/optable/match/test/emails"
 )
 
-const (
-	TestReceiverLen = 1000
-)
-
 // test receiver and return the addr string
 func r_receiverInit(protocol int, common []byte, commonLen, receiverLen int, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
