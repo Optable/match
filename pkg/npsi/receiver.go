@@ -14,7 +14,7 @@ import (
 // stage 1: P2 samples a random salt K and sends it to P1.
 // stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
 
-// Receiver side of the NPSI protocol
+// Receiver represents the receiver side of the NPSI protocol
 type Receiver struct {
 	rw io.ReadWriter
 }
@@ -25,7 +25,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 	return &Receiver{rw: rw}
 }
 
-// Intersect on matchables read from the identifiers channel,
+// Intersect intersects on matchables read from the identifiers channel,
 // returning the matching intersection, using the NPSI protocol.
 // The format of an indentifier is
 //  string
@@ -48,7 +48,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 
 	// stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
-	stage2 := func() error {
+	stage2v2 := func() error {
 		//
 		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)
@@ -72,63 +72,32 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// make a channel to receive local x,h pairs
 		receiver := HashAllParallel(h, identifiers)
 		// try to intersect and throw out intersected hashes as we get them
-		var c1 = make(chan uint64)
-		var c2 = make(chan hashPair)
-		var done = make(chan bool)
 		var wg sync.WaitGroup
-
+		// intersect
 		wg.Add(2)
-		// drain the sender
 		go func() {
+			// index the sender
 			defer wg.Done()
-			for Hi := range sender {
-				c1 <- Hi
+			for h := range sender {
+				remoteIDs[h] = true
 			}
 		}()
-		// drain the receiver (local IDs)
 		go func() {
+			// index the receiver
 			defer wg.Done()
 			for pair := range receiver {
-				c2 <- pair
+				localIDs[pair.h] = pair.x
 			}
 		}()
-		// intersect
-		go func() {
-			for {
-				select {
-				case Hi := <-c1:
-					// do we have an intersection?
-					if identifier, ok := localIDs[Hi]; ok {
-						// we do
-						intersected = append(intersected, identifier)
-						// expulse it
-						delete(localIDs, Hi)
-					} else {
-						// we dont, cache this
-						remoteIDs[Hi] = true
-					}
-
-				case pair := <-c2:
-					// do we have an intersection?
-					if remoteIDs[pair.h] {
-						// we do
-						intersected = append(intersected, pair.x)
-						// expulse it
-						delete(remoteIDs, pair.h)
-					} else {
-						// we dont, cache this
-						localIDs[pair.h] = pair.x
-					}
-
-				case <-done:
-					return
-				}
-			}
-		}()
-		// let the intersection finish
+		// let the indexing finish
 		wg.Wait()
-		// kill the intersection goroutine
-		close(done)
+		// intersect
+		for h, x := range localIDs {
+			if remoteIDs[h] {
+				intersected = append(intersected, x)
+			}
+		}
+
 		// break out
 		return nil
 	}
@@ -139,7 +108,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 
 	// run stage 2
-	if err := util.Sel(ctx, stage2); err != nil {
+	if err := util.Sel(ctx, stage2v2); err != nil {
 		return intersected, err
 	}
 

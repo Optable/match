@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/optable/match/internal/permutations"
 )
 
 const (
-	// EncodedLen is the lenght of one encoded ristretto point
+	// EncodedLen is the length of an encoded ristretto point
 	EncodedLen = 32
-	// PrefixedLen is the length of one prefixed email identifier
+	// PrefixedLen is the length of a prefixed email identifier
 	EmailPrefixedLen = 66
 )
 
@@ -23,15 +25,17 @@ var (
 // Writers
 //
 
-// types
+// DeriveMultiplyParallelShuffler contains the necessary
+// machineries to derive identifiers into ristretto point
+// multiply them with secret key and permute them.
 type DeriveMultiplyShuffler struct {
 	w              io.Writer
 	max, seq, sent int64
 	gr             Ristretto
 	// precomputed order to send things in
-	permutations []int64
+	p permutations.Permutations
 	// buffered in the order received by Shuffle()
-	b [][EncodedLen]byte
+	b map[int64][EncodedLen]byte
 }
 
 type Writer struct {
@@ -43,18 +47,19 @@ type Writer struct {
 // and shuffles matchable values on n sequences of bytes to be sent out.
 // It first computes a permutation table and subsequently sends out sequences ordered
 // by the precomputed permutation table.
-//
-// This is the first stage of doing a DHPSI exchange.
+// This is the first stage of doing a DH exchange.
 func NewDeriveMultiplyShuffler(w io.Writer, n int64, gr Ristretto) (*DeriveMultiplyShuffler, error) {
 	if err := binary.Write(w, binary.BigEndian, &n); err != nil {
 		return nil, err
 	}
-	// and create the encoder
-	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, permutations: initP(n), b: make([][EncodedLen]byte, n)}, nil
-
+	// create the permutations
+	p, _ := permutations.NewKensler(n)
+	// and create the buffer map & encoder
+	b := make(map[int64][EncodedLen]byte, int(float64(n)*0.75))
+	return &DeriveMultiplyShuffler{w: w, max: n, gr: gr, p: p, b: b}, nil
 }
 
-// Shuffle one identifier. First derive and then multiply by the
+// Shuffle shuffles one identifier. First derive and then multiply by the
 // precomputed scalar, then write out to the underlying writer while following
 // the order of permutations created at NewDeriveMultiplyShuffler.
 // Returns ErrUnexpectedPoint when the whole expected sequence has been sent.
@@ -71,13 +76,15 @@ func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 
 	// we follow the permutation matrix and send
 	// or cache incoming matchables
-	next := enc.permutations[enc.sent]
+	//next := enc.permutations[enc.sent]
+	next := enc.p.Shuffle(enc.sent)
 	if next == enc.seq {
 		//  we fall perfectly in sequence, write it out
 		_, err = enc.w.Write(point[:])
 		enc.sent++
 	} else {
 		// cache the current sequence
+		// in the correct, non permutated order
 		enc.b[enc.seq] = point
 	}
 	enc.seq++
@@ -85,8 +92,10 @@ func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 	// have cached hashes left to send.
 	// flush the buffer, in enc.permutations order
 	if enc.seq == enc.max {
-		for _, pos := range enc.permutations[enc.sent:] {
-			if _, err = enc.w.Write(enc.b[pos][:]); err != nil {
+		// flush the rest of the sequence
+		for i := enc.sent; i < enc.max; i++ {
+			b := enc.b[enc.p.Shuffle(i)]
+			if _, err = enc.w.Write(b[:]); err != nil {
 				return
 			}
 		}
@@ -96,24 +105,8 @@ func (enc *DeriveMultiplyShuffler) Shuffle(identifier []byte) (err error) {
 
 // Permutations returns the permutation matrix
 // that was computed on initialization
-func (enc *DeriveMultiplyShuffler) Permutations() []int64 {
-	return enc.permutations
-}
-
-// InvertedPermutations returns the reverse of the permutation matrix
-// that was computed on initialization
-func (enc *DeriveMultiplyShuffler) InvertedPermutations() []int64 {
-	return invertedPermutations(enc.permutations)
-}
-
-// invertedPermutations returns the reverse of the permutation matrix
-// that was computed on initialization
-func invertedPermutations(in []int64) []int64 {
-	var invertedpermutations = make([]int64, len(in))
-	for i := 0; i < len(invertedpermutations); i++ {
-		invertedpermutations[in[i]] = int64(i)
-	}
-	return invertedpermutations
+func (enc *DeriveMultiplyShuffler) Permutations() permutations.Permutations {
+	return enc.p
 }
 
 // NewWriter creates a writer that first sends out
@@ -126,7 +119,7 @@ func NewWriter(w io.Writer, n int64) (*Writer, error) {
 	return &Writer{w: w, max: n}, nil
 }
 
-// Write out the fixed length point to the underlying writer
+// Write writes out the fixed length point to the underlying writer
 // while sequencing. Returns ErrUnexpectedPoint if called past
 // the configured encoder size
 func (w *Writer) Write(point [EncodedLen]byte) (err error) {
@@ -148,7 +141,6 @@ func (w *Writer) Write(point [EncodedLen]byte) (err error) {
 // READERS
 //
 
-// types
 type MultiplyReader struct {
 	r  *Reader
 	gr Ristretto
@@ -170,7 +162,7 @@ func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
 	}
 }
 
-// Read a point from the underyling reader, multiply it with ristretto
+// Read reads a point from the underyling reader, multiply it with ristretto
 // and write it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
@@ -183,7 +175,7 @@ func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
 	}
 }
 
-// Max is the expected number of matchable
+// Max returns the expected number of matchable
 // this decoder will receive
 func (dec *MultiplyReader) Max() int64 {
 	return dec.r.max
@@ -200,7 +192,7 @@ func NewReader(r io.Reader) (*Reader, error) {
 	return &Reader{r: r, max: max}, nil
 }
 
-// Read a point from the underyling reader and
+// Read reads a point from the underyling reader and
 // write it into p. Returns io.EOF when
 // the sequence has been completely read.
 func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
@@ -217,7 +209,7 @@ func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 	return nil
 }
 
-// Max is the expected number of matchable
+// Max returns the expected number of matchable
 // this decoder will receive
 func (dec *Reader) Max() int64 {
 	return dec.max

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/optable/match/internal/permutations"
 	"github.com/optable/match/internal/util"
 )
 
@@ -51,6 +52,11 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var matchedIDs = make(chan int64)
 	// the final intersection
 	var intersection [][]byte
+	// the permutations algo used
+	// it might contains a seed
+	// or a pre-computed order so extract it for use
+	// in the intersection part
+	var permutations permutations.Permutations
 
 	// pick a ristretto implementation
 	gr, _ := NewRistretto(RistrettoTypeR255)
@@ -79,7 +85,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		} else {
 			// take a snapshot of the reverse of the permutations
-			permutations := writer.InvertedPermutations()
+			permutations = writer.Permutations()
 			// read n identifiers from src
 			// and
 			//  1. index them locally
@@ -87,7 +93,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			var i int64
 			for identifier := range identifiers {
 				// save this input
-				receiverIDs <- permuted{permutations[i], identifier} // {0, "0"}
+				receiverIDs <- permuted{i, identifier} // {0, "0"}
 				if err := writer.Shuffle(identifier); err != nil {
 					return err
 				}
@@ -112,6 +118,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 					// we can match this local identifier with one received
 					// from the sender
 					matchedIDs <- i
+					delete(remoteIDs, p)
 				}
 			}
 		}
@@ -138,7 +145,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return intersection, ctx.Err()
 
 		case pos := <-matchedIDs:
-			intersection = append(intersection, localIDs[pos])
+			intersection = append(intersection, localIDs[permutations.Shuffle(pos)])
 
 		case p := <-receiverIDs:
 			localIDs[p.position] = p.identifier

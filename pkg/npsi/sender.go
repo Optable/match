@@ -13,7 +13,7 @@ import (
 // stage 1: receive a random salt K from P1
 // stage 2: send hashes salted with K to P1
 
-// Sender side of the NPSI protocol
+// Sender represents sender side of the NPSI protocol
 type Sender struct {
 	rw io.ReadWriter
 }

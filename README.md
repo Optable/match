@@ -11,6 +11,18 @@ The protocols that are currently provided by the match library are listed below,
 
 Diffie-Hellman based PSI (DH-based PSI) is an implementation of private set intersection. It provides strong protections to participants regarding their non-intersecting data records. See documentation [here](pkg/dhpsi/README.md).
 
+## npsi
+
+The naive, [highway hash](https://github.com/google/highwayhash) based PSI: an *insecure* but fast solution for PSI. Documentation located [here](pkg/npsi/README.md).
+
+## bpsi
+
+The [bloomfilter](https://en.wikipedia.org/wiki/Bloom_filter) based PSI: an *insecure* but fast with lower communication overhead than [npsi](pkg/npsi/README.md) solution for PSI. Take a look [here](pkg/bpsi/README.md) to consult the documentation.
+
+# testing
+
+A complete test suite for all PSIs is present [here](test/psi). Don't hesitate to take a look and help us improve the quality of the testing by reporting problems and observations!
+
 # examples
 
 You can find a simple example implementation of both a match sender and receiver in the [examples documentation](examples/README.md).
