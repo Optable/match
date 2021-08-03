@@ -25,21 +25,13 @@ const (
 	XORShake
 )
 
-// pad aes block, no need for unpad since we only need to encrypt
-// and not decrypt the aes blocks.
-func pad(src []byte) []byte {
-	padding := aes.BlockSize - len(src)%aes.BlockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(src, padtext...)
-}
-
-// pseudorandomCode is implemented as follows:
+// PseudorandomCode is implemented as follows:
 // C(x) = AES(1||x) || AES(2||x) || AES(3||x) || AES(4||X)
 // extracted in bits for the KKRT n choose 1 OPRF
 // secretKey is a 16 byte slice for AES-128
 // k is the desired number of bytes
 // on success, pseudorandomCode returns a byte slice of length k.
-func pseudorandomCode(secretKey []byte, k int, src []byte) []byte {
+func PseudorandomCode(secretKey []byte, k int, src []byte) []byte {
 	block, _ := aes.NewCipher(secretKey)
 	tmp := make([]byte, aes.BlockSize*4)
 	dst := make([]byte, aes.BlockSize*4*8)
@@ -57,6 +49,14 @@ func pseudorandomCode(secretKey []byte, k int, src []byte) []byte {
 	util.ExtractBytesToBits(tmp, dst)
 	// return desired number of bytes
 	return dst[:k]
+}
+
+// pad aes block, no need for unpad since we only need to encrypt
+// and not decrypt the aes blocks.
+func pad(src []byte) []byte {
+	padding := aes.BlockSize - len(src)%aes.BlockSize
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(src, padtext...)
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.

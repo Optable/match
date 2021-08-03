@@ -1,4 +1,4 @@
-package ot
+package oprf
 
 /*
 Oblivious pseudorandom function (OPRF)
@@ -17,15 +17,20 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
-type oprf struct {
-	baseOT OT
+var (
+	curve      = "P256"
+	cipherMode = ot.XORBlake3
+)
+
+type kkrt struct {
+	baseOT ot.OT
 	m      int
 	k      int
 	n      int
-	msgLen []int
 	prng   *rand.Rand
 }
 
@@ -36,22 +41,22 @@ type key struct {
 	q  []byte // m x k bit matrice
 }
 
-func NewOPRF(m, k, n, baseOT int, ristretto bool, msgLen []int) (oprf, error) {
+func NewKKRT(m, k, n, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = m
 	}
 
-	ot, err := NewBaseOT(baseOT, ristretto, k, kkrtCurve, baseMsgLen, kkrtCipherMode)
+	ot, err := ot.NewBaseOT(baseOT, ristretto, k, curve, baseMsgLen, cipherMode)
 	if err != nil {
-		return oprf{}, err
+		return kkrt{}, err
 	}
 
-	return oprf{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	return kkrt{baseOT: ot, m: m, k: k, n: n, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
-func (o oprf) Send(rw io.ReadWriter) (keys []key, err error) {
+func (o kkrt) Send(rw io.ReadWriter) (keys []key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
 	if _, err = o.prng.Read(sk); err != nil {
@@ -87,9 +92,9 @@ func (o oprf) Send(rw io.ReadWriter) (keys []key, err error) {
 	return
 }
 
-func (o oprf) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error) {
+func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error) {
 	if len(choices) != o.m {
-		return nil, ErrBaseCountMissMatch
+		return nil, ot.ErrBaseCountMissMatch
 	}
 
 	// receive AES-128 secret key
@@ -109,7 +114,7 @@ func (o oprf) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	for i := range baseMsgs {
 		baseMsgs[i] = make([][]byte, 2)
 		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], pseudorandomCode(sk, o.k, choices[i]))
+		baseMsgs[i][1], err = util.XorBytes(t[i], ot.PseudorandomCode(sk, o.k, choices[i]))
 		if err != nil {
 			return nil, err
 		}
@@ -123,9 +128,9 @@ func (o oprf) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	return
 }
 
-func (o oprf) Encode(k key, in []byte) (out []byte, err error) {
+func Encode(k key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	x, err := util.AndBytes(pseudorandomCode(k.sk, k.k, in), k.s)
+	x, err := util.AndBytes(ot.PseudorandomCode(k.sk, k.k, in), k.s)
 	if err != nil {
 		return
 	}
