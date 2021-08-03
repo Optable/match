@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
+	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 )
 
@@ -144,7 +145,7 @@ func TestXORBytes(t *testing.T) {
 
 	b := make([]byte, 32)
 	r.Read(b)
-	c, err := xorBytes(a, b)
+	c, err := util.XorBytes(a, b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +153,7 @@ func TestXORBytes(t *testing.T) {
 		t.Fatalf("c should not be equal to a nor b")
 	}
 
-	c, err = xorBytes(a, c)
+	c, err = util.XorBytes(a, c)
 	if err != nil {
 		t.Fatal(err)
 	}

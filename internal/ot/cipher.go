@@ -7,10 +7,15 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
+
+/*
+Various cipher suite implementation in golang
+*/
 
 const (
 	CTR = iota
@@ -20,21 +25,38 @@ const (
 	XORShake
 )
 
-// xorBytes xors each byte from a with b and returns dst
-// if a and b are the same length
-func xorBytes(a, b []byte) (dst []byte, err error) {
-	n := len(b)
-	if n != len(a) {
-		return nil, ErrByteLengthMissMatch
-	}
+// pad aes block, no need for unpad since we only need to encrypt
+// and not decrypt the aes blocks.
+func pad(src []byte) []byte {
+	padding := aes.BlockSize - len(src)%aes.BlockSize
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(src, padtext...)
+}
 
-	dst = make([]byte, n)
+// pseudorandomCode is implemented as follows:
+// C(x) = AES(1||x) || AES(2||x) || AES(3||x) || AES(4||X)
+// extracted in bits for the KKRT n choose 1 OPRF
+// secretKey is a 16 byte slice for AES-128
+// k is the desired number of bytes
+// on success, pseudorandomCode returns a byte slice of length k.
+func pseudorandomCode(secretKey []byte, k int, src []byte) []byte {
+	block, _ := aes.NewCipher(secretKey)
+	tmp := make([]byte, aes.BlockSize*4)
+	dst := make([]byte, aes.BlockSize*4*8)
 
-	for i := 0; i < n; i++ {
-		dst[i] = a[i] ^ b[i]
-	}
+	// pad src
+	src = pad(src)
 
-	return
+	// encrypt
+	block.Encrypt(tmp[:aes.BlockSize], append([]byte{1}, src...))
+	block.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], append([]byte{2}, src...))
+	block.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], append([]byte{3}, src...))
+	block.Encrypt(tmp[aes.BlockSize*3:], append([]byte{4}, src...))
+
+	// extract pseudorandom bytes to bits
+	util.ExtractBytesToBits(tmp, dst)
+	// return desired number of bytes
+	return dst[:k]
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.
@@ -44,7 +66,7 @@ func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, er
 	s.Write(seed)
 	d := s.Digest()
 	d.Read(dst)
-	return xorBytes(src, dst)
+	return util.XorBytes(src, dst)
 }
 
 // Blake3 has XOF which is perfect for doing xor cipher.
@@ -54,7 +76,7 @@ func xorCipherWithBlake3(key []byte, ind uint8, src []byte) (dst []byte, err err
 	if err != nil {
 		return nil, err
 	}
-	return xorBytes(hash, src)
+	return util.XorBytes(hash, src)
 }
 
 func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
@@ -76,7 +98,7 @@ func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 func xorCipherWithShake(key []byte, ind uint8, src []byte) (dst []byte, err error) {
 	hash := make([]byte, len(src))
 	getShakeHash(key, ind, hash)
-	return xorBytes(hash, src)
+	return util.XorBytes(hash, src)
 }
 
 func getShakeHash(key []byte, ind uint8, dst []byte) {
@@ -95,7 +117,7 @@ func xorCipherWithBlake2(key []byte, ind uint8, src []byte) (dst []byte, err err
 		return nil, err
 	}
 
-	return xorBytes(hash, src)
+	return util.XorBytes(hash, src)
 }
 
 // getHash produce hash digest of the key and index

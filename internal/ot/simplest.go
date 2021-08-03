@@ -7,6 +7,16 @@ import (
 	"math/big"
 )
 
+/*
+1 out of 2 base OT
+from the paper: The Simplest Protocol for Oblivious Transfer
+by Tung Chou and Claudio Orlandi in 2015
+Reference: https://eprint.iacr.org/2015/267.pdf
+
+Tested to be slightly faster than Naor-Pinkas
+but has the same computation costs.
+*/
+
 type simplest struct {
 	baseCount  int
 	curve      elliptic.Curve
@@ -23,7 +33,7 @@ func newSimplest(baseCount int, curveName string, msgLen []int, cipherMode int) 
 	return simplest{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
-func (s simplest) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
@@ -142,6 +152,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
 		l := encryptLen(s.cipherMode, s.msgLen[i])
+
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)

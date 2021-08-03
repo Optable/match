@@ -7,6 +7,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/optable/match/internal/util"
 )
 
 var (
@@ -15,15 +17,16 @@ var (
 	curve      = "P256"
 	cipherMode = XORBlake3
 	baseCount  = 1024
-	messages   = genMsg(baseCount)
+	messages   = genMsg(baseCount, 2)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)
 	r          = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
-func genMsg(n int) [][2][]byte {
-	data := make([][2][]byte, n)
+func genMsg(n, t int) [][][]byte {
+	data := make([][][]byte, n)
 	for i := 0; i < n; i++ {
+		data[i] = make([][]byte, t)
 		for j := range data[i] {
 			data[i][j] = make([]byte, 64)
 			r.Read(data[i][j])
@@ -35,7 +38,7 @@ func genMsg(n int) [][2][]byte {
 
 func genChoiceBits(n int) []uint8 {
 	choices := make([]uint8, n)
-	sampleBitSlice(r, choices)
+	util.SampleBitSlice(r, choices)
 	return choices
 }
 
@@ -81,12 +84,12 @@ func TestSimplestOT(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	ot, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+	receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		t.Fatalf("Error creating Simplest OT: %s", err)
 	}
 
-	addr, err := initReceiver(ot, choices, msgBus, errs)
+	addr, err := initReceiver(receiverOT, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,12 +99,12 @@ func TestSimplestOT(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+		senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
 
-		err = ss.Send(messages, conn)
+		err = senderOT.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("send encountered error: %s", err)
 			close(msgBus)

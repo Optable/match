@@ -8,7 +8,9 @@ import (
 	"github.com/zeebo/blake3"
 )
 
-// high level api for operating on elliptic curve points.
+/*
+High level api for operating on elliptic curve points.
+*/
 
 type points struct {
 	curve elliptic.Curve

@@ -7,6 +7,15 @@ import (
 	gr "github.com/bwesterb/go-ristretto"
 )
 
+/*
+1 out of 2 base OT
+from the paper: Efficient Oblivious Transfer Protocol
+by Moni Naor and Benny Pinkas in 2001.
+reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
+
+Naor-Pinkas OT implemented using Ristretto points for the elliptic curve operations.
+*/
+
 type naorPinkasRistretto struct {
 	baseCount  int
 	msgLen     []int
@@ -20,7 +29,7 @@ func newNaorPinkasRistretto(baseCount int, msgLen []int, cipherMode int) (naorPi
 	return naorPinkasRistretto{baseCount: baseCount, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
-func (n naorPinkasRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}

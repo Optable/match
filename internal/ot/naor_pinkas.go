@@ -7,6 +7,15 @@ import (
 	"math/big"
 )
 
+/*
+1 out of 2 base OT
+from the paper: Efficient Oblivious Transfer Protocol
+by Moni Naor and Benny Pinkas in 2001.
+reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
+
+Naor-Pinkas OT is used in most papers, but it is slightly slower than Simplest OT.
+*/
+
 type naorPinkas struct {
 	baseCount  int
 	curve      elliptic.Curve
@@ -23,7 +32,7 @@ func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode int
 	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
-func (n naorPinkas) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}

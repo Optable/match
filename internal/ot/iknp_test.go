@@ -6,21 +6,18 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/optable/match/internal/util"
 )
 
 func BenchmarkSampleBitSlice(b *testing.B) {
 	s := make([]uint8, 1)
 	for i := 0; i < b.N; i++ {
-		sampleBitSlice(r, s)
+		util.SampleBitSlice(r, s)
 	}
 }
 
-func initIKNPReceiver(choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
-	ot, err := NewIKNP(baseCount, 128, Simplest, false, msgLen)
-	if err != nil {
-		errs <- fmt.Errorf("Error initiating ot: %s", err)
-	}
-
+func initIKNPReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -37,12 +34,7 @@ func initIKNPReceiver(choices []uint8, msgBus chan<- []byte, errs chan<- error) 
 	return l.Addr().String(), nil
 }
 
-func initImprovedIKNPReceiver(choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
-	ot, err := NewImprovedIknp(baseCount, 128, Simplest, false, msgLen)
-	if err != nil {
-		errs <- fmt.Errorf("Error initiating ot: %s", err)
-	}
-
+func initImprovedIKNPReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -73,7 +65,7 @@ func iknpReceiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []b
 	}
 }
 
-func TestIKNPOT(t *testing.T) {
+func TestIKNP(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -83,12 +75,12 @@ func TestIKNPOT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewIKNP(baseCount, 128, Simplest, false, msgLen)
+	receiverOT, err := NewIKNP(baseCount, 128, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr, err := initIKNPReceiver(choices, msgBus, errs)
+	addr, err := initIKNPReceiver(receiverOT, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +94,11 @@ func TestIKNPOT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		err = ot.Send(messages, conn)
+		senderOT, err := NewIKNP(baseCount, 128, Simplest, false, msgLen)
+		if err != nil {
+			errs <- err
+		}
+		err = senderOT.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -149,12 +145,12 @@ func TestImprovedIKNP(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedIknp(baseCount, 128, Simplest, false, msgLen)
+	receiverOT, err := NewImprovedIKNP(baseCount, 128, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr, err := initImprovedIKNPReceiver(choices, msgBus, errs)
+	addr, err := initImprovedIKNPReceiver(receiverOT, choices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +164,11 @@ func TestImprovedIKNP(t *testing.T) {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		err = ot.Send(messages, conn)
+		senderOT, err := NewImprovedIKNP(baseCount, 128, Simplest, false, msgLen)
+		if err != nil {
+			errs <- err
+		}
+		err = senderOT.Send(messages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)

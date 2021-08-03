@@ -1,12 +1,22 @@
 package ot
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"math/rand"
 	"time"
+
+	"github.com/optable/match/internal/util"
 )
+
+/*
+1 out of 2 IKNP OT extension
+from the paper: Extending Oblivious Transfers Efficiently
+by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
+reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
+
+A possible improvement is to use bitset to store the bit matrices/bit sets.
+*/
 
 const (
 	iknpCurve      = "P256"
@@ -36,10 +46,10 @@ func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 	return iknp{baseOT: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
-func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = sampleBitSlice(ext.prng, s); err != nil {
+	if err = util.SampleBitSlice(ext.prng, s); err != nil {
 		return err
 	}
 
@@ -50,7 +60,7 @@ func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// transpose q to m x k matrix for easier row operations
-	q = transpose(q)
+	q = util.Transpose(q)
 
 	var key, ciphertext []byte
 	// encrypt messages and send them
@@ -58,7 +68,7 @@ func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			key = q[i]
 			if choice == 1 {
-				key, err = xorBytes(q[i], s)
+				key, err = util.XorBytes(q[i], s)
 				if err != nil {
 					return err
 				}
@@ -85,17 +95,18 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// Sample k x m matrix T
-	t, err := sampleRandomBitMatrix(ext.prng, ext.k, ext.m)
+	t, err := util.SampleRandomBitMatrix(ext.prng, ext.k, ext.m)
 	if err != nil {
 		return err
 	}
 
 	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
-	baseMsgs := make([][2][]byte, ext.k)
+	baseMsgs := make([][][]byte, ext.k)
 	for j := range baseMsgs {
+		baseMsgs[j] = make([][]byte, 2)
 		// []uint8 = []byte, since byte is an alias to uint8
 		baseMsgs[j][0] = t[j]
-		baseMsgs[j][1], err = xorBytes(t[j], choices)
+		baseMsgs[j][1], err = util.XorBytes(t[j], choices)
 		if err != nil {
 			return err
 		}
@@ -107,7 +118,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// compute k x m transpose to access columns easier
-	t = transpose(t)
+	t = util.Transpose(t)
 
 	e := make([][]byte, 2)
 	for i := range choices {
@@ -129,97 +140,4 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	return
-}
-
-func computeMaskedRows(r *rand.Rand, s1, s2, p1, p2 []byte) (c1, c2 []byte, err error) {
-	k := len(s1)
-	mask1 := make([]byte, k)
-	mask2 := make([]byte, k)
-	if err = sampleBitSliceWithSeed(r, s1, mask1); err != nil {
-		return nil, nil, err
-	}
-
-	if err = sampleBitSliceWithSeed(r, s2, mask2); err != nil {
-		return nil, nil, err
-	}
-
-	c1, err = xorBytes(p1, mask1)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	c2, err = xorBytes(p2, mask2)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return
-}
-
-// transpose returns the transpose of a 2D slices of uint8
-// from (m x k) to (k x m)
-func transpose(matrix [][]uint8) [][]uint8 {
-	n := len(matrix)
-	tr := make([][]uint8, len(matrix[0]))
-
-	for row := range tr {
-		tr[row] = make([]uint8, n)
-		for col := range tr[row] {
-			tr[row][col] = matrix[col][row]
-		}
-	}
-	return tr
-}
-
-// sampleRandomBitMatrix fills each entry in the given 2D slices of uint8
-// with pseudorandom bit values
-func sampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
-	// instantiate matrix
-	matrix := make([][]uint8, m)
-	for row := range matrix {
-		matrix[row] = make([]uint8, k)
-	}
-
-	for row := range matrix {
-		if err := sampleBitSlice(r, matrix[row]); err != nil {
-			return nil, err
-		}
-	}
-
-	return matrix, nil
-}
-
-// sampleBitSliceWithSeed returns a slice of uint8 of seeded pseudorandom bits
-func sampleBitSliceWithSeed(r *rand.Rand, seed []byte, b []uint8) (err error) {
-	r.Seed(int64(binary.BigEndian.Uint64(seed)))
-	return sampleBitSlice(r, b)
-}
-
-// sampleBitSlice returns a slice of uint8 of pseudorandom bits
-func sampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
-	// read up to len(b) pseudorandom bits
-	t := make([]byte, len(b)/8)
-	if _, err = prng.Read(t); err != nil {
-		return nil
-	}
-
-	// extract all bits into b
-	extractBytesToBits(t, b)
-
-	return nil
-}
-
-func extractBytesToBits(t, b []byte) {
-	var i int
-	for _, _byte := range t {
-		b[i] = uint8(_byte & 0x01)
-		b[i+1] = uint8((_byte >> 1) & 0x01)
-		b[i+2] = uint8((_byte >> 2) & 0x01)
-		b[i+3] = uint8((_byte >> 3) & 0x01)
-		b[i+4] = uint8((_byte >> 4) & 0x01)
-		b[i+5] = uint8((_byte >> 5) & 0x01)
-		b[i+6] = uint8((_byte >> 6) & 0x01)
-		b[i+7] = uint8((_byte >> 7) & 0x01)
-		i += 8
-	}
 }
