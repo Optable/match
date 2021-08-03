@@ -13,6 +13,7 @@ func TestTranspose3D(t *testing.T) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([][][]byte, 4)
 	for m := range b {
+		b[m] = make([][]byte, 2)
 		b[m][0] = make([]byte, 8)
 		b[m][1] = make([]byte, 8)
 		SampleBitSlice(prng, b[m][0])
