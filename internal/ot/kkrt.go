@@ -29,26 +29,27 @@ type kkrt struct {
 	baseOT OT
 	m      int
 	k      int
+	n      int
 	msgLen []int
 	prng   *rand.Rand
 }
 
-func NewKKRT(m, k, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
+func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = m
 	}
 
-	ot, err := NewBaseOT(baseOT, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
+	ot, err := NewBaseOT(baseOT, ristretto, k, kkrtCurve, baseMsgLen, kkrtCipherMode)
 	if err != nil {
 		return kkrt{}, err
 	}
 
-	return kkrt{baseOT: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	return kkrt{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
-func (ext kkrt) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
 	if _, err = ext.prng.Read(sk); err != nil {
@@ -75,19 +76,16 @@ func (ext kkrt) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	// transpose q to m x k matrix for easier row operations
 	q = util.Transpose(q)
 
-	var key, ciphertext []byte
+	var key, x, ciphertext []byte
 	// encrypt messages and send them
 	for i := range messages {
+		// proof of concept, suppose we have n messages, and the choice string is an integer in [1, ..., n]
 		for choice, plaintext := range messages[i] {
-			key = q[i]
-			if choice == 1 {
-				key, err = xorBytes(q[i], s)
-				if err != nil {
-					return err
-				}
-			}
+			// compute q_i ^ (C(r) & s)
+			x, _ = util.AndBytes(pseudorandomCode(sk, ext.k, []byte{byte(choice)}), s)
+			key, _ = util.XorBytes(q[i], x)
 
-			ciphertext, err = encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -102,7 +100,7 @@ func (ext kkrt) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	return
 }
 
-func (ext kkrt) Receive(choices [][]uint8, messages [][]byte, rw io.ReadWriter) (err error) {
+func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
 	if len(choices) != len(messages) || len(choices) != ext.m {
 		return ErrBaseCountMissMatch
 	}
@@ -120,12 +118,13 @@ func (ext kkrt) Receive(choices [][]uint8, messages [][]byte, rw io.ReadWriter) 
 	}
 
 	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
-	baseMsgs := make([][2][]byte, ext.m)
+	baseMsgs := make([][][]byte, ext.m)
 	for i := range baseMsgs {
-		// []uint8 = []byte, since byte is an alias to uint8
+		baseMsgs[i] = make([][]byte, 2)
+		// |t[i]| = k
 		baseMsgs[i][0] = t[i]
 		// do we need mod 2 for each bytes from the return of pseudorandomCode?
-		baseMsgs[i][1], err = xorBytes(t[i], pseudorandomCode(sk, ext.k, choices[i]))
+		baseMsgs[i][1], err = util.XorBytes(t[i], pseudorandomCode(sk, ext.k, []byte{choices[i]}))
 		if err != nil {
 			return err
 		}
@@ -136,14 +135,11 @@ func (ext kkrt) Receive(choices [][]uint8, messages [][]byte, rw io.ReadWriter) 
 		return err
 	}
 
-	// compute k x m transpose to access columns easier
-	t = util.Transpose(t)
-
-	e := make([][]byte, 2)
+	e := make([][]byte, ext.n)
 	for i := range choices {
 		// compute # of bytes to be read
-		l := encryptLen(iknpCipherMode, ext.msgLen[i])
-		// read both msg
+		l := encryptLen(kkrtCipherMode, ext.msgLen[i])
+		// read all msg
 		for j := range e {
 			e[j] = make([]byte, l)
 			if _, err = io.ReadFull(rw, e[j]); err != nil {
@@ -152,10 +148,10 @@ func (ext kkrt) Receive(choices [][]uint8, messages [][]byte, rw io.ReadWriter) 
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		//messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
-		//if err != nil {
-		//	return fmt.Errorf("error decrypting sender messages: %s", err)
-		//}
+		messages[i], err = decrypt(kkrtCipherMode, t[i], choices[i], e[choices[i]])
+		if err != nil {
+			return fmt.Errorf("error decrypting sender messages: %s", err)
+		}
 	}
 
 	return

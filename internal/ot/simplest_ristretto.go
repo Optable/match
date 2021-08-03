@@ -12,6 +12,8 @@ import (
 from the paper: The Simplest Protocol for Oblivious Transfer
 by Tung Chou and Claudio Orlandi in 2015
 Reference: https://eprint.iacr.org/2015/267.pdf
+
+Simplest OT but implemented with Ristretto points for the elliptic curve operation.
 */
 
 type simplestRistretto struct {
@@ -27,7 +29,7 @@ func newSimplestRistretto(baseCount int, msgLen []int, cipherMode int) (simplest
 	return simplestRistretto{baseCount: baseCount, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
-func (s simplestRistretto) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}

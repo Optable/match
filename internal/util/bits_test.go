@@ -11,7 +11,7 @@ var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 func TestTranspose3D(t *testing.T) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := make([][2][]byte, 4)
+	b := make([][][]byte, 4)
 	for m := range b {
 		b[m][0] = make([]byte, 8)
 		b[m][1] = make([]byte, 8)

@@ -21,17 +21,16 @@ const (
 )
 
 var (
-	ErrUnknownOT           = fmt.Errorf("cannot create an Ot that follows an unknown protocol")
-	ErrBaseCountMissMatch  = fmt.Errorf("provided slices is not the same length as the number of base OT")
-	ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations")
-	ErrEmptyMessage        = fmt.Errorf("attempt to perform OT on empty messages")
+	ErrUnknownOT          = fmt.Errorf("cannot create an Ot that follows an unknown protocol")
+	ErrBaseCountMissMatch = fmt.Errorf("provided slices is not the same length as the number of base OT")
+	ErrEmptyMessage       = fmt.Errorf("attempt to perform OT on empty messages")
 
 	nonceSize = 12 //aesgcm NonceSize
 )
 
 // OT implements different BaseOT
 type OT interface {
-	Send(messages [][2][]byte, rw io.ReadWriter) error
+	Send(messages [][][]byte, rw io.ReadWriter) error
 	Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) error
 }
 

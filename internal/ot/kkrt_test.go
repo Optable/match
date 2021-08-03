@@ -2,47 +2,128 @@ package ot
 
 import (
 	"bytes"
-	"math/rand"
+	"fmt"
+	"net"
 	"testing"
 	"time"
-
-	"github.com/optable/match/internal/util"
 )
 
-var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-func TestTranspose3D(t *testing.T) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := make([][2][]byte, 4)
-	for m := range b {
-		b[m][0] = make([]byte, 8)
-		b[m][1] = make([]byte, 8)
-		util.SampleBitSlice(prng, b[m][0])
-		util.SampleBitSlice(prng, b[m][1])
+func initKKRTReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+	l, err := net.Listen(network, address)
+	if err != nil {
+		errs <- fmt.Errorf("net listen encountered error: %s", err)
 	}
 
-	for m := range b {
-		if !bytes.Equal(b[m][0], util.Transpose3D(util.Transpose3D(b))[m][0]) {
-			t.Fatalf("Transpose of transpose should be equal")
+	go func() {
+		conn, err := l.Accept()
+		if err != nil {
+			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
 
-		if !bytes.Equal(b[m][1], util.Transpose3D(util.Transpose3D(b))[m][1]) {
-			t.Fatalf("Transpose of transpose should be equal")
-		}
+		go kkrtReceiveHandler(conn, ot, choices, msgBus, errs)
+	}()
+	return l.Addr().String(), nil
+}
+
+func kkrtReceiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
+	defer close(msgBus)
+
+	msg := make([][]byte, baseCount)
+	err := ot.Receive(choices, msg, conn)
+	if err != nil {
+		errs <- err
+	}
+
+	for _, m := range msg {
+		msgBus <- m
 	}
 }
 
-func TestTranspose(t *testing.T) {
-
-	b := make([][]byte, 4)
-	for m := range b {
-		b[m] = make([]byte, 8)
-		util.SampleBitSlice(prng, b[m])
+func TestKKRT(t *testing.T) {
+	// sample n tupples of messages
+	n := 10
+	mm := make([][][]byte, baseCount)
+	for i := range mm {
+		mm[i] = make([][]byte, n)
+		for j := range mm[i] {
+			mm[i][j] = make([]byte, 64)
+			r.Read(mm[i][j])
+		}
 	}
 
-	for m := range b {
-		if !bytes.Equal(b[m], util.Transpose(util.Transpose(b))[m]) {
-			t.Fatalf("Transpose of transpose should be equal")
+	// sample integer choices
+	cc := make([]byte, baseCount)
+	for i := range cc {
+		cc[i] = byte(r.Intn(n))
+	}
+
+	for i, m := range mm {
+		msgLen[i] = len(m[0])
+	}
+
+	msgBus := make(chan []byte)
+	errs := make(chan error, 5)
+
+	// start timer
+	start := time.Now()
+	ot, err := NewKKRT(baseCount, 128, n, Simplest, false, msgLen)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := initKKRTReceiver(ot, cc, msgBus, errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		conn, err := net.Dial(network, addr)
+		if err != nil {
+			errs <- fmt.Errorf("Cannot dial: %s", err)
+		}
+		if err != nil {
+			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
+		}
+
+		ot, err := NewKKRT(baseCount, 128, n, Simplest, false, msgLen)
+		if err != nil {
+			errs <- err
+		}
+
+		err = ot.Send(mm, conn)
+		if err != nil {
+			errs <- fmt.Errorf("Send encountered error: %s", err)
+			close(msgBus)
+		}
+
+	}()
+
+	// Receive msg
+	var msg [][]byte
+	for m := range msgBus {
+		msg = append(msg, m)
+	}
+
+	//errors?
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	default:
+	}
+
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for KKRT OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+
+	// verify if the received msgs are correct:
+	if len(msg) == 0 {
+		t.Fatal("KKRT OT failed, did not receive any messages")
+	}
+
+	for i, m := range msg {
+		if !bytes.Equal(m, mm[i][cc[i]]) {
+			t.Logf("choice[%d]=%d\nmessages=%v\n", i, cc[i], mm[i])
+			t.Fatalf("KKRT OT at msg %d, failed got: %v, want %v", i, m, mm[i][cc[i]])
 		}
 	}
 }

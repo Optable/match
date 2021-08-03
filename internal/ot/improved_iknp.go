@@ -15,9 +15,14 @@ import (
 from the paper: Extending Oblivious Transfers Efficiently
 by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
 reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
+
+The improvement from normal IKNP is just to use pseudorandom generators
+to send short OT messages instead of the full encrypted messages.
+Computation overhead seems to make it more time consuming at the expense
+of the smaller network costs.
 */
 
-type imprvIknp struct {
+type imprvIKNP struct {
 	baseOT OT
 	m      int
 	k      int
@@ -26,7 +31,7 @@ type imprvIknp struct {
 	g      *blake3.Hasher
 }
 
-func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp, error) {
+func NewImprovedIKNP(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIKNP, error) {
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -35,16 +40,16 @@ func NewImprovedIknp(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIknp,
 
 	ot, err := NewBaseOT(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
 	if err != nil {
-		return imprvIknp{}, err
+		return imprvIKNP{}, err
 	}
 	g := blake3.New()
 
-	return imprvIknp{baseOT: ot, m: m, k: k, msgLen: msgLen,
+	return imprvIKNP{baseOT: ot, m: m, k: k, msgLen: msgLen,
 		prng: rand.New(rand.NewSource(time.Now().UnixNano())),
 		g:    g}, nil
 }
 
-func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (ext imprvIKNP) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
 	if err = util.SampleBitSlice(ext.prng, s); err != nil {
@@ -82,7 +87,7 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			key = q[i]
 			if choice == 1 {
-				key, err = xorBytes(q[i], s)
+				key, err = util.XorBytes(q[i], s)
 				if err != nil {
 					return err
 				}
@@ -103,7 +108,7 @@ func (ext imprvIknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 	return
 }
 
-func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
+func (ext imprvIKNP) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
 	if len(choices) != len(messages) || len(choices) != ext.m {
 		return ErrBaseCountMissMatch
 	}
@@ -116,8 +121,9 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	}
 
 	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
-	baseMsgs := make([][2][]byte, ext.k)
+	baseMsgs := make([][][]byte, ext.k)
 	for j := range baseMsgs {
+		baseMsgs[j] = make([][]byte, 2)
 		for b := range baseMsgs[j] {
 			baseMsgs[j][b] = make([]byte, ext.k)
 			err = util.SampleBitSlice(ext.prng, baseMsgs[j][b])
@@ -138,7 +144,7 @@ func (ext imprvIknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	//u := make([][]uint8, ext.k)
 	for row := range t {
 		//u, err = xorBytes(t[row], choices)
-		u, err = xorBytes(t[row], choices)
+		u, err = util.XorBytes(t[row], choices)
 		if err != nil {
 			return err
 		}

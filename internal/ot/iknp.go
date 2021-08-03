@@ -14,6 +14,8 @@ import (
 from the paper: Extending Oblivious Transfers Efficiently
 by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
 reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
+
+A possible improvement is to use bitset to store the bit matrices/bit sets.
 */
 
 const (
@@ -44,7 +46,7 @@ func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 	return iknp{baseOT: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
-func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
+func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
 	if err = util.SampleBitSlice(ext.prng, s); err != nil {
@@ -66,7 +68,7 @@ func (ext iknp) Send(messages [][2][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			key = q[i]
 			if choice == 1 {
-				key, err = xorBytes(q[i], s)
+				key, err = util.XorBytes(q[i], s)
 				if err != nil {
 					return err
 				}
@@ -99,11 +101,12 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
-	baseMsgs := make([][2][]byte, ext.k)
+	baseMsgs := make([][][]byte, ext.k)
 	for j := range baseMsgs {
+		baseMsgs[j] = make([][]byte, 2)
 		// []uint8 = []byte, since byte is an alias to uint8
 		baseMsgs[j][0] = t[j]
-		baseMsgs[j][1], err = xorBytes(t[j], choices)
+		baseMsgs[j][1], err = util.XorBytes(t[j], choices)
 		if err != nil {
 			return err
 		}
