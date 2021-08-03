@@ -6,7 +6,7 @@ Discalimer: This is a work in progress.
 
 1. the receiver generates [CuckooHash](https://en.wikipedia.org/wiki/Cuckoo_hashing) parameters and exchange with the sender.
 2. the receiver Cuckhash his input sets _Y_.
-3. the sender and the receiver agree on base OT (Naor-Pinkas [2]) parameters as well as the OT-extension (IKNP [3]) parameters.
+3. the sender and the receiver agree on base OT (Naor-Pinkas [2] or Simplest [3]) parameters as well as the OT-extension (IKNP [4]) parameters.
 4. the receiver acts as the sender in the OT-extension protocol with two matrices _T_ and  _U_ as input, and receives nothing. The matrix _T_ is the encoding of _Y_ with the CuckooHash table/stash and a linear correcitng code _C_, and matrix _U_ is sampled uniformly random.
 5. the sender acts as the receiver in the OT-extension protocol with input secret choice bits _s_, and receives matrix _Q_, with columns of _Q_ correspond to either matrix _T_ or _U_ depending on the value of _s_.
 6. the receiver evalutes the [OPRF](https://en.wikipedia.org/wiki/Pseudorandom_function_family#Oblivious_pseudorandom_functions) output of his input set _Y_.
@@ -54,15 +54,20 @@ S':         OPRF evaluation of input X that are put in cuckoo stash
 - [x] KKRT PSI protobuf definition
 - [x] KKRT PSI data flow chart
 - [x] Cuckoohash pkg implementation
-- [ ] Base OT network protocol implementation
-- [ ] Naor-Pinkas base OT implementation using OT network implementation
-- [ ] IKNP OT extension (KKRT OT extension) ---> to be explored further
-- [ ] Glue every components together to implement KKRT PSI
+- [x] Base OT protocol implementation
+- [x] Naor-Pinkas base OT implementation
+- [x] Simplest base OT implementation
+- [x] IKNP 1 out of 2 OT extension implementation
+- [x] KKRT 1 out of n OT extension implementation
+- [x] KKRT OPRF implementation
+- [ ] KKRT PSI implementation
 
 ## References
 
-[1] V. Kolesnikov, R. Kumaresan, M. Rosulek, N.Trieu. Efficient Batched Oblivious PRF with Applications to Private Set Intersection. Full version available at https://eprint.iacr.org/2016/799.pdf, and ACM version at https://dl.acm.org/doi/pdf/10.1145/2976749.2978381.
+[1] V. Kolesnikov, R. Kumaresan, M. Rosulek, N.Trieu. "Efficient Batched Oblivious PRF with Applications to Private Set Intersection." In Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security (pp. 818-829),2016. Paper available here: https://dl.acm.org/doi/pdf/10.1145/2976749.2978381.
 
-[2] M. Naor, B. Pinkas, Efficient Oblivious Transfer Protocols. https://dl.acm.org/doi/abs/10.5555/365411.365502
+[2] M. Naor, B. Pinkas. "Efficient oblivious transfer protocols." In SODA (Vol. 1, pp. 448-457), 2001. Paper available here: https://link.springer.com/content/pdf/10.1007/978-3-662-46800-5_26.pdf
 
-[3] Y. Ishai and J. Kilian and K. Nissim and E. Petrank, Extending Oblivious Transfers Efficiently. https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
+[3] T. Chou, O. Claudio. "The simplest protocol for oblivious transfer." In International Conference on Cryptology and Information Security in Latin America (pp. 40-58). Springer, Cham, 2015. Paper available here: https://eprint.iacr.org/2015/267.pdf
+
+[4] Y. Ishai and J. Kilian and K. Nissim and E. Petrank, Extending Oblivious Transfers Efficiently. https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
