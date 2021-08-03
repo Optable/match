@@ -17,16 +17,16 @@ var (
 	curve      = "P256"
 	cipherMode = XORBlake3
 	baseCount  = 1024
-	messages   = genMsg(baseCount)
+	messages   = genMsg(baseCount, 2)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)
 	r          = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
-func genMsg(n int) [][][]byte {
+func genMsg(n, t int) [][][]byte {
 	data := make([][][]byte, n)
 	for i := 0; i < n; i++ {
-		data[i] = make([][]byte, 2)
+		data[i] = make([][]byte, t)
 		for j := range data[i] {
 			data[i][j] = make([]byte, 64)
 			r.Read(data[i][j])

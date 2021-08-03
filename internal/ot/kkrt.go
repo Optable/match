@@ -121,9 +121,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	baseMsgs := make([][][]byte, ext.m)
 	for i := range baseMsgs {
 		baseMsgs[i] = make([][]byte, 2)
-		// |t[i]| = k
 		baseMsgs[i][0] = t[i]
-		// do we need mod 2 for each bytes from the return of pseudorandomCode?
 		baseMsgs[i][1], err = util.XorBytes(t[i], pseudorandomCode(sk, ext.k, []byte{choices[i]}))
 		if err != nil {
 			return err
@@ -137,7 +135,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 
 	e := make([][]byte, ext.n)
 	for i := range choices {
-		// compute # of bytes to be read
+		// compute nb of bytes to be read
 		l := encryptLen(kkrtCipherMode, ext.msgLen[i])
 		// read all msg
 		for j := range e {

@@ -41,20 +41,13 @@ func kkrtReceiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []b
 
 func TestKKRT(t *testing.T) {
 	// sample n tupples of messages
-	n := 10
-	mm := make([][][]byte, baseCount)
-	for i := range mm {
-		mm[i] = make([][]byte, n)
-		for j := range mm[i] {
-			mm[i][j] = make([]byte, 64)
-			r.Read(mm[i][j])
-		}
-	}
+	tuple := 10
+	mm := genMsg(baseCount, tuple)
 
 	// sample integer choices
 	cc := make([]byte, baseCount)
 	for i := range cc {
-		cc[i] = byte(r.Intn(n))
+		cc[i] = byte(r.Intn(tuple))
 	}
 
 	for i, m := range mm {
@@ -66,7 +59,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewKKRT(baseCount, 128, n, Simplest, false, msgLen)
+	ot, err := NewKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +78,7 @@ func TestKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		ot, err := NewKKRT(baseCount, 128, n, Simplest, false, msgLen)
+		ot, err := NewKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
 		if err != nil {
 			errs <- err
 		}
