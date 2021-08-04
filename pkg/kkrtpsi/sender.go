@@ -24,6 +24,11 @@ type Sender struct {
 	rw io.ReadWriter
 }
 
+type hashable struct {
+	identifier []byte
+	hashes     [cuckoo.Nhash]uint64
+}
+
 // NewSender returns a KKRTPSI sender initialized to
 // use rw as the communication layer
 func NewSender(rw io.ReadWriter) *Sender {
@@ -37,7 +42,11 @@ func NewSender(rw io.ReadWriter) *Sender {
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
 	var seeds [cuckoo.Nhash][]byte
+	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
+	var remoteN int
+	// keys is h_1(x), value is [2]uint64, that stores the rest of the hashed values
+	hashedIds := make([]hashable, n)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	stage1 := func() error {
@@ -52,6 +61,19 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 				return err
 			}
 		}
+
+		// read remote input size
+		if err := binary.Read(s.rw, binary.BigEndian, &remoteN); err != nil {
+			return err
+		}
+
+		// read all local ids, and store them as hashbles
+		c := cuckoo.NewCuckoo(uint64(n), seeds)
+		var i = 0
+		for id := range identifiers {
+			hashedIds[i] = hashable{identifier: id, hashes: c.Hash(id)}
+			i++
+		}
 		return nil
 	}
 
@@ -63,7 +85,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			return err
 		}
 
-		oSender, err := oprf.NewKKRT(int(inputLen), findK(int(inputLen)), ot.Simplest, false)
+		oSender, err := oprf.NewKKRT(int(inputLen), findK(inputLen), ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -73,11 +95,28 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			return err
 		}
 		return nil
-		return nil
 	}
 
-	// stage 3:
+	// stage 3: compute all possible OPRF output using keys obtained from stage2
 	stage3 := func() error {
+		/*
+			// in cuckoo hash table
+			var h [][]byte
+			// in cuckoo stash
+				s := make([][]byte, len(oprfKeys)-cuckoo.Factor*remoteN)
+
+				// encode (need to fix this)
+				for i, hashable := range hashedIds {
+					for _, hash := range hashable.hashes {
+						encoded, err := oSender.Encode(oprfKeys[hash], hashable.identifier)
+						if err != nil {
+							return err
+						}
+
+						h = append(h, encoded)
+					}
+				}
+		*/
 		return nil
 	}
 
@@ -96,6 +135,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		return err
 	}
 
+	fmt.Println(oSender)
 	fmt.Println(oprfKeys[:2])
 	return nil
 }

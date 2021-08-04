@@ -53,6 +53,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 
+		// send size
+		if err := binary.Write(r.rw, binary.BigEndian, &n); err != nil {
+			return err
+		}
+
 		// instantiate cuckoo hash table
 		cuckooHashTable = cuckoo.NewCuckoo(uint64(n), seeds)
 		// fetch local ID and insert
@@ -67,7 +72,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
 		input := cuckooHashTable.OPRFInput()
-		inputLen := len(input)
+		inputLen := int64(len(input))
 
 		// inform the sender of the size
 		// its about to receive
@@ -75,7 +80,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oReceiver, err := oprf.NewKKRT(inputLen, findK(inputLen), ot.Simplest, false)
+		oReceiver, err := oprf.NewKKRT(int(inputLen), findK(inputLen), ot.Simplest, false)
 		if err != nil {
 			return err
 		}

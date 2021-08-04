@@ -74,7 +74,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 }
 
 // hash returns the result of h0(item), h1(item), h2(item)
-func (c *Cuckoo) hash(item []byte) [Nhash]uint64 {
+func (c *Cuckoo) Hash(item []byte) [Nhash]uint64 {
 	var hashes [Nhash]uint64
 
 	for i := range hashes {
@@ -97,7 +97,7 @@ func (c *Cuckoo) bucketIndex(hash uint64) uint64 {
 // bucketIndices returns the 3 possible bucket indices of an item
 func (c *Cuckoo) bucketIndices(item []byte) [Nhash]uint64 {
 	var idx [Nhash]uint64
-	hashes := c.hash(item)
+	hashes := c.Hash(item)
 	for i, h := range hashes {
 		idx[i] = c.bucketIndex(h)
 	}
@@ -281,6 +281,10 @@ func (c *Cuckoo) OPRFInput() [][]byte {
 	}
 
 	return r
+}
+
+func (c *Cuckoo) StashSize() int {
+	return len(c.stash)
 }
 
 // findStashSize is a helper function that selects the correct stash size

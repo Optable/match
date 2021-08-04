@@ -2,7 +2,7 @@ package kkrtpsi
 
 import "math"
 
-func findK(n int) int {
+func findK(n int64) int {
 	logSize := uint8(math.Log2(float64(n)))
 
 	switch {
