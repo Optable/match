@@ -14,7 +14,7 @@ import (
 var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
-	baseCount = 10000000
+	baseCount = 16384
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
