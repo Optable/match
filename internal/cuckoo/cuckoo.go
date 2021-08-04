@@ -259,6 +259,30 @@ func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize + uint64(len(c.stash))
 }
 
+func (v value) oprfInput() []byte {
+	// no item inserted, return dummy value
+	if v.item == nil {
+		return []byte{255}
+	}
+
+	if v.hIdx != StashHidx {
+		return append(v.item, v.hIdx)
+	}
+
+	return v.item
+}
+
+func (c *Cuckoo) OPRFInput() [][]byte {
+	i := 0
+	r := make([][]byte, c.bucketSize)
+	for _, v := range c.buckets {
+		r[i] = v.oprfInput()
+		i++
+	}
+
+	return r
+}
+
 // findStashSize is a helper function that selects the correct stash size
 func findStashSize(size uint64) uint8 {
 	logSize := uint8(math.Log2(float64(size)))

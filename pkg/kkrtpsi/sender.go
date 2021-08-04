@@ -2,12 +2,16 @@ package kkrtpsi
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
 	"io"
 	"math/rand"
 	"time"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
+	"github.com/optable/match/internal/oprf"
+	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
@@ -32,8 +36,10 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
-	// stage 1: sample 3 hash seeds and write them to receiver
 	var seeds [cuckoo.Nhash][]byte
+	var oprfKeys []oprf.Key
+
+	// stage 1: sample 3 hash seeds and write them to receiver
 	stage1 := func() error {
 		// init randomness source
 		rand.Seed(time.Now().UnixNano())
@@ -51,6 +57,22 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 
 	// stage 2:
 	stage2 := func() error {
+		// receive the number of OPRF
+		var inputLen int64
+		if err := binary.Read(s.rw, binary.BigEndian, &inputLen); err != nil {
+			return err
+		}
+
+		oSender, err := oprf.NewKKRT(int(inputLen), findK(int(inputLen)), ot.Simplest, false)
+		if err != nil {
+			return err
+		}
+
+		oprfKeys, err = oSender.Send(s.rw)
+		if err != nil {
+			return err
+		}
+		return nil
 		return nil
 	}
 
@@ -74,5 +96,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		return err
 	}
 
+	fmt.Println(oprfKeys[:2])
 	return nil
 }

@@ -2,11 +2,14 @@ package kkrtpsi
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
+	"github.com/optable/match/internal/oprf"
+	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
@@ -33,6 +36,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	var intersected [][]byte
+	var oprfOutput [][]byte
 	var cuckooHashTable *cuckoo.Cuckoo
 
 	// stage 1: read the hash seeds from the remote side
@@ -60,9 +64,26 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		return nil
 	}
 
-	// stage 2: read local IDs and compare with the remote bloomfilter
-	//          to produce intersections
+	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
+		input := cuckooHashTable.OPRFInput()
+		inputLen := len(input)
+
+		// inform the sender of the size
+		// its about to receive
+		if err := binary.Write(r.rw, binary.BigEndian, &inputLen); err != nil {
+			return err
+		}
+
+		oReceiver, err := oprf.NewKKRT(inputLen, findK(inputLen), ot.Simplest, false)
+		if err != nil {
+			return err
+		}
+
+		oprfOutput, err = oReceiver.Receive(input, r.rw)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -87,5 +108,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		return intersected, err
 	}
 
+	fmt.Println(oprfOutput[:2])
 	return intersected, nil
 }
