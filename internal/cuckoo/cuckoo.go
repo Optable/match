@@ -77,7 +77,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 func (c *Cuckoo) hash(item []byte) [Nhash]uint64 {
 	var hashes [Nhash]uint64
 
-	for i, _ := range hashes {
+	for i := range hashes {
 		hashes[i] = doHash(item, c.hashers[i])
 	}
 
@@ -128,7 +128,7 @@ func (c *Cuckoo) Insert(item []byte) error {
 	if homeLessItem, added := c.tryGreedyAdd(item, bucketIndices); added {
 		return nil
 	} else {
-		return fmt.Errorf("Failed to Insert item: %s\n", string(homeLessItem[:]))
+		return fmt.Errorf("failed to Insert item: %s", string(homeLessItem[:]))
 	}
 
 }

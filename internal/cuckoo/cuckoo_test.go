@@ -20,7 +20,7 @@ var (
 func makeSeeds() [Nhash][]byte {
 	var seeds [Nhash][]byte
 
-	for i, _ := range seeds {
+	for i := range seeds {
 		seeds[i] = make([]byte, 32)
 		rand.Read(seeds[i])
 	}
