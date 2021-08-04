@@ -14,7 +14,7 @@ import (
 var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
-	baseCount = 1024
+	baseCount = 10000000
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
@@ -62,12 +62,17 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	oprf, err := NewKKRT(baseCount, 128, len(choices[0]), ot.Simplest, false)
+	receiverOPRF, err := NewKKRT(baseCount, 128, len(choices[0]), ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr, err := initKKRTReceiver(oprf, choices, outBus, errs)
+	addr, err := initKKRTReceiver(receiverOPRF, choices, outBus, errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	senderOPRF, err := NewKKRT(baseCount, 128, len(choices[0]), ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,13 +86,8 @@ func TestKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		oprf, err := NewKKRT(baseCount, 128, len(choices[0]), ot.Simplest, false)
-		if err != nil {
-			errs <- err
-		}
-
 		defer close(keyBus)
-		keys, err := oprf.Send(conn)
+		keys, err := senderOPRF.Send(conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(outBus)
@@ -128,7 +128,7 @@ func TestKKRT(t *testing.T) {
 
 	for i, o := range out {
 		// encode choice with key
-		enc, err := Encode(keys[i], choices[i])
+		enc, err := senderOPRF.Encode(keys[i], choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
