@@ -37,6 +37,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	var intersected [][]byte
 	var oprfOutput [][]byte
+	var oprfOutputSize int
 	var cuckooHashTable *cuckoo.Cuckoo
 
 	// stage 1: read the hash seeds from the remote side
@@ -46,10 +47,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		var seeds [cuckoo.Nhash][]byte
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
-			if n, err := r.rw.Read(seeds[i]); err != nil {
+			if _, err := io.ReadFull(r.rw, seeds[i]); err != nil {
 				return fmt.Errorf("stage1: %v", err)
-			} else if n != hash.SaltLength {
-				return hash.ErrSaltLengthMismatch
 			}
 		}
 
@@ -66,21 +65,24 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				return err
 			}
 		}
+
+		//fmt.Printf("Stage1: cuckoo size: %d\n", cuckooHashTable.Len())
 		return nil
 	}
 
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
 		input := cuckooHashTable.OPRFInput()
-		inputLen := int64(len(input))
+		bucketSize := int64(len(input))
+		oprfOutputSize = findK(bucketSize)
 
 		// inform the sender of the size
 		// its about to receive
-		if err := binary.Write(r.rw, binary.BigEndian, &inputLen); err != nil {
+		if err := binary.Write(r.rw, binary.BigEndian, &bucketSize); err != nil {
 			return err
 		}
 
-		oReceiver, err := oprf.NewKKRT(int(inputLen), findK(inputLen), ot.Simplest, false)
+		oReceiver, err := oprf.NewKKRT(int(bucketSize), oprfOutputSize, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -89,12 +91,75 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		if err != nil {
 			return err
 		}
+
+		// sanity check
+		if len(oprfOutput) != int(bucketSize) {
+			return fmt.Errorf("received number of OPRF outputs should be the same as cuckoohash bucket size")
+		}
+
+		//fmt.Printf("Stage2: OPRF output size: %d, first output: %v\n", len(oprfOutput), oprfOutput[0])
 		return nil
 	}
 
-	// stage 3: read local IDs and compare with the remote bloomfilter
+	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
+		// read number of remote IDs
+		var remoteN int64
+		if err := binary.Read(r.rw, binary.BigEndian, &remoteN); err != nil {
+			return err
+		}
+
+		// read cuckoo.Nhash number of hastable table of encoded remote IDs
+		var remoteHashtables [cuckoo.Nhash]map[string]bool
+		var remoteStashes = make([]map[string]bool, cuckooHashTable.StashSize())
+		encoded := make([]byte, oprfOutputSize)
+		for i := range remoteHashtables {
+			//initiate map
+			remoteHashtables[i] = make(map[string]bool)
+
+			// read encoded id and insert to map
+			for j := 0; j < int(remoteN); j++ {
+				if _, err := io.ReadFull(r.rw, encoded); err != nil {
+					return fmt.Errorf("stage3: %v", err)
+				}
+
+				remoteHashtables[i][string(encoded)] = true
+			}
+		}
+
+		// read stashSize number of stash of encoded remote IDs
+		for i := range remoteStashes {
+			// initiate map
+			remoteStashes[i] = make(map[string]bool)
+
+			// read encoded id and insert to map
+			for j := 0; j < int(remoteN); j++ {
+				if _, err := io.ReadFull(r.rw, encoded); err != nil {
+					return fmt.Errorf("stage3: %v", err)
+				}
+
+				remoteStashes[i][string(encoded)] = true
+			}
+		}
+
+		// intersect
+		localStash := cuckooHashTable.Stash()
+		localBucket := cuckooHashTable.Bucket()
+		stashStartIdx := int(len(localBucket) - cuckooHashTable.StashSize())
+		for i, v := range localStash {
+			// compare oprf output to every encoded in remoteStash at index i
+			if remoteStashes[i][string(oprfOutput[i+stashStartIdx])] {
+				intersected = append(intersected, v.GetItem())
+			}
+		}
+
+		for i, v := range localBucket {
+			// compare oprf output to every encoded in remoteHashTable at hIdx
+			if remoteHashtables[v.GetHashIdx()][string(oprfOutput[i])] {
+				intersected = append(intersected, v.GetItem())
+			}
+		}
 		return nil
 	}
 

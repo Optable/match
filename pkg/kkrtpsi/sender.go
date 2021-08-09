@@ -26,7 +26,7 @@ type Sender struct {
 
 type hashable struct {
 	identifier []byte
-	hashes     [cuckoo.Nhash]uint64
+	bucketIdx  [cuckoo.Nhash]uint64
 }
 
 // NewSender returns a KKRTPSI sender initialized to
@@ -40,13 +40,15 @@ func NewSender(rw io.ReadWriter) *Sender {
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
-func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
+func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
 	var seeds [cuckoo.Nhash][]byte
+	var stashSize int
+	var remoteN int64    // receiver size
+	var bucketSize int64 // receiver cuckoo bucket size
+
 	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
-	var remoteN int
-	// keys is h_1(x), value is [2]uint64, that stores the rest of the hashed values
-	hashedIds := make([]hashable, n)
+	var hashedIds = make([]hashable, n)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	stage1 := func() error {
@@ -67,25 +69,30 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			return err
 		}
 
-		// read all local ids, and store them as hashbles
-		c := cuckoo.NewCuckoo(uint64(n), seeds)
+		// read all local ids, and precompute all potential
+		// hashes and store them using the same
+		// cuckoo hash table parameters as the receiver.
+		cuckooHashTable := cuckoo.NewCuckoo(uint64(remoteN), seeds)
 		var i = 0
 		for id := range identifiers {
-			hashedIds[i] = hashable{identifier: id, hashes: c.Hash(id)}
+			hashedIds[i] = hashable{identifier: id, bucketIdx: cuckooHashTable.BucketIndices(id)}
 			i++
 		}
+		stashSize = cuckooHashTable.StashSize()
+
+		// fmt.Printf("Stage1: remote cuckoo stashSize: %d\n", stashSize)
 		return nil
 	}
 
 	// stage 2:
 	stage2 := func() error {
 		// receive the number of OPRF
-		var inputLen int64
-		if err := binary.Read(s.rw, binary.BigEndian, &inputLen); err != nil {
+
+		if err := binary.Read(s.rw, binary.BigEndian, &bucketSize); err != nil {
 			return err
 		}
 
-		oSender, err := oprf.NewKKRT(int(inputLen), findK(inputLen), ot.Simplest, false)
+		oSender, err = oprf.NewKKRT(int(bucketSize), findK(bucketSize), ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -94,29 +101,65 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		if err != nil {
 			return err
 		}
+
+		//fmt.Printf("Stage2: OPRFKeys size: %d, first key: %v\n", len(oprfKeys), oprfKeys[0])
 		return nil
 	}
 
 	// stage 3: compute all possible OPRF output using keys obtained from stage2
 	stage3 := func() error {
-		/*
-			// in cuckoo hash table
-			var h [][]byte
-			// in cuckoo stash
-				s := make([][]byte, len(oprfKeys)-cuckoo.Factor*remoteN)
+		// inform the receiver the number of local ID to compute the
+		// the number of hash tables and stash to receive
+		if err := binary.Write(s.rw, binary.BigEndian, &n); err != nil {
+			return err
+		}
 
-				// encode (need to fix this)
-				for i, hashable := range hashedIds {
-					for _, hash := range hashable.hashes {
-						encoded, err := oSender.Encode(oprfKeys[hash], hashable.identifier)
-						if err != nil {
-							return err
-						}
+		stashStartIdx := int(bucketSize - int64(stashSize))
+		var hashtable [cuckoo.Nhash][][]byte
+		var stash = make([][][]byte, stashSize)
 
-						h = append(h, encoded)
-					}
+		for _, hashable := range hashedIds {
+			for hIdx, idx := range hashable.bucketIdx {
+				// encode identifiers that are potentially stored in receiver's cuckoo hash table
+				// in any of the cuckoo.Nhash bukcet index and store it.
+				encoded, err := oSender.Encode(oprfKeys[idx], hashable.identifier)
+				if err != nil {
+					return err
 				}
-		*/
+
+				hashtable[hIdx] = append(hashtable[hIdx], encoded)
+			}
+
+			// encode identifier that are potentially stored in receiver's cuckoo stash
+			// each identifier can be in any of the stash position
+			for i := 0; i < stashSize; i++ {
+				encoded, err := oSender.Encode(oprfKeys[stashStartIdx+i], hashable.identifier)
+				if err != nil {
+					return nil
+				}
+
+				stash[i] = append(stash[i], encoded)
+			}
+		}
+
+		// write out each of the hashtables
+		for hIdx := range hashtable {
+			for _, encoded := range hashtable[hIdx] {
+				if _, err := s.rw.Write(encoded); err != nil {
+					return fmt.Errorf("stage3: %v", err)
+				}
+			}
+		}
+
+		// write out each of the stash
+		for si := range stash {
+			for _, encoded := range stash[si] {
+				if _, err := s.rw.Write(encoded); err != nil {
+					return fmt.Errorf("stage3: %v", err)
+				}
+			}
+		}
+
 		return nil
 	}
 
@@ -135,7 +178,5 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		return err
 	}
 
-	fmt.Println(oSender)
-	fmt.Println(oprfKeys[:2])
 	return nil
 }

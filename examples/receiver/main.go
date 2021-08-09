@@ -60,6 +60,8 @@ func main() {
 		psi_type = psi.NPSI
 	case "dhpsi":
 		psi_type = psi.DHPSI
+	case "kkrt":
+		psi_type = psi.KKRTPSI
 	default:
 		log.Printf("unsupported protocol %s", *protocol)
 		showUsageAndExit(0)

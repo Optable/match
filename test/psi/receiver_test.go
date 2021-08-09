@@ -183,3 +183,15 @@ func TestBPSIReceiver(t *testing.T) {
 		}
 	}
 }
+
+func TestKKRTReceiver(t *testing.T) {
+	for _, s := range test_sizes {
+		t.Logf("testing scenario %s", s.scenario)
+		// generate common data
+		common := emails.Common(s.commonLen)
+		// test
+		if err := testReceiver(psi.KKRTPSI, common, s, false); err != nil {
+			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
+}

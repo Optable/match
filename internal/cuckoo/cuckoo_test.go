@@ -96,7 +96,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 		}
 
 		if idx != StashHidx {
-			bIdx := cuckoo.bucketIndex(cuckoo.Hash(item)[idx])
+			bIdx := cuckoo.bucketIndex(cuckoo.hash(item)[idx])
 			if !bytes.Equal(cuckoo.buckets[bIdx].item, item) {
 				t.Errorf("Cuckoo GetHashIdx, hashIdx not correct for item: %s", string(item[:]))
 			}
