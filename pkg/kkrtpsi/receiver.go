@@ -67,7 +67,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 
-		//fmt.Printf("Stage1: cuckoo size: %d\n", cuckooHashTable.Len())
 		return nil
 	}
 
@@ -76,8 +75,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		input := cuckooHashTable.OPRFInput()
 		oprfInputSize := int64(len(input))
 		oprfOutputSize = findK(oprfInputSize)
-
-		//fmt.Printf("oprf input size: %d, ", oprfInputSize)
 
 		// inform the sender of the size
 		// its about to receive
@@ -94,9 +91,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		if err != nil {
 			return err
 		}
-
-		//fmt.Printf("Stage2: OPRF output size: %d, first output: %v\n", len(oprfOutput), oprfOutput[0])
-		//fmt.Printf("Stage2: OPRF output size: %d, first output: %v\n", len(oprfOutput), oprfOutput[1])
 
 		// sanity check
 		if len(oprfOutput) != int(oprfInputSize) {
@@ -150,28 +144,25 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		localStash := cuckooHashTable.Stash()
 		localBucket := cuckooHashTable.Bucket()
 		bucketSize := cuckooHashTable.BucketSize()
-		stashStartIdx := int(bucketSize - cuckooHashTable.StashSize())
-		fmt.Printf("bucketSize: %d, stashsize: %d, stashStartIdx: %d\n", bucketSize, len(localStash), stashStartIdx)
 		for i, v := range localStash {
 			// compare oprf output to every encoded in remoteStash at index i
 			for j := range remoteStashes[i] {
-				if bytes.Equal(oprfOutput[i+stashStartIdx], remoteStashes[i][j]) {
+				if bytes.Equal(oprfOutput[i+bucketSize], remoteStashes[i][j]) {
 					intersected = append(intersected, v.GetItem())
 				}
 			}
 		}
 
-		fmt.Println(intersected)
-
-		i := 0
-		for _, v := range localBucket {
+		for k := range localBucket {
 			// compare oprf output to every encoded in remoteHashTable at hIdx
-			for j := range remoteHashtables[v.GetHashIdx()] {
-				if bytes.Equal(remoteHashtables[v.GetHashIdx()][j], oprfOutput[i]) {
-					intersected = append(intersected, v.GetItem())
+			hIdx := localBucket[k].GetHashIdx()
+			for j := range remoteHashtables[hIdx] {
+				if bytes.Equal(remoteHashtables[hIdx][j], oprfOutput[localBucket[k].GetBucketIdx()]) {
+					intersected = append(intersected, localBucket[k].GetItem())
+					// dedup
+					delete(localBucket, k)
 				}
 			}
-			i++
 		}
 		return nil
 	}
@@ -191,6 +182,5 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		return intersected, err
 	}
 
-	//fmt.Println(oprfOutput[:2])
 	return intersected, nil
 }

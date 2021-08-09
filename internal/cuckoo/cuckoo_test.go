@@ -57,7 +57,7 @@ func TestNewCuckoo(t *testing.T) {
 		size  uint64
 		bSize uint64 //bucketSize
 	}{
-		{uint64(0), uint64(0)},
+		{uint64(0), uint64(1)},
 		{uint64(math.Pow(2, 4)), uint64(2 * math.Pow(2, 4))},
 		{uint64(math.Pow(2, 8)), uint64(2 * math.Pow(2, 8))},
 		{uint64(math.Pow(2, 16)), uint64(2 * math.Pow(2, 16))},

@@ -43,8 +43,8 @@ func NewSender(rw io.ReadWriter) *Sender {
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
 	var seeds [cuckoo.Nhash][]byte
 	var stashSize int
-	var remoteN int64    // receiver size
-	var bucketSize int64 // receiver cuckoo bucket size
+	var remoteN int64 // receiver size
+	var oprfInputSize int64
 
 	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
@@ -80,7 +80,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 		stashSize = cuckooHashTable.StashSize()
 
-		// fmt.Printf("Stage1: remote cuckoo stashSize: %d\n", stashSize)
 		return nil
 	}
 
@@ -88,11 +87,11 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	stage2 := func() error {
 		// receive the number of OPRF
 
-		if err := binary.Read(s.rw, binary.BigEndian, &bucketSize); err != nil {
+		if err := binary.Read(s.rw, binary.BigEndian, &oprfInputSize); err != nil {
 			return err
 		}
 
-		oSender, err = oprf.NewKKRT(int(bucketSize), findK(bucketSize), ot.Simplest, false)
+		oSender, err = oprf.NewKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -102,8 +101,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		//fmt.Printf("Stage2: OPRFKeys size: %d, first key: %v\n", len(oprfKeys), oprfKeys[0])
-		//fmt.Printf("Stage2: OPRFKeys size: %d, first key: %v\n", len(oprfKeys), oprfKeys[1])
 		return nil
 	}
 
@@ -115,16 +112,16 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		stashStartIdx := int(bucketSize - int64(stashSize))
-
 		var hashtable [cuckoo.Nhash][][]byte
 		var stash = make([][][]byte, stashSize)
+		var stashStartingIdx = int(oprfInputSize) - stashSize
 
 		for _, hashable := range hashedIds {
 			for hIdx, bucketIdx := range hashable.bucketIdx {
 				// encode identifiers that are potentially stored in receiver's cuckoo hash table
 				// in any of the cuckoo.Nhash bukcet index and store it.
-				encoded, err := oSender.Encode(oprfKeys[bucketIdx], hashable.identifier)
+				input := append(hashable.identifier, uint8(hIdx))
+				encoded, err := oSender.Encode(oprfKeys[bucketIdx], input)
 				if err != nil {
 					return err
 				}
@@ -135,7 +132,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			// encode identifier that are potentially stored in receiver's cuckoo stash
 			// each identifier can be in any of the stash position
 			for i := 0; i < stashSize; i++ {
-				encoded, err := oSender.Encode(oprfKeys[stashStartIdx+i], hashable.identifier)
+				encoded, err := oSender.Encode(oprfKeys[stashStartingIdx+i], hashable.identifier)
 				if err != nil {
 					return nil
 				}

@@ -39,8 +39,9 @@ var stashSize = map[uint8]uint8{
 // the hash function used to compute which bucket index
 // the item is inserted in.
 type value struct {
-	item []byte
-	hIdx uint8
+	item      []byte
+	hIdx      uint8
+	bucketIdx uint64
 }
 
 // A Cuckoo represents a 3-way Cuckoo hash table data structure
@@ -143,7 +144,7 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 
 		if _, occupied := c.buckets[bIdx]; !occupied {
 			// this is a free slot
-			c.buckets[bIdx] = value{item, uint8(hIdx)}
+			c.buckets[bIdx] = value{item, uint8(hIdx), bIdx}
 			return true
 		}
 	}
@@ -164,7 +165,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 		evictedBIdx := bucketIndices[evictedHIdx]
 		evictedItem := c.buckets[evictedBIdx]
 		// insert the item in the evicted slot
-		c.buckets[evictedBIdx] = value{item, uint8(evictedHIdx)}
+		c.buckets[evictedBIdx] = value{item, uint8(evictedHIdx), evictedBIdx}
 
 		evictedBucketIndices := c.BucketIndices(evictedItem.item)
 		// try to reinsert the evicted items
@@ -182,7 +183,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 	for i, s := range c.stash {
 		// empty slot
 		if len(s.item) == 0 {
-			c.stash[i] = value{item, uint8(StashHidx)}
+			c.stash[i] = value{item, uint8(StashHidx), c.bucketSize + uint64(i)}
 			return nil, true
 		}
 	}
@@ -256,7 +257,7 @@ func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize + uint64(len(c.stash))
 }
 
-func (v value) oprfInput() []byte {
+func (v value) OprfInput() []byte {
 	// no item inserted, return dummy value
 	if v.item == nil {
 		return []byte{255}
@@ -270,15 +271,15 @@ func (v value) oprfInput() []byte {
 }
 
 func (c *Cuckoo) OPRFInput() [][]byte {
-	r := make([][]byte, c.bucketSize+uint64(c.StashSize()))
+	r := make([][]byte, c.Len())
 	for i := range r {
-		r[i] = c.buckets[uint64(i)].oprfInput()
+		r[i] = c.buckets[uint64(i)].OprfInput()
 		i++
 	}
 
 	i := c.bucketSize
 	for _, v := range c.stash {
-		r[i] = v.oprfInput()
+		r[i] = v.OprfInput()
 		i++
 	}
 
@@ -291,6 +292,10 @@ func (v value) GetItem() []byte {
 
 func (v value) GetHashIdx() uint8 {
 	return v.hIdx
+}
+
+func (v value) GetBucketIdx() uint64 {
+	return v.bucketIdx
 }
 
 func (c *Cuckoo) Bucket() map[uint64]value {
