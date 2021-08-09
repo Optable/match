@@ -56,7 +56,7 @@ type Cuckoo struct {
 	stash []value
 }
 
-// NewCuckoo instantiate the struct Cuckoo with a bucket of size 1.2 * size,
+// NewCuckoo instantiate the struct Cuckoo with a bucket of size 2 * size,
 // a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
@@ -270,13 +270,13 @@ func (v value) oprfInput() []byte {
 }
 
 func (c *Cuckoo) OPRFInput() [][]byte {
-	i := 0
-	r := make([][]byte, c.bucketSize)
-	for _, v := range c.buckets {
-		r[i] = v.oprfInput()
+	r := make([][]byte, c.bucketSize+uint64(c.StashSize()))
+	for i := range r {
+		r[i] = c.buckets[uint64(i)].oprfInput()
 		i++
 	}
 
+	i := c.bucketSize
 	for _, v := range c.stash {
 		r[i] = v.oprfInput()
 		i++
@@ -295,6 +295,10 @@ func (v value) GetHashIdx() uint8 {
 
 func (c *Cuckoo) Bucket() map[uint64]value {
 	return c.buckets
+}
+
+func (c *Cuckoo) BucketSize() int {
+	return int(c.bucketSize)
 }
 
 func (c *Cuckoo) Stash() []value {

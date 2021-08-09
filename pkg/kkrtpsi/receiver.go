@@ -1,6 +1,7 @@
 package kkrtpsi
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -73,16 +74,18 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
 		input := cuckooHashTable.OPRFInput()
-		bucketSize := int64(len(input))
-		oprfOutputSize = findK(bucketSize)
+		oprfInputSize := int64(len(input))
+		oprfOutputSize = findK(oprfInputSize)
+
+		//fmt.Printf("oprf input size: %d, ", oprfInputSize)
 
 		// inform the sender of the size
 		// its about to receive
-		if err := binary.Write(r.rw, binary.BigEndian, &bucketSize); err != nil {
+		if err := binary.Write(r.rw, binary.BigEndian, &oprfInputSize); err != nil {
 			return err
 		}
 
-		oReceiver, err := oprf.NewKKRT(int(bucketSize), oprfOutputSize, ot.Simplest, false)
+		oReceiver, err := oprf.NewKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -92,12 +95,14 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
+		//fmt.Printf("Stage2: OPRF output size: %d, first output: %v\n", len(oprfOutput), oprfOutput[0])
+		//fmt.Printf("Stage2: OPRF output size: %d, first output: %v\n", len(oprfOutput), oprfOutput[1])
+
 		// sanity check
-		if len(oprfOutput) != int(bucketSize) {
+		if len(oprfOutput) != int(oprfInputSize) {
 			return fmt.Errorf("received number of OPRF outputs should be the same as cuckoohash bucket size")
 		}
 
-		//fmt.Printf("Stage2: OPRF output size: %d, first output: %v\n", len(oprfOutput), oprfOutput[0])
 		return nil
 	}
 
@@ -111,54 +116,62 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteHashtables [cuckoo.Nhash]map[string]bool
-		var remoteStashes = make([]map[string]bool, cuckooHashTable.StashSize())
+		var remoteHashtables = make([][][]byte, cuckoo.Nhash)
+		var remoteStashes = make([][][]byte, cuckooHashTable.StashSize())
 		encoded := make([]byte, oprfOutputSize)
-		for i := range remoteHashtables {
-			//initiate map
-			remoteHashtables[i] = make(map[string]bool)
 
-			// read encoded id and insert to map
-			for j := 0; j < int(remoteN); j++ {
+		for i := range remoteHashtables {
+			// read encoded id and insert
+			remoteHashtables[i] = make([][]byte, remoteN)
+			for j := range remoteHashtables[i] {
+				remoteHashtables[i][j] = make([]byte, oprfOutputSize)
 				if _, err := io.ReadFull(r.rw, encoded); err != nil {
 					return fmt.Errorf("stage3: %v", err)
 				}
-
-				remoteHashtables[i][string(encoded)] = true
+				copy(remoteHashtables[i][j], encoded)
 			}
 		}
 
 		// read stashSize number of stash of encoded remote IDs
 		for i := range remoteStashes {
-			// initiate map
-			remoteStashes[i] = make(map[string]bool)
-
+			remoteStashes[i] = make([][]byte, remoteN)
 			// read encoded id and insert to map
-			for j := 0; j < int(remoteN); j++ {
+			for j := range remoteStashes[i] {
+				remoteStashes[i][j] = make([]byte, oprfOutputSize)
 				if _, err := io.ReadFull(r.rw, encoded); err != nil {
 					return fmt.Errorf("stage3: %v", err)
 				}
 
-				remoteStashes[i][string(encoded)] = true
+				copy(remoteStashes[i][j], encoded)
 			}
 		}
 
 		// intersect
 		localStash := cuckooHashTable.Stash()
 		localBucket := cuckooHashTable.Bucket()
-		stashStartIdx := int(len(localBucket) - cuckooHashTable.StashSize())
+		bucketSize := cuckooHashTable.BucketSize()
+		stashStartIdx := int(bucketSize - cuckooHashTable.StashSize())
+		fmt.Printf("bucketSize: %d, stashsize: %d, stashStartIdx: %d\n", bucketSize, len(localStash), stashStartIdx)
 		for i, v := range localStash {
 			// compare oprf output to every encoded in remoteStash at index i
-			if remoteStashes[i][string(oprfOutput[i+stashStartIdx])] {
-				intersected = append(intersected, v.GetItem())
+			for j := range remoteStashes[i] {
+				if bytes.Equal(oprfOutput[i+stashStartIdx], remoteStashes[i][j]) {
+					intersected = append(intersected, v.GetItem())
+				}
 			}
 		}
 
-		for i, v := range localBucket {
+		fmt.Println(intersected)
+
+		i := 0
+		for _, v := range localBucket {
 			// compare oprf output to every encoded in remoteHashTable at hIdx
-			if remoteHashtables[v.GetHashIdx()][string(oprfOutput[i])] {
-				intersected = append(intersected, v.GetItem())
+			for j := range remoteHashtables[v.GetHashIdx()] {
+				if bytes.Equal(remoteHashtables[v.GetHashIdx()][j], oprfOutput[i]) {
+					intersected = append(intersected, v.GetItem())
+				}
 			}
+			i++
 		}
 		return nil
 	}
@@ -178,6 +191,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		return intersected, err
 	}
 
-	fmt.Println(oprfOutput[:2])
+	//fmt.Println(oprfOutput[:2])
 	return intersected, nil
 }
