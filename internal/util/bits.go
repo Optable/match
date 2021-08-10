@@ -26,6 +26,16 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
+// XORs two BitSets if they are the same length
+func XorBitsets(a, b *bitset.BitSet) (*bitset.BitSet, error) {
+	n := b.Len()
+	if n != a.Len() {
+		return nil, ErrByteLengthMissMatch
+	}
+
+	return a.SymmetricDifference(b), nil
+}
+
 // AndBytes returns the binary and of each byte in a and b
 // if a and b are the same length
 func AndBytes(a, b []byte) (dst []byte, err error) {
