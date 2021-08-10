@@ -1,11 +1,11 @@
 package kkrtpsi
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -36,6 +36,8 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+	// start timer:
+	start := time.Now()
 	var intersected [][]byte
 	var oprfOutput [][]byte
 	var oprfOutputSize int
@@ -67,6 +69,9 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 
+		// end stage1
+		end1 := time.Now()
+		fmt.Println("Stage1: ", end1.Sub(start))
 		return nil
 	}
 
@@ -97,6 +102,9 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return fmt.Errorf("received number of OPRF outputs should be the same as cuckoohash bucket size")
 		}
 
+		// end stage2
+		end2 := time.Now()
+		fmt.Println("Stage2: ", end2.Sub(start))
 		return nil
 	}
 
@@ -110,33 +118,32 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteHashtables = make([][][]byte, cuckoo.Nhash)
-		var remoteStashes = make([][][]byte, cuckooHashTable.StashSize())
+		var remoteHashtables = make([]map[string]bool, cuckoo.Nhash)
+		var remoteStashes = make([]map[string]bool, cuckooHashTable.StashSize())
 		encoded := make([]byte, oprfOutputSize)
 
 		for i := range remoteHashtables {
 			// read encoded id and insert
-			remoteHashtables[i] = make([][]byte, remoteN)
-			for j := range remoteHashtables[i] {
-				remoteHashtables[i][j] = make([]byte, oprfOutputSize)
+			remoteHashtables[i] = make(map[string]bool)
+			for j := int64(0); j < remoteN; j++ {
 				if _, err := io.ReadFull(r.rw, encoded); err != nil {
 					return fmt.Errorf("stage3: %v", err)
 				}
-				copy(remoteHashtables[i][j], encoded)
+
+				remoteHashtables[i][string(encoded)] = true
 			}
 		}
 
 		// read stashSize number of stash of encoded remote IDs
 		for i := range remoteStashes {
-			remoteStashes[i] = make([][]byte, remoteN)
+			remoteStashes[i] = make(map[string]bool, remoteN)
 			// read encoded id and insert to map
-			for j := range remoteStashes[i] {
-				remoteStashes[i][j] = make([]byte, oprfOutputSize)
+			for j := int64(0); j < remoteN; j++ {
 				if _, err := io.ReadFull(r.rw, encoded); err != nil {
 					return fmt.Errorf("stage3: %v", err)
 				}
 
-				copy(remoteStashes[i][j], encoded)
+				remoteStashes[i][string(encoded)] = true
 			}
 		}
 
@@ -145,25 +152,28 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		localBucket := cuckooHashTable.Bucket()
 		bucketSize := cuckooHashTable.BucketSize()
 		for i, v := range localStash {
-			// compare oprf output to every encoded in remoteStash at index i
-			for j := range remoteStashes[i] {
-				if bytes.Equal(oprfOutput[i+bucketSize], remoteStashes[i][j]) {
-					intersected = append(intersected, v.GetItem())
-				}
+			// compare oprf output to every encoded in remoteStashes at index i
+			if remoteStashes[i][string(oprfOutput[i+bucketSize])] {
+				intersected = append(intersected, v.GetItem())
+				// dedup
+				// how?
 			}
 		}
 
-		for k := range localBucket {
+		for k, v := range localBucket {
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			hIdx := localBucket[k].GetHashIdx()
-			for j := range remoteHashtables[hIdx] {
-				if bytes.Equal(remoteHashtables[hIdx][j], oprfOutput[localBucket[k].GetBucketIdx()]) {
-					intersected = append(intersected, localBucket[k].GetItem())
-					// dedup
-					delete(localBucket, k)
-				}
+
+			if remoteHashtables[hIdx][string(oprfOutput[localBucket[k].GetBucketIdx()])] {
+				intersected = append(intersected, v.GetItem())
+				// dedup
+				delete(localBucket, k)
 			}
 		}
+
+		// end stage3
+		end3 := time.Now()
+		fmt.Println("stage3: ", end3.Sub(start))
 		return nil
 	}
 
