@@ -17,6 +17,6 @@ func findK(n int64) int {
 	case logSize > 20 && logSize <= 24:
 		return 448
 	default:
-		return 0
+		return 128
 	}
 }
