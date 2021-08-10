@@ -3,6 +3,8 @@ package util
 import (
 	"fmt"
 	"math/rand"
+
+	"github.com/bits-and-blooms/bitset"
 )
 
 var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations")
@@ -74,36 +76,34 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 	return tr
 }
 
-// SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
-// with pseudorandom bit values
-func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
+// SampleRandomBitMatrix fills each entry in the given 2D slice with
+// pseudorandom bit values in a bitset
+func SampleRandomBitMatrix(r *rand.Rand, m, n int) []*bitset.BitSet {
 	// instantiate matrix
-	matrix := make([][]uint8, m)
-	for row := range matrix {
-		matrix[row] = make([]uint8, k)
-	}
+	matrix := make([]*bitset.BitSet, m)
 
 	for row := range matrix {
-		if err := SampleBitSlice(r, matrix[row]); err != nil {
-			return nil, err
-		}
+		matrix[row] = SampleBitSlice(r, n)
 	}
 
-	return matrix, nil
+	return matrix
 }
 
-// SampleBitSlice returns a slice of uint8 of pseudorandom bits
-func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
-	// read up to len(b) pseudorandom bits
-	t := make([]byte, len(b)/8)
-	if _, err = prng.Read(t); err != nil {
-		return nil
+// SampleBitSlice returns a bitset of pseudorandom bits
+func SampleBitSlice(r *rand.Rand, n int) *bitset.BitSet {
+	var numInts int
+	if n%64 != 0 {
+		numInts = n/64 + 1
+	} else {
+		numInts = n / 64
+	}
+	seedInts := make([]uint64, numInts)
+
+	for i := range seedInts {
+		seedInts[i] = r.Uint64()
 	}
 
-	// extract all bits into b
-	ExtractBytesToBits(t, b)
-
-	return nil
+	return bitset.From(seedInts)
 }
 
 // ExtractBytesToBits returns a byte array of bits from src

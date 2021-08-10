@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/util"
 )
 
@@ -36,10 +37,8 @@ func genMsg(n, t int) [][][]byte {
 	return data
 }
 
-func genChoiceBits(n int) []uint8 {
-	choices := make([]uint8, n)
-	util.SampleBitSlice(r, choices)
-	return choices
+func genChoiceBits(n int) *bitset.BitSet {
+	return util.SampleBitSlice(r, n)
 }
 
 func initReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
@@ -84,7 +83,8 @@ func TestSimplestOT(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+	//receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+	receiverOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		t.Fatalf("Error creating Simplest OT: %s", err)
 	}
@@ -99,7 +99,8 @@ func TestSimplestOT(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+		//senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+		senderOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}

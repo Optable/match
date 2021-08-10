@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/bits-and-blooms/bitset"
 )
 
 /*
@@ -97,8 +99,8 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	return
 }
 
-func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != s.baseCount {
+func (s simplest) Receive(choices *bitset.BitSet, messages [][]byte, rw io.ReadWriter) (err error) {
+	if choices.Len() < len(messages) || choices.Len() > len(messages)+63 || len(messages) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
@@ -130,19 +132,16 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point B and send it
-		switch choices[i] {
-		case 0:
-			// B
-			if err := writer.write(B); err != nil {
-				return err
-			}
-		case 1:
+		if choices.Test(i) {
 			// B = A + B
 			if err := writer.write(A.add(B)); err != nil {
 				return err
 			}
-		default:
-			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
+		} else {
+			// B
+			if err := writer.write(B); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -165,7 +164,11 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		K = A.scalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
+		var choice uint8
+		if choices.Test(i) {
+			choice = 1
+		}
+		messages[i], err = decrypt(s.cipherMode, K.deriveKey(), choice, e[choice])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
