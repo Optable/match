@@ -1,5 +1,5 @@
 # match
-[![CircleCI](https://circleci.com/gh/Optable/match/tree/circleci.svg?style=svg)](https://circleci.com/gh/Optable/match/tree/circleci)
+[![CircleCI](https://circleci.com/gh/Optable/match/tree/main.svg?style=svg)](https://circleci.com/gh/Optable/match/tree/main)
 [![GoDoc](https://godoc.org/github.com/optable/match?status.svg)](https://godoc.org/github.com/optable/match)
 
 An open-source set intersection protocols library written in golang.
