@@ -2,6 +2,7 @@ package kkrtpsi
 
 import "math"
 
+// findK returns the number of base OT for OPRF
 func findK(n int64) int {
 	logSize := uint8(math.Log2(float64(n)))
 

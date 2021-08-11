@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/optable/match/internal/cuckoo"
@@ -16,14 +17,16 @@ import (
 )
 
 // stage 1: samples 3 hash seeds and sends them to receiver for cuckoo hash
-// stage 2: OPRF Send
-// stage 3: read local IDs and compute OPRF(k, id) and send them to receiver.
+// stage 2: act as sender in OPRF, and receive OPRF keys
+// stage 3: compute OPRF(k, id) and send them to receiver for intersection.
 
 // Sender side of the KKRTPSI protocol
 type Sender struct {
 	rw io.ReadWriter
 }
 
+// hashable stores the possible bucket
+// indexes in the receiver cuckoo hash table
 type hashable struct {
 	identifier []byte
 	bucketIdx  [cuckoo.Nhash]uint64
@@ -36,25 +39,28 @@ func NewSender(rw io.ReadWriter) *Sender {
 }
 
 // Send initiates a KKRTPSI exchange
-// that are read from identifiers, until identifiers closes.
+// that reads local IDs from identifiers, until identifiers closes.
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
-	var seeds [cuckoo.Nhash][]byte
 	var stashSize int
-	var remoteN int64 // receiver size
-	var oprfInputSize int64
+	var remoteN int64       // receiver size
+	var oprfInputSize int64 // nb of OPRF keys
 
 	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
 	var hashedIds = make([]hashable, n)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
+	// for cuckoo hashing parameters agreement.
+	// read local ids and store the potential bucket indexes for each id.
 	stage1 := func() error {
 		// init randomness source
 		rand.Seed(time.Now().UnixNano())
+
 		// sample Nhash hash seeds
+		var seeds [cuckoo.Nhash][]byte
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
 			rand.Read(seeds[i])
@@ -83,14 +89,14 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		return nil
 	}
 
-	// stage 2:
+	// stage 2: act as sender in OPRF, and receive OPRF keys
 	stage2 := func() error {
 		// receive the number of OPRF
-
 		if err := binary.Read(s.rw, binary.BigEndian, &oprfInputSize); err != nil {
 			return err
 		}
 
+		// instantiate OPRF sender with agreed parameters
 		oSender, err = oprf.NewKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
 		if err != nil {
 			return err
@@ -106,8 +112,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 	// stage 3: compute all possible OPRF output using keys obtained from stage2
 	stage3 := func() error {
-		// inform the receiver the number of local ID to compute the
-		// the number of hash tables and stash to receive
+		// inform the receiver the number of local ID
 		if err := binary.Write(s.rw, binary.BigEndian, &n); err != nil {
 			return err
 		}
@@ -116,29 +121,64 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		var stash = make([][][]byte, stashSize)
 		var stashStartingIdx = int(oprfInputSize) - stashSize
 
-		for _, hashable := range hashedIds {
-			for hIdx, bucketIdx := range hashable.bucketIdx {
+		for i := range hashtable {
+			hashtable[i] = make([][]byte, n)
+		}
+
+		for i := range stash {
+			stash[i] = make([][]byte, n)
+		}
+
+		var wg sync.WaitGroup
+		var errBus = make(chan error)
+
+		for idx, hash := range hashedIds {
+			// Increment the WaitGroup counter.
+			wg.Add(1)
+			go func(idx int, hash hashable) {
+				// Decrement the counter when the goroutine completes.
+				defer wg.Done()
 				// encode identifiers that are potentially stored in receiver's cuckoo hash table
 				// in any of the cuckoo.Nhash bukcet index and store it.
-				input := append(hashable.identifier, uint8(hIdx))
-				encoded, err := oSender.Encode(oprfKeys[bucketIdx], input)
-				if err != nil {
-					return err
+				for hIdx, bucketIdx := range hash.bucketIdx {
+					encoded, err := oSender.Encode(oprfKeys[bucketIdx], append(hash.identifier, uint8(hIdx)))
+					if err != nil {
+						errBus <- err
+					}
+
+					hashtable[hIdx][idx] = encoded
 				}
+			}(idx, hash)
 
-				hashtable[hIdx] = append(hashtable[hIdx], encoded)
-			}
+			// Increment the WaitGroup counter.
+			wg.Add(1)
+			go func(idx int, hash hashable) {
+				// Decrement the counter when the goroutine completes.
+				defer wg.Done()
+				// encode identifier that are potentially stored in receiver's cuckoo stash
+				// each identifier can be in any of the stash position
+				for i := 0; i < stashSize; i++ {
+					encoded, err := oSender.Encode(oprfKeys[stashStartingIdx+i], hash.identifier)
+					if err != nil {
+						errBus <- err
+					}
 
-			// encode identifier that are potentially stored in receiver's cuckoo stash
-			// each identifier can be in any of the stash position
-			for i := 0; i < stashSize; i++ {
-				encoded, err := oSender.Encode(oprfKeys[stashStartingIdx+i], hashable.identifier)
-				if err != nil {
-					return nil
+					stash[i][idx] = encoded
 				}
+			}(idx, hash)
+		}
 
-				stash[i] = append(stash[i], encoded)
+		// Wait for all encode to complete.
+		wg.Wait()
+		close(errBus)
+
+		//errors?
+		select {
+		case err := <-errBus:
+			if err != nil {
+				return err
 			}
+		default:
 		}
 
 		// write out each of the hashtables
