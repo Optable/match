@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/rand"
 
@@ -167,4 +168,33 @@ func ExtractBytesToBits(src, dst []byte) {
 		dst[i+7] = uint8((_byte >> 7) & 0x01)
 		i += 8
 	}
+}
+
+// Extract a slice of bytes from a BitSet
+func BitSetToBytes(bset *bitset.BitSet) []byte {
+	b := make([]byte, bset.Len()/8)
+
+	for i, x := range bset.Bytes() {
+		binary.LittleEndian.PutUint64(b[i:], x)
+	}
+
+	return b
+}
+
+// Convert slice of bytes to BitSet
+func BytesToBitSet(b []byte) *bitset.BitSet {
+	// expand byte slice to a multiple of 8
+	var x int
+	if len(b)%8 != 0 {
+		x = 8 - (len(b) % 8)
+	}
+
+	b = append(b, make([]byte, x)...)
+
+	b64 := make([]uint64, len(b)/8)
+	for i := 0; i < len(b); i += 8 {
+		b64[i/8] = binary.LittleEndian.Uint64(b[i:])
+	}
+
+	return bitset.From(b64)
 }

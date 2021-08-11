@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/bits-and-blooms/bitset"
+	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -32,7 +35,8 @@ func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode int
 	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
-func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
+func (n naorPinkas) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err error) {
+	//func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
@@ -91,13 +95,17 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			ciphertext, err = encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
+			ciphertext, err = encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBytes(plaintext))
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
+			// convert ciphertext into BitSet
+			cipherBitSet := util.BytesToBitSet(ciphertext)
+
 			// send ciphertext
-			if _, err = writer.w.Write(ciphertext); err != nil {
+			// TODO check that rw is the proper stream to write to
+			if _, err = cipherBitSet.WriteTo(rw); err != nil {
 				return err
 			}
 		}
@@ -106,8 +114,8 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	return
 }
 
-func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != n.baseCount {
+func (n naorPinkas) Receive(choices *bitset.BitSet, messages [][]byte, rw io.ReadWriter) (err error) {
+	if int(choices.Len()) < len(messages) || int(choices.Len()) > len(messages)+63 || len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
@@ -136,7 +144,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	bSecrets := make([][]byte, n.baseCount)
 	var B points
 	var b []byte
-	for i := 0; i < n.baseCount; i++ {
+	for i := uint(0); i < uint(n.baseCount); i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
 		b, B, err = generateKeyWithPoints(n.curve)
 		if err != nil {
@@ -145,27 +153,24 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
-		switch choices[i] {
-		case 0:
-			// K0 = Kc = B
-			if err := writer.write(B); err != nil {
-				return err
-			}
-		case 1:
+		if choices.Test(i) {
 			// K1 = Kc = B
 			// K0 = K1-c = A - B
 			if err := writer.write(A.sub(B)); err != nil {
 				return err
 			}
-		default:
-			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
+		} else {
+			// K0 = Kc = B
+			if err := writer.write(B); err != nil {
+				return err
+			}
 		}
 	}
 
 	e := make([][]byte, 2)
 	var K points
 	// receive encrypted messages, and decrypt it.
-	for i := 0; i < n.baseCount; i++ {
+	for i := uint(0); i < uint(n.baseCount); i++ {
 		// compute # of bytes to be read.
 		l := encryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
@@ -181,7 +186,11 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		K = R.scalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(n.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
+		var choice uint8
+		if choices.Test(i) {
+			choice = 1
+		}
+		messages[i], err = decrypt(n.cipherMode, K.deriveKey(), choice, e[choice])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
