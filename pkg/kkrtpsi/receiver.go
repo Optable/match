@@ -163,7 +163,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		for k, v := range localBucket {
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			hIdx := localBucket[k].GetHashIdx()
-
 			if remoteHashtables[hIdx][string(oprfOutput[localBucket[k].GetBucketIdx()])] {
 				intersected = append(intersected, v.GetItem())
 				// dedup

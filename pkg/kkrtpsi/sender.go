@@ -133,10 +133,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		var errBus = make(chan error)
 
 		for idx, hash := range hashedIds {
-			// Increment the WaitGroup counter.
 			wg.Add(1)
 			go func(idx int, hash hashable) {
-				// Decrement the counter when the goroutine completes.
 				defer wg.Done()
 				// encode identifiers that are potentially stored in receiver's cuckoo hash table
 				// in any of the cuckoo.Nhash bukcet index and store it.
@@ -150,10 +148,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				}
 			}(idx, hash)
 
-			// Increment the WaitGroup counter.
 			wg.Add(1)
 			go func(idx int, hash hashable) {
-				// Decrement the counter when the goroutine completes.
 				defer wg.Done()
 				// encode identifier that are potentially stored in receiver's cuckoo stash
 				// each identifier can be in any of the stash position
@@ -173,12 +169,10 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		close(errBus)
 
 		//errors?
-		select {
-		case err := <-errBus:
+		for err := range errBus {
 			if err != nil {
 				return err
 			}
-		default:
 		}
 
 		// write out each of the hashtables
