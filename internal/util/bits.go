@@ -88,19 +88,19 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 
 // SampleRandomBitMatrix fills each entry in the given 2D slice with
 // pseudorandom bit values in a bitset
-func SampleRandomBitMatrix(r *rand.Rand, m, n int) []*bitset.BitSet {
+func SampleRandomBitSetMatrix(r *rand.Rand, m, n int) []*bitset.BitSet {
 	// instantiate matrix
 	matrix := make([]*bitset.BitSet, m)
 
 	for row := range matrix {
-		matrix[row] = SampleBitSlice(r, n)
+		matrix[row] = SampleBitSetSlice(r, n)
 	}
 
 	return matrix
 }
 
 // SampleBitSlice returns a bitset of pseudorandom bits
-func SampleBitSlice(r *rand.Rand, n int) *bitset.BitSet {
+func SampleBitSetSlice(r *rand.Rand, n int) *bitset.BitSet {
 	var numInts int
 	if n%64 != 0 {
 		numInts = n/64 + 1
@@ -114,6 +114,38 @@ func SampleBitSlice(r *rand.Rand, n int) *bitset.BitSet {
 	}
 
 	return bitset.From(seedInts)
+}
+
+// SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
+// with pseudorandom bit values
+func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
+	// instantiate matrix
+	matrix := make([][]uint8, m)
+	for row := range matrix {
+		matrix[row] = make([]uint8, k)
+	}
+
+	for row := range matrix {
+		if err := SampleBitSlice(r, matrix[row]); err != nil {
+			return nil, err
+		}
+	}
+
+	return matrix, nil
+}
+
+// SampleBitSlice returns a slice of uint8 of pseudorandom bits
+func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
+	// read up to len(b) pseudorandom bits
+	t := make([]byte, len(b)/8)
+	if _, err = prng.Read(t); err != nil {
+		return nil
+	}
+
+	// extract all bits into b
+	ExtractBytesToBits(t, b)
+
+	return nil
 }
 
 // ExtractBytesToBits returns a byte array of bits from src
