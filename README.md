@@ -1,4 +1,7 @@
 # match
+[![CircleCI](https://circleci.com/gh/Optable/match/tree/circleci.svg?style=svg)](https://circleci.com/gh/Optable/match/tree/circleci)
+[![GoDoc](https://godoc.org/github.com/optable/match?status.svg)](https://godoc.org/github.com/optable/match)
+
 An open-source set intersection protocols library written in golang.
 
 The goal of the match library is to provide production level implementations of various set intersection protocols. Protocols will typically tradeoff security for performance. For example, a private set intersection (PSI) protocol provides cryptographic guarantees to participants concerning their private and non-intersecting data records, and is suitable for scenarios where participants trust each other to be honest in adhering to the protocol, but still want to protect their private data while performing the intersection operation.
