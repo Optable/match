@@ -2,7 +2,6 @@ package cuckoo
 
 import (
 	"bytes"
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -163,16 +162,4 @@ func stashOccupation(c *Cuckoo) int {
 	}
 
 	return n
-}
-
-func printBucket(c *Cuckoo) {
-	for k, v := range c.buckets {
-		fmt.Printf("bIdx: %d, item: %s, hIdx:%d\n", k, string(v.item[:]), v.hIdx)
-	}
-}
-
-func printStash(c *Cuckoo) {
-	for _, s := range c.stash {
-		fmt.Printf("item: %s, hIdx: %d", string(s.item[:]), s.hIdx)
-	}
 }

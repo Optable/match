@@ -254,10 +254,10 @@ func (c *Cuckoo) LoadFactor() (factor float64) {
 // Len returns the total size of the cuckoo struct
 // which is equal to bucketSize + stashSize
 func (c *Cuckoo) Len() uint64 {
-	return c.bucketSize + uint64(len(c.stash))
+	return c.bucketSize + uint64(c.StashSize())
 }
 
-func (v value) OprfInput() []byte {
+func (v value) oprfInput() []byte {
 	// no item inserted, return dummy value
 	if v.item == nil {
 		return []byte{255}
@@ -270,16 +270,20 @@ func (v value) OprfInput() []byte {
 	return v.item
 }
 
+// OPRFInput returns the OPRF input for KKRT Receiver
+// if the identifier is in the bucket, it appends the hash index
+// if the identifier is on stash, it returns just the id
+// if the bucket has nothing it in, it returns a dummy value: 255
 func (c *Cuckoo) OPRFInput() [][]byte {
 	r := make([][]byte, c.Len())
 	for i := range r {
-		r[i] = c.buckets[uint64(i)].OprfInput()
+		r[i] = c.buckets[uint64(i)].oprfInput()
 		i++
 	}
 
 	i := c.bucketSize
 	for _, v := range c.stash {
-		r[i] = v.OprfInput()
+		r[i] = v.oprfInput()
 		i++
 	}
 
