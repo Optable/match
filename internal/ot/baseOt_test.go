@@ -89,8 +89,8 @@ func TestSimplestOT(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
-	//receiverOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
+	//receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+	receiverOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		t.Fatalf("Error creating Simplest OT: %s", err)
 	}
@@ -105,8 +105,8 @@ func TestSimplestOT(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
-		//senderOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
+		//senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+		senderOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -144,6 +144,79 @@ func TestSimplestOT(t *testing.T) {
 	for i, m := range msg {
 		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
+		}
+	}
+}
+
+func benchmarkSimplestOT(b *testing.B) {
+	for i, m := range messages {
+		msgLen[i] = len(m[0])
+	}
+
+	msgBus := make(chan []byte)
+	errs := make(chan error, 5)
+
+	// reset timer
+	b.StartTimer()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		//receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+		receiverOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
+		if err != nil {
+			b.Fatalf("Error creating Simplest OT: %s", err)
+		}
+
+		addr, err := initReceiver(receiverOT, choices, msgBus, errs)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		go func() {
+			conn, err := net.Dial(network, addr)
+			if err != nil {
+				errs <- fmt.Errorf("Cannot dial: %s", err)
+			}
+			//senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
+			senderOT, err := newSimplest(baseCount, curve, msgLen, cipherMode)
+			if err != nil {
+				errs <- fmt.Errorf("Error creating simplest OT: %s", err)
+			}
+
+			err = senderOT.Send(messages, conn)
+			if err != nil {
+				errs <- fmt.Errorf("send encountered error: %s", err)
+				close(msgBus)
+			}
+
+		}()
+
+		// Receive msg
+		var msg [][]byte
+		for m := range msgBus {
+			msg = append(msg, m)
+		}
+
+		//errors?
+		select {
+		case err := <-errs:
+			b.Fatal(err)
+		default:
+		}
+
+		// stop timer
+		b.StopTimer()
+		//b.Logf("Time taken for simplest OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+
+		// verify if the received msgs are correct:
+		if len(msg) == 0 {
+			b.Fatal("OT failed, did not receive any messages")
+		}
+
+		for i, m := range msg {
+			if !bytes.Equal(m, messages[i][choices[i]]) {
+				b.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
+			}
 		}
 	}
 }
@@ -213,5 +286,17 @@ func TestNaorPinkasOT(t *testing.T) {
 		if !bytes.Equal(m, messages[i][choices[i]]) {
 			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
 		}
+	}
+}
+
+func BenchmarkSampleBitSlice2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		util.SampleBitSlice(r, choices)
+	}
+}
+
+func BenchmarkSampleBitSetSlice(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		util.SampleBitSetSlice(r, baseCount)
 	}
 }
