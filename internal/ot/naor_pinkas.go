@@ -114,7 +114,8 @@ func (n naorPinkas) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err err
 	return
 }
 
-func (n naorPinkas) Receive(choices *bitset.BitSet, messages [][]byte, rw io.ReadWriter) (err error) {
+//func (n naorPinkas) Receive(choices *bitset.BitSet, messages [][]byte, rw io.ReadWriter) (err error) {
+func (n naorPinkas) Receive(choices *bitset.BitSet, messages []*bitset.BitSet, rw io.ReadWriter) (err error) {
 	if int(choices.Len()) < len(messages) || int(choices.Len()) > len(messages)+63 || len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
@@ -129,7 +130,7 @@ func (n naorPinkas) Receive(choices *bitset.BitSet, messages [][]byte, rw io.Rea
 		return err
 	}
 
-	// recieve point R from sender
+	// receive point R from sender
 	R := newPoints(n.curve, new(big.Int), new(big.Int))
 	if err := reader.read(R); err != nil {
 		return err
@@ -167,16 +168,14 @@ func (n naorPinkas) Receive(choices *bitset.BitSet, messages [][]byte, rw io.Rea
 		}
 	}
 
-	e := make([][]byte, 2)
+	e := make([]*bitset.BitSet, 2)
 	var K points
-	// receive encrypted messages, and decrypt it.
+	// receive encrypted messages (as BitSets) and decrypt them
 	for i := uint(0); i < uint(n.baseCount); i++ {
-		// compute # of bytes to be read.
-		l := encryptLen(n.cipherMode, n.msgLen[i])
-		// read both msg
+		// read both messages
 		for j := range e {
-			e[j] = make([]byte, l)
-			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
+			e[j] = bitset.New(8)
+			if _, err := e[j].ReadFrom(rw); err != nil {
 				return err
 			}
 		}
@@ -190,10 +189,11 @@ func (n naorPinkas) Receive(choices *bitset.BitSet, messages [][]byte, rw io.Rea
 		if choices.Test(i) {
 			choice = 1
 		}
-		messages[i], err = decrypt(n.cipherMode, K.deriveKey(), choice, e[choice])
+		message, err := decrypt(n.cipherMode, K.deriveKey(), choice, util.BitSetToBytes(e[choice]))
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
+		messages[i] = util.BytesToBitSet(message)
 	}
 
 	return
