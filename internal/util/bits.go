@@ -175,13 +175,15 @@ func BitSetToBytes(bset *bitset.BitSet) []byte {
 	b := make([]byte, bset.Len()/8)
 
 	for i, x := range bset.Bytes() {
-		binary.LittleEndian.PutUint64(b[i:], x)
+		binary.LittleEndian.PutUint64(b[i*8:], x)
 	}
 
 	return b
 }
 
 // Convert slice of bytes to BitSet
+// Note: additional 0's will be appended to the byte slice
+//       to ensure it has a multiple of 8 elements
 func BytesToBitSet(b []byte) *bitset.BitSet {
 	// expand byte slice to a multiple of 8
 	var x int

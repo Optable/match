@@ -13,15 +13,17 @@ import (
 )
 
 var (
-	network    = "tcp"
-	address    = "127.0.0.1:"
-	curve      = "P256"
-	cipherMode = XORBlake3
-	baseCount  = 1024
-	messages   = genMsg(baseCount, 2)
-	msgLen     = make([]int, len(messages))
-	choices    = genChoiceBits(baseCount)
-	r          = rand.New(rand.NewSource(time.Now().UnixNano()))
+	network        = "tcp"
+	address        = "127.0.0.1:"
+	curve          = "P256"
+	cipherMode     = XORBlake3
+	baseCount      = 1024
+	messages       = genMsg(baseCount, 2)
+	bitsetMessages = genBitSetMsg(baseCount, 2)
+	msgLen         = make([]int, len(messages))
+	choices        = genChoiceBits(baseCount)
+	bitsetChoices  = genChoiceBitSet(baseCount)
+	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func genMsg(n, t int) [][][]byte {
@@ -31,6 +33,18 @@ func genMsg(n, t int) [][][]byte {
 		for j := range data[i] {
 			data[i][j] = make([]byte, 64)
 			r.Read(data[i][j])
+		}
+	}
+
+	return data
+}
+
+func genBitSetMsg(n, t int) [][]*bitset.BitSet {
+	data := make([][]*bitset.BitSet, n)
+	for i := 0; i < n; i++ {
+		data[i] = make([]*bitset.BitSet, t)
+		for j := range data[i] {
+			data[i][j] = util.SampleBitSetSlice(r, 64)
 		}
 	}
 
@@ -64,12 +78,28 @@ func initReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- erro
 	return l.Addr().String(), nil
 }
 
+func initBitSetReceiver(ot naorPinkas, choices []uint8, msgBus chan<- *bitset.BitSet, errs chan<- error) (string, error) {
+	l, err := net.Listen(network, address)
+	if err != nil {
+		errs <- fmt.Errorf("net listen encountered error: %s", err)
+	}
+
+	go func() {
+		conn, err := l.Accept()
+		if err != nil {
+			errs <- fmt.Errorf("cannot create connection in listen accept: %s", err)
+		}
+
+		go receiveBitSetHandler(conn, ot, choices, msgBus, errs)
+	}()
+	return l.Addr().String(), nil
+}
+
 func receiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
 	msg := make([][]byte, baseCount)
 	err := ot.Receive(choices, msg, conn)
-	//err := ot.Receive(util.BytesToBitSet(choices), msg, conn)
 	if err != nil {
 		errs <- err
 	}
@@ -79,7 +109,23 @@ func receiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte,
 	}
 }
 
-func TestSimplestOT(t *testing.T) {
+func receiveBitSetHandler(conn net.Conn, ot naorPinkas, choices []uint8, msgBus chan<- *bitset.BitSet, errs chan<- error) {
+	defer close(msgBus)
+
+	//msg := make([][]byte, baseCount)
+	msg := make([]*bitset.BitSet, baseCount)
+	//err := ot.Receive(choices, msg, conn)
+	err := ot.Receive(util.BytesToBitSet(choices), msg, conn)
+	if err != nil {
+		errs <- err
+	}
+
+	for _, m := range msg {
+		msgBus <- m
+	}
+}
+
+func testSimplestOT(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -90,8 +136,7 @@ func TestSimplestOT(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	//receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
-	receiverOT, err := newNaorPinkas(baseCount, curve, msgLen, cipherMode)
+	receiverOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		t.Fatalf("Error creating Simplest OT: %s", err)
 	}
@@ -106,8 +151,7 @@ func TestSimplestOT(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		//senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
-		senderOT, err := newNaorPinkas(baseCount, curve, msgLen, cipherMode)
+		senderOT, err := NewBaseOT(Simplest, false, baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -150,22 +194,23 @@ func TestSimplestOT(t *testing.T) {
 }
 
 func TestNaorPinkasOT(t *testing.T) {
-	for i, m := range messages {
-		msgLen[i] = len(m[0])
+	for i, m := range bitsetMessages {
+		msgLen[i] = int(m[0].Len())
 	}
 
-	msgBus := make(chan []byte)
+	msgBus := make(chan *bitset.BitSet)
 	errs := make(chan error, 5)
 
 	// start timer
 	start := time.Now()
 
-	ot, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+	//ot, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+	ot, err := newNaorPinkas(baseCount, curve, msgLen, cipherMode)
 	if err != nil {
 		t.Fatalf("Error creating NaorPinkas OT: %s", err)
 	}
 
-	addr, err := initReceiver(ot, choices, msgBus, errs)
+	addr, err := initBitSetReceiver(ot, util.BitSetToBytes(bitsetChoices), msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,12 +220,12 @@ func TestNaorPinkasOT(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+		ss, err := newNaorPinkas(baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
 
-		err = ss.Send(messages, conn)
+		err = ss.Send(bitsetMessages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -189,7 +234,7 @@ func TestNaorPinkasOT(t *testing.T) {
 	}()
 
 	// Receive msg
-	var msg [][]byte
+	var msg []*bitset.BitSet
 	for m := range msgBus {
 		msg = append(msg, m)
 	}
@@ -211,13 +256,17 @@ func TestNaorPinkasOT(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if !bytes.Equal(m, messages[i][choices[i]]) {
-			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
+		var choice uint8
+		if bitsetChoices.Test(uint(i)) {
+			choice = 1
+		}
+		if !m.Equal(bitsetMessages[i][choice]) {
+			t.Fatalf("OT failed at message %d, got: %s, want %s", i, m, bitsetMessages[i][choice])
 		}
 	}
 }
 
-func BenchmarkSampleBitSlice2(b *testing.B) {
+func benchmarkSampleBitSlice2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		util.SampleBitSlice(r, choices)
 	}

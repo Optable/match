@@ -114,7 +114,6 @@ func (n naorPinkas) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err err
 	return
 }
 
-//func (n naorPinkas) Receive(choices *bitset.BitSet, messages [][]byte, rw io.ReadWriter) (err error) {
 func (n naorPinkas) Receive(choices *bitset.BitSet, messages []*bitset.BitSet, rw io.ReadWriter) (err error) {
 	if int(choices.Len()) < len(messages) || int(choices.Len()) > len(messages)+63 || len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
@@ -174,7 +173,7 @@ func (n naorPinkas) Receive(choices *bitset.BitSet, messages []*bitset.BitSet, r
 	for i := uint(0); i < uint(n.baseCount); i++ {
 		// read both messages
 		for j := range e {
-			e[j] = bitset.New(8)
+			e[j] = bitset.New(0)
 			if _, err := e[j].ReadFrom(rw); err != nil {
 				return err
 			}

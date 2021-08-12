@@ -26,6 +26,7 @@ func TestInitCurve(t *testing.T) {
 	}
 }
 
+/*
 func TestNewNaorPinkas(t *testing.T) {
 	ot, err := NewBaseOT(NaorPinkas, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -36,7 +37,7 @@ func TestNewNaorPinkas(t *testing.T) {
 		t.Fatalf("expected type naorPinkas, got %T", ot)
 	}
 }
-
+*/
 func TestNewSimplest(t *testing.T) {
 	ot, err := NewBaseOT(Simplest, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -55,6 +56,7 @@ func TestNewUnknownOT(t *testing.T) {
 	}
 }
 
+/*
 func TestNewNaorPinkasRistretto(t *testing.T) {
 	ot, err := NewBaseOT(NaorPinkas, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -65,7 +67,7 @@ func TestNewNaorPinkasRistretto(t *testing.T) {
 		t.Fatalf("expected type naorPinkasRistretto, got %T", ot)
 	}
 }
-
+*/
 func TestNewSimplestRistretto(t *testing.T) {
 	ot, err := NewBaseOT(Simplest, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
