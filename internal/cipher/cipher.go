@@ -1,4 +1,4 @@
-package ot
+package cipher
 
 import (
 	"bytes"
@@ -23,6 +23,8 @@ const (
 	XORBlake2
 	XORBlake3
 	XORShake
+
+	nonceSize = 12 //aesgcm NonceSize
 )
 
 // PseudorandomCode is implemented as follows:
@@ -60,7 +62,7 @@ func pad(src []byte) []byte {
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.
-func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
+func XorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
 	dst = make([]byte, len(src))
 	s.Reset()
 	s.Write(seed)
@@ -222,7 +224,7 @@ func gcmDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
 	return
 }
 
-func encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
+func Encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
 	switch mode {
 	case CTR:
 		return ctrEncrypt(key, plaintext)
@@ -239,7 +241,7 @@ func encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 	return nil, fmt.Errorf("wrong encrypt mode")
 }
 
-func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
+func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
 	switch mode {
 	case CTR:
 		return ctrDecrypt(key, ciphertext)
@@ -257,7 +259,7 @@ func decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 }
 
 // compute ciphertext length in bytes
-func encryptLen(mode int, msgLen int) int {
+func EncryptLen(mode int, msgLen int) int {
 	switch mode {
 	case CTR:
 		return aes.BlockSize + msgLen

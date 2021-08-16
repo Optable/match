@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/optable/match/internal/cipher"
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 )
@@ -75,7 +76,7 @@ func (ext imprvIKNP) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			}
 		}
 		// unmask e and store it in q.
-		q[i], err = xorCipherWithPRG(ext.g, seeds[i], e[s[i]])
+		q[i], err = cipher.XorCipherWithPRG(ext.g, seeds[i], e[s[i]])
 	}
 
 	//fmt.Printf("q:\n%v\n", q)
@@ -93,7 +94,7 @@ func (ext imprvIKNP) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 				}
 			}
 
-			ciphertext, err = encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = cipher.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -149,12 +150,12 @@ func (ext imprvIKNP) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 			return err
 		}
 
-		maskedTj, err := xorCipherWithPRG(ext.g, baseMsgs[row][0], t[row])
+		maskedTj, err := cipher.XorCipherWithPRG(ext.g, baseMsgs[row][0], t[row])
 		if err != nil {
 			return err
 		}
 
-		maskedUj, err := xorCipherWithPRG(ext.g, baseMsgs[row][1], u)
+		maskedUj, err := cipher.XorCipherWithPRG(ext.g, baseMsgs[row][1], u)
 		if err != nil {
 			return err
 		}
@@ -176,7 +177,7 @@ func (ext imprvIKNP) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	e := make([][]byte, 2)
 	for i := range choices {
 		// compute nb of bytes to be read
-		l := encryptLen(iknpCipherMode, ext.msgLen[i])
+		l := cipher.EncryptLen(iknpCipherMode, ext.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -186,7 +187,7 @@ func (ext imprvIKNP) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = cipher.Decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

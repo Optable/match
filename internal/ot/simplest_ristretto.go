@@ -5,6 +5,7 @@ import (
 	"io"
 
 	gr "github.com/bwesterb/go-ristretto"
+	"github.com/optable/match/internal/cipher"
 )
 
 /*
@@ -74,7 +75,7 @@ func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err erro
 			}
 
 			// encrypt
-			ciphertext, err := encrypt(s.cipherMode, key, uint8(choice), plaintext)
+			ciphertext, err := cipher.Encrypt(s.cipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -136,7 +137,7 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 	var K gr.Point
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := encryptLen(s.cipherMode, s.msgLen[i])
+		l := cipher.EncryptLen(s.cipherMode, s.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -153,7 +154,7 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		}
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(s.cipherMode, key, choices[i], e[choices[i]])
+		messages[i], err = cipher.Decrypt(s.cipherMode, key, choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

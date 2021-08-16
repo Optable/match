@@ -17,12 +17,13 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/optable/match/internal/cipher"
 	"github.com/optable/match/internal/util"
 )
 
 const (
 	kkrtCurve      = "P256"
-	kkrtCipherMode = XORBlake3
+	kkrtCipherMode = cipher.XORBlake3
 )
 
 type kkrt struct {
@@ -82,10 +83,10 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// proof of concept, suppose we have n messages, and the choice string is an integer in [1, ..., n]
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			x, _ = util.AndBytes(PseudorandomCode(sk, ext.k, []byte{byte(choice)}), s)
+			x, _ = util.AndBytes(cipher.PseudorandomCode(sk, ext.k, []byte{byte(choice)}), s)
 			key, _ = util.XorBytes(q[i], x)
 
-			ciphertext, err = encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = cipher.Encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -122,7 +123,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	for i := range baseMsgs {
 		baseMsgs[i] = make([][]byte, 2)
 		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], PseudorandomCode(sk, ext.k, []byte{choices[i]}))
+		baseMsgs[i][1], err = util.XorBytes(t[i], cipher.PseudorandomCode(sk, ext.k, []byte{choices[i]}))
 		if err != nil {
 			return err
 		}
@@ -136,7 +137,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	e := make([][]byte, ext.n)
 	for i := range choices {
 		// compute nb of bytes to be read
-		l := encryptLen(kkrtCipherMode, ext.msgLen[i])
+		l := cipher.EncryptLen(kkrtCipherMode, ext.msgLen[i])
 		// read all msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -146,7 +147,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = decrypt(kkrtCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = cipher.Decrypt(kkrtCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

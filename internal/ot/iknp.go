@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/optable/match/internal/cipher"
 	"github.com/optable/match/internal/util"
 )
 
@@ -20,7 +21,7 @@ A possible improvement is to use bitset to store the bit matrices/bit sets.
 
 const (
 	iknpCurve      = "P256"
-	iknpCipherMode = XORBlake3
+	iknpCipherMode = cipher.XORBlake3
 )
 
 type iknp struct {
@@ -74,7 +75,7 @@ func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 				}
 			}
 
-			ciphertext, err = encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = cipher.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -123,7 +124,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	e := make([][]byte, 2)
 	for i := range choices {
 		// compute # of bytes to be read
-		l := encryptLen(iknpCipherMode, ext.msgLen[i])
+		l := cipher.EncryptLen(iknpCipherMode, ext.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -133,7 +134,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = cipher.Decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

@@ -17,13 +17,14 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/optable/match/internal/cipher"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
 var (
 	curve      = "P256"
-	cipherMode = ot.XORBlake3
+	cipherMode = cipher.XORBlake3
 )
 
 type kkrt struct {
@@ -123,7 +124,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	for i := range baseMsgs {
 		baseMsgs[i] = make([][]byte, 2)
 		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], ot.PseudorandomCode(sk, o.k, choices[i]))
+		baseMsgs[i][1], err = util.XorBytes(t[i], cipher.PseudorandomCode(sk, o.k, choices[i]))
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +141,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 // Encode computes and returns OPRF(k, in)
 func (o kkrt) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	x, err := util.AndBytes(ot.PseudorandomCode(k.sk, o.k, in), k.s)
+	x, err := util.AndBytes(cipher.PseudorandomCode(k.sk, o.k, in), k.s)
 	if err != nil {
 		return
 	}
