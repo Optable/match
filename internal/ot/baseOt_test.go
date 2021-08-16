@@ -17,7 +17,7 @@ var (
 	address        = "127.0.0.1:"
 	curve          = "P256"
 	cipherMode     = XORBlake3
-	baseCount      = 1024
+	baseCount      = 102400
 	messages       = genMsg(baseCount, 2)
 	bitsetMessages = genBitSetMsg(baseCount, 2)
 	msgLen         = make([]int, len(messages))
@@ -275,5 +275,71 @@ func benchmarkSampleBitSlice2(b *testing.B) {
 func BenchmarkSampleBitSetSlice(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		util.SampleBitSetSlice(r, baseCount)
+	}
+}
+
+func BenchmarkTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := util.BitSetsToByteMatrix(bitsetMessages[0])
+		tm := util.Transpose(bm)
+		ttm := util.Transpose(tm)
+		for _, y := range tm {
+			util.XorBytes(y, y)
+		}
+		bbm := util.ByteMatrixToBitsets(ttm)
+		for j, x := range bbm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkContiguousTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := util.BitSetsToByteMatrix(bitsetMessages[0])
+		tm := util.ContiguousTranspose(bm)
+		ttm := util.ContiguousTranspose(tm)
+		for _, y := range tm {
+			util.XorBytes(y, y)
+		}
+		bbm := util.ByteMatrixToBitsets(ttm)
+		for j, x := range bbm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkContiguousTranspose2(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := util.BitSetsToByteMatrix(bitsetMessages[0])
+		tm := util.ContiguousTranspose2(bm)
+		ttm := util.ContiguousTranspose2(tm)
+		for _, y := range tm {
+			util.XorBytes(y, y)
+		}
+		bbm := util.ByteMatrixToBitsets(ttm)
+		for j, x := range bbm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkTransposeBitSet(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.TransposeBitSets(bitsetMessages[0])
+		ttm := util.TransposeBitSets(tm)
+		for _, y := range tm {
+			util.XorBitsets(y, y)
+		}
+		for j, x := range ttm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
 	}
 }

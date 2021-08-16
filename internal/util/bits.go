@@ -69,6 +69,46 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+// Transpose returns the transpose of a 2D slices of uint8
+// from (m x k) to (k x m)
+func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
+	m := len(matrix)
+	k := len(matrix[0])
+	tr := make([][]uint8, k)
+	longRow := make([]uint8, m*k)
+
+	for x := range longRow {
+		longRow[x] = matrix[x%m][x/m]
+	}
+
+	for i := range tr {
+		tr[i] = longRow[i*m : (i+1)*m]
+	}
+
+	return tr
+}
+
+// Transpose returns the transpose of a 2D slices of uint8
+// from (m x k) to (k x m)
+func ContiguousTranspose2(matrix [][]uint8) [][]uint8 {
+	m := len(matrix)
+	k := len(matrix[0])
+	tr := make([][]uint8, k)
+	longRow := make([]uint8, m*k)
+
+	for i := 0; i < m; i++ {
+		for j := 0; j < k; j++ {
+			longRow[j*m+i] = matrix[i][j]
+		}
+	}
+
+	for i := range tr {
+		tr[i] = longRow[i*m : (i+1)*m]
+	}
+
+	return tr
+}
+
 // Transpose3D returns the transpose of a 3D slices of uint8
 // from (m x 2 x k) to (k x 2 x m)
 func Transpose3D(matrix [][][]uint8) [][][]uint8 {
@@ -87,7 +127,7 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 	return tr
 }
 
-// SampleRandomBitMatrix fills each entry in the given 2D slice with
+// SampleRandomBitSetMatrix fills each entry in the given 2D slice with
 // pseudorandom bit values in a bitset
 func SampleRandomBitSetMatrix(r *rand.Rand, m, n int) []*bitset.BitSet {
 	// instantiate matrix
@@ -100,7 +140,7 @@ func SampleRandomBitSetMatrix(r *rand.Rand, m, n int) []*bitset.BitSet {
 	return matrix
 }
 
-// SampleBitSlice returns a bitset of pseudorandom bits
+// SampleBitSetSlice returns a bitset of pseudorandom bits
 func SampleBitSetSlice(r *rand.Rand, n int) *bitset.BitSet {
 	var numInts int
 	if n%64 != 0 {
@@ -172,10 +212,21 @@ func ExtractBytesToBits(src, dst []byte) {
 
 // Extract a slice of bytes from a BitSet
 func BitSetToBytes(bset *bitset.BitSet) []byte {
-	b := make([]byte, bset.Len()/8)
+	b := make([]byte, len(bset.Bytes())*8)
 
 	for i, x := range bset.Bytes() {
 		binary.LittleEndian.PutUint64(b[i*8:], x)
+	}
+
+	return b
+}
+
+// Extract a matrix of bytes from slices of BitSets
+func BitSetsToByteMatrix(bsets []*bitset.BitSet) [][]byte {
+	b := make([][]byte, len(bsets))
+
+	for i, x := range bsets {
+		b[i] = BitSetToBytes(x)
 	}
 
 	return b
@@ -199,4 +250,37 @@ func BytesToBitSet(b []byte) *bitset.BitSet {
 	}
 
 	return bitset.From(b64)
+}
+
+// Convert matrix of bytes to slices of BitSets
+func ByteMatrixToBitsets(b [][]byte) []*bitset.BitSet {
+	bsets := make([]*bitset.BitSet, len(b))
+
+	for i, x := range b {
+		bsets[i] = BytesToBitSet(x)
+	}
+
+	return bsets
+}
+
+// m x k to k x m
+func TransposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
+	m := uint(len(bmat))
+	k := bmat[0].Len()
+
+	// setup new matrix of BitSets to hold transposed values
+	transposed := make([]*bitset.BitSet, k)
+	for row := range transposed {
+		transposed[row] = bitset.New(m)
+	}
+
+	// iterate through original BitSets
+	for i, b := range bmat {
+		for j := 0; uint(j) < k; j++ {
+			if b.Test(uint(j)) {
+				transposed[j].Set(uint(i))
+			}
+		}
+	}
+	return transposed
 }
