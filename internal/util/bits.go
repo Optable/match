@@ -90,6 +90,7 @@ func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
 
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
+// This is MORE efficient that the other version
 func ContiguousTranspose2(matrix [][]uint8) [][]uint8 {
 	m := len(matrix)
 	k := len(matrix[0])
@@ -109,6 +110,43 @@ func ContiguousTranspose2(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+/*
+// Transpose returns the transpose of a 2D slices of uint8
+// from (m x k) to (k x m)
+func TransposeInPlace(matrix [][]uint8) [][]uint8 {
+	m := len(matrix)
+	n := len(matrix[0])
+
+	// determine by how much to expand matrix to make it square
+	longSide := m
+	if n > m {
+		longSide = n
+	}
+
+	if longSide < 2 {
+		// tiny matrix
+		longSide = 2
+	} else {
+		// otherwise we want divible by 4
+		longSide += 4 - (longSide % 4)
+	}
+
+	// make expanded square matrix
+	sqMatrix := make([][]uint8, longSide)
+	for row := range sqMatrix {
+		sqMatrix[row] = make([]uint8, longSide)
+		if row < m {
+			copy(sqMatrix[row], matrix[row])
+		}
+	}
+
+	// set initial value for recursion
+	for boxSize := longSide / 2; boxSize > 0; boxSize /= 2 {
+
+	}
+	return tr
+}
+*/
 // Transpose3D returns the transpose of a 3D slices of uint8
 // from (m x 2 x k) to (k x 2 x m)
 func Transpose3D(matrix [][][]uint8) [][][]uint8 {
