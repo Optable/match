@@ -205,26 +205,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			}
 		}
 
-		/*
-			// write out each of the hashtables
-			for hIdx := range hashtable {
-				for _, encoded := range hashtable[hIdx] {
-					if _, err := s.rw.Write(encoded); err != nil {
-						return fmt.Errorf("stage3: %v", err)
-					}
-				}
-			}
-
-			// write out each of the stash
-			for si := range stash {
-				for _, encoded := range stash[si] {
-					if _, err := s.rw.Write(encoded); err != nil {
-						return fmt.Errorf("stage3: %v", err)
-					}
-				}
-			}
-		*/
-
 		return nil
 	}
 

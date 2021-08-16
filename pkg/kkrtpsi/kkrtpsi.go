@@ -26,12 +26,12 @@ func findK(n int64) int {
 	}
 }
 
-// HashAll reads all identifiers from identifiers
-// and hashes them until identifiers closes
+// HashAll reads all inputs from inputs
+// and hashes them until inputs closes
 func HashAll(h hash.Hasher, input <-chan []byte) <-chan uint64 {
 	var hashes = make(chan uint64)
 
-	// just read and hash baby
+	// just read and hash
 	go func() {
 		defer close(hashes)
 		for in := range input {
