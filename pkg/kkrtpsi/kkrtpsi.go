@@ -1,6 +1,10 @@
 package kkrtpsi
 
-import "math"
+import (
+	"math"
+
+	"github.com/optable/match/internal/hash"
+)
 
 // findK returns the number of base OT for OPRF
 func findK(n int64) int {
@@ -20,4 +24,19 @@ func findK(n int64) int {
 	default:
 		return 128
 	}
+}
+
+// HashAll reads all identifiers from identifiers
+// and hashes them until identifiers closes
+func HashAll(h hash.Hasher, input <-chan []byte) <-chan uint64 {
+	var hashes = make(chan uint64)
+
+	// just read and hash baby
+	go func() {
+		defer close(hashes)
+		for in := range input {
+			hashes <- h.Hash64(in)
+		}
+	}()
+	return hashes
 }

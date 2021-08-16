@@ -14,6 +14,7 @@ import (
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
+	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: samples 3 hash seeds and sends them to receiver for cuckoo hash
@@ -44,6 +45,7 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
+	var seeds [cuckoo.Nhash][]byte
 	var stashSize int
 	var remoteN int64       // receiver size
 	var oprfInputSize int64 // nb of OPRF keys
@@ -60,7 +62,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		rand.Seed(time.Now().UnixNano())
 
 		// sample Nhash hash seeds
-		var seeds [cuckoo.Nhash][]byte
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
 			rand.Read(seeds[i])
@@ -117,16 +118,21 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		var hashtable [cuckoo.Nhash][][]byte
-		var stash = make([][][]byte, stashSize)
+		var hashtable = make([]chan uint64, cuckoo.Nhash)
+		var stash = make([]chan uint64, stashSize)
 		var stashStartingIdx = int(oprfInputSize) - stashSize
 
+		hasher, err := hash.New(hash.Highway, seeds[0])
+		if err != nil {
+			return err
+		}
+
 		for i := range hashtable {
-			hashtable[i] = make([][]byte, n)
+			hashtable[i] = make(chan uint64, n)
 		}
 
 		for i := range stash {
-			stash[i] = make([][]byte, n)
+			stash[i] = make(chan uint64, n)
 		}
 
 		var wg sync.WaitGroup
@@ -144,7 +150,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 						errBus <- err
 					}
 
-					hashtable[hIdx][idx] = encoded
+					hashtable[hIdx] <- hasher.Hash64(encoded)
 				}
 			}(idx, hash)
 
@@ -159,7 +165,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 						errBus <- err
 					}
 
-					stash[i][idx] = encoded
+					stash[i] <- hasher.Hash64(encoded)
 				}
 			}(idx, hash)
 		}
@@ -167,6 +173,12 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// Wait for all encode to complete.
 		wg.Wait()
 		close(errBus)
+		for i := range hashtable {
+			close(hashtable[i])
+		}
+		for i := range stash {
+			close(stash[i])
+		}
 
 		//errors?
 		for err := range errBus {
@@ -175,23 +187,43 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			}
 		}
 
-		// write out each of the hashtables
-		for hIdx := range hashtable {
-			for _, encoded := range hashtable[hIdx] {
-				if _, err := s.rw.Write(encoded); err != nil {
-					return fmt.Errorf("stage3: %v", err)
+		// exhaust the hashes into the receiver
+		for i := range hashtable {
+			for hash := range hashtable[i] {
+				if err := npsi.HashWrite(s.rw, hash); err != nil {
+					return fmt.Errorf("stage2: %v", err)
 				}
 			}
 		}
 
-		// write out each of the stash
-		for si := range stash {
-			for _, encoded := range stash[si] {
-				if _, err := s.rw.Write(encoded); err != nil {
-					return fmt.Errorf("stage3: %v", err)
+		// exhaust the hashes into the receiver
+		for i := range stash {
+			for hash := range stash[i] {
+				if err := npsi.HashWrite(s.rw, hash); err != nil {
+					return fmt.Errorf("stage2: %v", err)
 				}
 			}
 		}
+
+		/*
+			// write out each of the hashtables
+			for hIdx := range hashtable {
+				for _, encoded := range hashtable[hIdx] {
+					if _, err := s.rw.Write(encoded); err != nil {
+						return fmt.Errorf("stage3: %v", err)
+					}
+				}
+			}
+
+			// write out each of the stash
+			for si := range stash {
+				for _, encoded := range stash[si] {
+					if _, err := s.rw.Write(encoded); err != nil {
+						return fmt.Errorf("stage3: %v", err)
+					}
+				}
+			}
+		*/
 
 		return nil
 	}
