@@ -180,23 +180,33 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}(i)
 		}
 
+		hasher, err := hash.New(hash.Highway, seeds[0])
+		if err != nil {
+			return err
+		}
+		// hash local oprf output
+		local := make([]uint64, len(oprfOutput))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range oprfOutput {
+				local[i] = hasher.Hash64(oprfOutput[i])
+			}
+		}()
+
 		wg.Wait()
 
 		// intersect
 		localStash := cuckooHashTable.Stash()
 		localBucket := cuckooHashTable.Bucket()
 		bucketSize := cuckooHashTable.BucketSize()
-		hasher, err := hash.New(hash.Highway, seeds[0])
-		if err != nil {
-			return err
-		}
 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
 			for idx, value := range localStash {
 				// compare oprf output to every encoded in remoteStashes at index i
-				if remoteStashes[idx][hasher.Hash64(oprfOutput[idx+bucketSize])] {
+				if remoteStashes[idx][local[idx+bucketSize]] {
 					intersected = append(intersected, value.GetItem())
 					// dedup
 					// how?
@@ -209,7 +219,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			for key, value := range localBucket {
 				// compare oprf output to every encoded in remoteHashTable at hIdx
 				hIdx := value.GetHashIdx()
-				if remoteHashtables[hIdx][hasher.Hash64(oprfOutput[value.GetBucketIdx()])] {
+				if remoteHashtables[hIdx][local[value.GetBucketIdx()]] {
 					intersected = append(intersected, value.GetItem())
 					// dedup
 					delete(localBucket, key)
