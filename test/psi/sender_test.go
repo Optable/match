@@ -89,3 +89,7 @@ func TestNPSISender(t *testing.T) {
 func TestBPSISender(t *testing.T) {
 	testSenderByProtocol(psi.BPSI, t)
 }
+
+func TestKKRTPSISender(t *testing.T) {
+	testSenderByProtocol(psi.KKRTPSI, t)
+}

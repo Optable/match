@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/optable/match/internal/cipher"
 )
 
 /*
@@ -82,7 +84,7 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
 			// encrypt plaintext using aes GCM mode
-			ciphertext, err = encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
+			ciphertext, err = cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -151,7 +153,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := encryptLen(s.cipherMode, s.msgLen[i])
+		l := cipher.EncryptLen(s.cipherMode, s.msgLen[i])
 
 		// read both msg
 		for j := range e {
@@ -165,7 +167,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		K = A.scalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
+		messages[i], err = cipher.Decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

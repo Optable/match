@@ -57,12 +57,12 @@ func TestKKRT(t *testing.T) {
 	}
 
 	outBus := make(chan []byte)
-	keyBus := make(chan key)
+	keyBus := make(chan Key)
 	errs := make(chan error, 5)
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewKKRT(baseCount, 128, len(choices[0]), ot.Simplest, false)
+	receiverOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewKKRT(baseCount, 128, len(choices[0]), ot.Simplest, false)
+	senderOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestKKRT(t *testing.T) {
 	}()
 
 	// Receive keys
-	var keys []key
+	var keys []Key
 	for key := range keyBus {
 		keys = append(keys, key)
 	}

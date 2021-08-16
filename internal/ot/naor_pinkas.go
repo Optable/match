@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/optable/match/internal/cipher"
 )
 
 /*
@@ -91,7 +93,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			ciphertext, err = encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
+			ciphertext, err = cipher.Encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -167,7 +169,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := encryptLen(n.cipherMode, n.msgLen[i])
+		l := cipher.EncryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -181,7 +183,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		K = R.scalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = decrypt(n.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
+		messages[i], err = cipher.Decrypt(n.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
