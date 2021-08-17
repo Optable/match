@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand"
+	"sync"
 
 	"github.com/bits-and-blooms/bitset"
 )
@@ -71,6 +72,8 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
+// This one iterates across the contiguous row and pulls
+// values from the matrix
 func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
 	m := len(matrix)
 	k := len(matrix[0])
@@ -91,6 +94,8 @@ func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
 // This is MORE efficient that the other version
+// This one iterates over the matrix and populates the
+// contiguous row
 func ContiguousTranspose2(matrix [][]uint8) [][]uint8 {
 	m := len(matrix)
 	k := len(matrix[0])
@@ -110,6 +115,121 @@ func ContiguousTranspose2(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+// Convert 2D slices into a 1D slice where each row is
+// contiguous
+func Linearize2DMatrix(matrix [][]uint8) []uint8 {
+	row := make([]uint8, len(matrix)*len(matrix[0]))
+
+	for i := range matrix {
+		copy(row[i*len(matrix[0]):], matrix[i])
+	}
+
+	return row
+}
+
+// Convert 1D slice into a 2D matrix with rows of desired width
+func Reconstruct2DMatrix(row []uint8, width int) [][]uint8 {
+	if len(row)%width != 0 {
+		return nil
+	}
+	matrix := make([][]uint8, len(row)/width)
+	for i := range matrix {
+		matrix[i] = row[i*width : (i+1)*width]
+	}
+	return matrix
+}
+
+func swap(row []uint8, id1, id2 int) []uint8 {
+	hold := row[id1]
+
+	row[id1] = row[id2]
+	row[id2] = hold
+
+	return row
+}
+
+// where orig is original width and trans is transposed width
+func ContiguousTranspose3(row []uint8, orig, trans int) []uint8 {
+	transposed := make([]uint8, len(row))
+	for i := range row {
+		index := i / orig
+		transposed[(i-(index*orig))*trans+index] = row[i]
+	}
+	return transposed
+}
+
+// The following two function have poor performance because the goroutines access a global slice which crosses cache lines
+func ContiguousParallelTranspose(row, transposed []uint8, start, width, height int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	index := start / width
+	for i := start; i < start+width; i++ {
+		transposed[(i-(index*width))*height+index] = row[i]
+	}
+}
+
+func ContiguousParallelTranspose2(row []uint8, width, height int) []uint8 {
+	var wg sync.WaitGroup
+	transposed := make([]uint8, len(row))
+	wg.Add(height)
+
+	for i := 0; i < width*height; i += width {
+		go func(i int) {
+			defer wg.Done()
+			index := i / width
+			for j := i; j < i+width; j++ {
+				transposed[(j-(index*width))*height+index] = row[j]
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	return transposed
+}
+
+func ContiguousParallelTranspose3(row []uint8, width, height int) []uint8 {
+	length := width * height
+	element := make(chan uint8, length)
+	location := make(chan int, length)
+
+	transposed := make([]uint8, length)
+
+	for i := 0; i < length; i++ {
+		index := i / width
+		go func(i int, e chan<- uint8, l chan<- int) {
+			element <- row[i]
+			location <- (i-(index*width))*height + index
+		}(i, element, location)
+	}
+
+	// pull from channel to populate new list
+	go func() {
+		for j := 0; j < length; j++ {
+			transposed[<-location] = <-element
+		}
+	}()
+	/*
+		close(location)
+		close(element)
+	*/
+	return transposed
+}
+
+/*
+// width is width of transposed matrix
+func ContiguousTranspose4(row []uint8, width int) []uint8 {
+	transposed := make([]uint8, len(row))
+	j := 0
+	for i := range row {
+		transposed[i%width+j] = row[i]
+		if i%width == 0 {
+			j = 0
+		} else {
+			j += 1
+		}
+	}
+	return transposed
+}
+*/
 /*
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
@@ -145,6 +265,52 @@ func TransposeInPlace(matrix [][]uint8) [][]uint8 {
 
 	}
 	return tr
+}
+*/
+/*
+// RecTranspose
+func TransposeRec(matrix [][]uint8) [][][]uint8 {
+	m := len(matrix)
+	k := len(matrix[0])
+	// cacheLimit/2 + 1 represents the the maximum size
+	// matrix with which you'll need to iterate using
+	// the naive algorithm
+	cacheLimit := 4
+
+	// create k x m transposed matrix to store values
+	transposed := make([][]uint8, k)
+	for r := range transposed {
+		transposed[r] = make([]uint8, m)
+	}
+
+	mb := m
+	kb := k
+	// recursively divide the matrices
+	for mb > cacheLimit || kb > cacheLimit {
+		if mb > kb {
+			mb /= 2
+		} else {
+			kb /= 2
+		}
+	}
+
+	mt := m
+	kt := k
+	// populate the transposed matrix with divided blocks
+	for i := 0; mt < len(matrix) || kt < len(matrix[0]); i++ {
+		if kb*(i+1) > k {
+			// finish the unusual block size
+			for _, row := range transposed[kb*i:] {
+
+			}
+		} else {
+			for _, row := range transposed[kb*i:kb*(i+1)] {
+				row = 4
+		}
+		}
+	}
+
+
 }
 */
 // Transpose3D returns the transpose of a 3D slices of uint8
@@ -270,6 +436,19 @@ func BitSetsToByteMatrix(bsets []*bitset.BitSet) [][]byte {
 	return b
 }
 
+// Extract a contiguous slice of bytes from slices of BitSets
+func BitSetsToByteSlice(bsets []*bitset.BitSet) []byte {
+	bLen := len(bsets[0].Bytes()) * 8
+	b := make([]byte, len(bsets)*bLen)
+
+	for i, x := range bsets {
+		for j, y := range x.Bytes() {
+			binary.LittleEndian.PutUint64(b[i*bLen+j*8:], y)
+		}
+	}
+	return b
+}
+
 // Convert slice of bytes to BitSet
 // Note: additional 0's will be appended to the byte slice
 //       to ensure it has a multiple of 8 elements
@@ -298,6 +477,17 @@ func ByteMatrixToBitsets(b [][]byte) []*bitset.BitSet {
 		bsets[i] = BytesToBitSet(x)
 	}
 
+	return bsets
+}
+
+// Convert slice of bytes (representing a contiguous matrix)
+// to slices of BitSets
+func ByteSliceToBitsets(b []byte, width int) []*bitset.BitSet {
+	bsets := make([]*bitset.BitSet, len(b)/width)
+
+	for i := range bsets {
+		bsets[i] = BytesToBitSet(b[i*width : (i+1)*width])
+	}
 	return bsets
 }
 
