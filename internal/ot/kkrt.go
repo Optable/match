@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/optable/match/internal/cipher"
@@ -106,24 +107,51 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		return ErrBaseCountMissMatch
 	}
 
+	var wg sync.WaitGroup
+	var errBus = make(chan error)
 	// receive AES-128 secret key
 	sk := make([]byte, 16)
 	if _, err = io.ReadFull(rw, sk); err != nil {
 		return err
 	}
 
-	// Sample m x k matrix T
-	t, err := util.SampleRandomBitMatrix(ext.prng, ext.m, ext.k)
-	if err != nil {
-		return err
+	// producer
+	var t = make(chan []byte)
+	for i := 0; i < ext.m; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b := make([]byte, ext.k)
+			err := util.SampleBitSlice(ext.prng, b)
+			t <- b
+			if err != nil {
+				errBus <- err
+			}
+		}()
 	}
 
 	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, ext.m)
 	for i := range baseMsgs {
-		baseMsgs[i] = make([][]byte, 2)
-		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], cipher.PseudorandomCode(sk, ext.k, []byte{choices[i]}))
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			baseMsgs[i] = make([][]byte, 2)
+			// consumer
+			baseMsgs[i][0] = <-t
+			baseMsgs[i][1], err = util.XorBytes(baseMsgs[i][0], cipher.PseudorandomCode(sk, ext.k, []byte{choices[i]}))
+			if err != nil {
+				errBus <- err
+			}
+		}(i)
+	}
+
+	// wait for all operation to be done
+	wg.Wait()
+	close(t)
+	close(errBus)
+	//errors?
+	for err := range errBus {
 		if err != nil {
 			return err
 		}
@@ -147,7 +175,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = cipher.Decrypt(kkrtCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = cipher.Decrypt(kkrtCipherMode, baseMsgs[i][0], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

@@ -71,6 +71,38 @@ func XorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, er
 	return util.XorBytes(src, dst)
 }
 
+func XorCipherWithAESCTR(sk []byte, seed []byte, src []byte) (dst []byte, err error) {
+	block, err := aes.NewCipher(sk)
+	if err != nil {
+		panic(err)
+	}
+
+	dst = make([]byte, len(src))
+	// iv is 16 byte
+	// take first 16 byte of seed or hash digest 32 bytes and xor first and second half?
+	iv := seed[:aes.BlockSize]
+
+	stream := cipher.NewCTR(block, iv)
+	stream.XORKeyStream(dst, src)
+	return
+}
+
+func XorCipherWithAESCTR2(sk []byte, seed []byte, src []byte) (dst []byte, err error) {
+	block, err := aes.NewCipher(sk)
+	if err != nil {
+		panic(err)
+	}
+
+	dst = make([]byte, len(src))
+	// iv is 16 byte
+	// take first 16 byte of seed or hash digest 32 bytes and xor first and second half?
+	h := blake3.Sum256(seed)
+	iv, _ := util.XorBytes(h[:16], h[16:])
+	stream := cipher.NewCTR(block, iv)
+	stream.XORKeyStream(dst, src)
+	return
+}
+
 // Blake3 has XOF which is perfect for doing xor cipher.
 func xorCipherWithBlake3(key []byte, ind uint8, src []byte) (dst []byte, err error) {
 	hash := make([]byte, len(src))

@@ -17,7 +17,7 @@ var (
 	address    = "127.0.0.1:"
 	curve      = "P256"
 	cipherMode = cipher.XORBlake3
-	baseCount  = 1024
+	baseCount  = 100000
 	messages   = genMsg(baseCount, 2)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)

@@ -252,3 +252,23 @@ func BenchmarkAesCtrDecrypt(b *testing.B) {
 		ctrDecrypt(aesKey, c)
 	}
 }
+
+func BenchmarkXORCipherWithPRG(b *testing.B) {
+	s := blake3.New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		XorCipherWithPRG(s, xorKey, p)
+	}
+}
+
+func BenchmarkXORCipherWithAESCTR(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		XorCipherWithAESCTR(aesKey, xorKey, p)
+	}
+}
+
+func BenchmarkXORCipherWithAESCTR2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		XorCipherWithAESCTR2(aesKey, xorKey, p)
+	}
+}
