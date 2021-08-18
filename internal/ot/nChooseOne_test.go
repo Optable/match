@@ -223,7 +223,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedKKRT(baseCount, 428, tuple, Simplest, false, msgLen)
+	ot, err := NewImprovedKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestImprovedKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating improved KKRT OT extension: %s", err)
 		}
 
-		ot, err := NewImprovedKKRT(baseCount, 428, tuple, Simplest, false, msgLen)
+		ot, err := NewImprovedKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
 		if err != nil {
 			errs <- err
 		}
