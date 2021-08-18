@@ -41,6 +41,16 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
+func AndByte(a uint8, b []byte) (dst []byte) {
+	dst = make([]byte, len(b))
+
+	for i := range b {
+		dst[i] = a & b[i]
+	}
+
+	return
+}
+
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
 func Transpose(matrix [][]uint8) [][]uint8 {
@@ -96,7 +106,7 @@ func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
 	// read up to len(b) pseudorandom bits
 	t := make([]byte, len(b)/8)
-	//fmt.Println(len(b) / 8)
+	//fmt.Println(len(t))
 	if _, err = prng.Read(t); err != nil {
 		return nil
 	}

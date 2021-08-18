@@ -1,7 +1,9 @@
-package cipher
+package crypto
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/sha256"
 	"math/rand"
 	"testing"
@@ -262,13 +264,48 @@ func BenchmarkXORCipherWithPRG(b *testing.B) {
 }
 
 func BenchmarkXORCipherWithAESCTR(b *testing.B) {
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		b.Log(err)
+	}
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		XorCipherWithAESCTR(aesKey, xorKey, p)
+		XorCipherWithAESCTR(block, xorKey, p)
 	}
 }
 
 func BenchmarkXORCipherWithAESCTR2(b *testing.B) {
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		b.Log(err)
+	}
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		XorCipherWithAESCTR2(aesKey, xorKey, p)
+		XorCipherWithAESCTR2(block, xorKey, p)
+	}
+}
+
+func BenchmarkPRGWithBlake3(b *testing.B) {
+	s := blake3.New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PseudorandomGeneratorWithBlake3(s, xorKey, len(p))
+	}
+}
+
+func BenchmarkPRGWithAESGCM(b *testing.B) {
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		b.Log(err)
+	}
+
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		b.Log(err)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		PseudorandomGeneratorWithAESGCM(aesgcm, xorKey, len(p))
 	}
 }

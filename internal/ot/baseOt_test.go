@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -16,8 +16,8 @@ var (
 	network    = "tcp"
 	address    = "127.0.0.1:"
 	curve      = "P256"
-	cipherMode = cipher.XORBlake3
-	baseCount  = 100000
+	cipherMode = crypto.XORBlake3
+	baseCount  = 1000
 	messages   = genMsg(baseCount, 2)
 	msgLen     = make([]int, len(messages))
 	choices    = genChoiceBits(baseCount)

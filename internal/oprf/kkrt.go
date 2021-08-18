@@ -15,16 +15,17 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 import (
 	"io"
 	"math/rand"
+	"sync"
 	"time"
 
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
 var (
 	curve      = "P256"
-	cipherMode = cipher.XORBlake3
+	cipherMode = crypto.XORBlake3
 )
 
 type kkrt struct {
@@ -119,12 +120,37 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		return nil, err
 	}
 
+	var wg sync.WaitGroup
+	var msg = make(chan []byte)
+	var errBus = make(chan error)
 	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, o.m)
 	for i := range baseMsgs {
+		wg.Add(1)
+		go func(i int, msg chan<- []byte) {
+			defer wg.Done()
+			msg <- t[i]
+			m, err := util.XorBytes(t[i], crypto.PseudorandomCode(sk, o.k, choices[i]))
+			if err != nil {
+				errBus <- err
+			}
+			msg <- m
+		}(i, msg)
+
 		baseMsgs[i] = make([][]byte, 2)
-		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], cipher.PseudorandomCode(sk, o.k, choices[i]))
+		baseMsgs[i][0] = <-msg
+		baseMsgs[i][1] = <-msg
+	}
+
+	// wait for all operation to be done
+	go func() {
+		wg.Wait()
+		close(errBus)
+		close(msg)
+	}()
+
+	//errors?
+	for err := range errBus {
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +167,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 // Encode computes and returns OPRF(k, in)
 func (o kkrt) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	x, err := util.AndBytes(cipher.PseudorandomCode(k.sk, o.k, in), k.s)
+	x, err := util.AndBytes(crypto.PseudorandomCode(k.sk, o.k, in), k.s)
 	if err != nil {
 		return
 	}
