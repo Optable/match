@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
@@ -116,7 +115,7 @@ func receiveBitSetHandler(conn net.Conn, ot naorPinkas, choices []uint8, msgBus 
 	//msg := make([][]byte, baseCount)
 	msg := make([]*bitset.BitSet, baseCount)
 	//err := ot.Receive(choices, msg, conn)
-	err := ot.Receive(util.BytesToBitSet(choices), msg, conn)
+	err := ot.Receive(util.BitsToBitSet(choices), msg, conn)
 	if err != nil {
 		errs <- err
 	}
@@ -211,7 +210,7 @@ func TestNaorPinkasOT(t *testing.T) {
 		t.Fatalf("Error creating NaorPinkas OT: %s", err)
 	}
 
-	addr, err := initBitSetReceiver(ot, util.BitSetToBytes(bitsetChoices), msgBus, errs)
+	addr, err := initBitSetReceiver(ot, util.BitSetToBits(bitsetChoices), msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,13 +280,13 @@ func BenchmarkSampleBitSetSlice(b *testing.B) {
 
 func BenchmarkTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		bm := util.BitSetsToByteMatrix(bitsetMessages[0])
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
 		tm := util.Transpose(bm)
 		ttm := util.Transpose(tm)
 		for _, y := range tm {
 			util.XorBytes(y, y)
 		}
-		bbm := util.ByteMatrixToBitsets(ttm)
+		bbm := util.BitMatrixToBitSets(ttm)
 		for j, x := range bbm {
 			if !x.Equal(bitsetMessages[0][j]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -298,13 +297,13 @@ func BenchmarkTranspose(t *testing.B) {
 
 func BenchmarkContiguousTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		bm := util.BitSetsToByteMatrix(bitsetMessages[0])
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
 		tm := util.ContiguousTranspose(bm)
 		ttm := util.ContiguousTranspose(tm)
 		for _, y := range tm {
 			util.XorBytes(y, y)
 		}
-		bbm := util.ByteMatrixToBitsets(ttm)
+		bbm := util.BitMatrixToBitSets(ttm)
 		for j, x := range bbm {
 			if !x.Equal(bitsetMessages[0][j]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -313,15 +312,16 @@ func BenchmarkContiguousTranspose(t *testing.B) {
 	}
 }
 
+/*
 func BenchmarkContiguousTranspose2(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		bm := util.BitSetsToByteMatrix(bitsetMessages[0])
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
 		tm := util.ContiguousTranspose2(bm)
 		ttm := util.ContiguousTranspose2(tm)
 		for _, y := range tm {
 			util.XorBytes(y, y)
 		}
-		bbm := util.ByteMatrixToBitsets(ttm)
+		bbm := util.BitMatrixToBitSets(ttm)
 		for j, x := range bbm {
 			if !x.Equal(bitsetMessages[0][j]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -332,7 +332,7 @@ func BenchmarkContiguousTranspose2(t *testing.B) {
 
 func BenchmarkContiguousTranspose3(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		bm := util.BitSetsToByteMatrix(bitsetMessages[0])
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
 		lm := util.Linearize2DMatrix(bm)
 		tm := util.ContiguousTranspose3(lm, len(bm[0]), len(bm))
 		ttm := util.ContiguousTranspose3(tm, len(bm), len(bm[0]))
@@ -340,7 +340,7 @@ func BenchmarkContiguousTranspose3(t *testing.B) {
 		for _, y := range dm {
 			util.XorBytes(y, y)
 		}
-		bbm := util.ByteMatrixToBitsets(dm)
+		bbm := util.BitMatrixToBitSets(dm)
 		for j, x := range bbm {
 			if !x.Equal(bitsetMessages[0][j]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -351,13 +351,13 @@ func BenchmarkContiguousTranspose3(t *testing.B) {
 
 func BenchmarkContiguousTranspose4(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		orig := len(bitsetMessages[0][0].Bytes()) * 8
+		orig := int(bitsetMessages[0][0].Len())
 		tran := len(bitsetMessages[0])
-		bm := util.BitSetsToByteSlice(bitsetMessages[0])
+		bm := util.BitSetsToBitSlice(bitsetMessages[0])
 		tm := util.ContiguousTranspose3(bm, orig, tran)
 		ttm := util.ContiguousTranspose3(tm, tran, orig)
 		util.XorBytes(ttm, ttm)
-		bbm := util.ByteSliceToBitsets(ttm, orig)
+		bbm := util.BitSliceToBitSets(ttm, orig)
 		for j, x := range bbm {
 			if !x.Equal(bitsetMessages[0][j]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -368,9 +368,9 @@ func BenchmarkContiguousTranspose4(t *testing.B) {
 
 func BenchmarkContiguousParallelTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		orig := len(bitsetMessages[0][0].Bytes()) * 8
+		orig := int(bitsetMessages[0][0].Len())
 		tran := len(bitsetMessages[0])
-		bm := util.BitSetsToByteSlice(bitsetMessages[0])
+		bm := util.BitSetsToBitSlice(bitsetMessages[0])
 		tm := make([]uint8, orig*tran)
 		var wg sync.WaitGroup
 		wg.Add(tran)
@@ -385,7 +385,7 @@ func BenchmarkContiguousParallelTranspose(t *testing.B) {
 		}
 		wg.Wait()
 		util.XorBytes(ttm, ttm)
-		bbm := util.ByteSliceToBitsets(ttm, orig)
+		bbm := util.BitSliceToBitSets(ttm, orig)
 		for k, x := range bbm {
 			if !x.Equal(bitsetMessages[0][k]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -396,13 +396,13 @@ func BenchmarkContiguousParallelTranspose(t *testing.B) {
 
 func BenchmarkContiguousParallelTranspose2(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		orig := len(bitsetMessages[0][0].Bytes()) * 8
+		orig := int(bitsetMessages[0][0].Len())
 		tran := len(bitsetMessages[0])
-		bm := util.BitSetsToByteSlice(bitsetMessages[0])
+		bm := util.BitSetsToBitSlice(bitsetMessages[0])
 		tm := util.ContiguousParallelTranspose2(bm, orig, tran)
 		ttm := util.ContiguousParallelTranspose2(tm, tran, orig)
 		util.XorBytes(ttm, ttm)
-		bbm := util.ByteSliceToBitsets(ttm, orig)
+		bbm := util.BitSliceToBitSets(ttm, orig)
 		for k, x := range bbm {
 			if !x.Equal(bitsetMessages[0][k]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -415,18 +415,10 @@ func BenchmarkContiguousParallelTranspose3(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		orig := len(bitsetMessages[0][0].Bytes()) * 8
 		tran := len(bitsetMessages[0])
-		bm := util.BitSetsToByteSlice(bitsetMessages[0])
+		bm := util.BitSetsToBitSlice(bitsetMessages[0])
 		tm := util.ContiguousParallelTranspose3(bm, orig, tran)
 		ttm := util.ContiguousParallelTranspose3(tm, tran, orig)
 		util.XorBytes(ttm, ttm)
-		/*
-			bbm := util.ByteSliceToBitsets(ttm, orig)
-				for k, x := range bbm {
-					if !x.Equal(bitsetMessages[0][k]) {
-						t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
-					}
-				}
-		*/
 	}
 }
 
@@ -444,3 +436,64 @@ func BenchmarkTransposeBitSet(t *testing.B) {
 		}
 	}
 }
+
+func BenchmarkTransposeBitSet2(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.TransposeBitSets2(bitsetMessages[0])
+		ttm := util.TransposeBitSets2(tm)
+		for _, y := range tm {
+			util.XorBitsets(y, y)
+		}
+		for j, x := range ttm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkContiguousBitSetTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.ContiguousBitSetTranspose(bitsetMessages[0])
+		ttm := util.ContiguousBitSetTranspose(tm)
+		for _, y := range tm {
+			util.XorBitsets(y, y)
+		}
+		for j, x := range ttm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkContiguousBitSetTranspose2(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.ContiguousBitSetTranspose2(bitsetMessages[0])
+		ttm := util.ContiguousBitSetTranspose2(tm)
+		for _, y := range tm {
+			util.XorBitsets(y, y)
+		}
+		for j, x := range ttm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkExpandBitSets(t *testing.B) {
+	a := util.SampleRandomBitSetMatrix(r, 4035, 12689)
+	for i := 0; i < t.N; i++ {
+		util.ExpandBitSets(a)
+	}
+}
+
+// expand BitSet matrix using the underlying uint64s
+func BenchmarkExpandBitSetInts(t *testing.B) {
+	a := util.SampleRandomBitSetMatrix(r, 4035, 12689)
+	for i := 0; i < t.N; i++ {
+		util.ExpandBitSetInts(a)
+	}
+}
+*/

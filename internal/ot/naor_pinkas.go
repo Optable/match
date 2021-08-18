@@ -36,7 +36,6 @@ func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode int
 }
 
 func (n naorPinkas) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err error) {
-	//func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}

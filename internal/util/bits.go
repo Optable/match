@@ -74,7 +74,7 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 // from (m x k) to (k x m)
 // This one iterates across the contiguous row and pulls
 // values from the matrix
-func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
+func contiguousTranspose2(matrix [][]uint8) [][]uint8 {
 	m := len(matrix)
 	k := len(matrix[0])
 	tr := make([][]uint8, k)
@@ -96,7 +96,7 @@ func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
 // This is MORE efficient that the other version
 // This one iterates over the matrix and populates the
 // contiguous row
-func ContiguousTranspose2(matrix [][]uint8) [][]uint8 {
+func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
 	m := len(matrix)
 	k := len(matrix[0])
 	tr := make([][]uint8, k)
@@ -117,7 +117,7 @@ func ContiguousTranspose2(matrix [][]uint8) [][]uint8 {
 
 // Convert 2D slices into a 1D slice where each row is
 // contiguous
-func Linearize2DMatrix(matrix [][]uint8) []uint8 {
+func linearize2DMatrix(matrix [][]uint8) []uint8 {
 	row := make([]uint8, len(matrix)*len(matrix[0]))
 
 	for i := range matrix {
@@ -128,7 +128,7 @@ func Linearize2DMatrix(matrix [][]uint8) []uint8 {
 }
 
 // Convert 1D slice into a 2D matrix with rows of desired width
-func Reconstruct2DMatrix(row []uint8, width int) [][]uint8 {
+func reconstruct2DMatrix(row []uint8, width int) [][]uint8 {
 	if len(row)%width != 0 {
 		return nil
 	}
@@ -139,17 +139,8 @@ func Reconstruct2DMatrix(row []uint8, width int) [][]uint8 {
 	return matrix
 }
 
-func swap(row []uint8, id1, id2 int) []uint8 {
-	hold := row[id1]
-
-	row[id1] = row[id2]
-	row[id2] = hold
-
-	return row
-}
-
 // where orig is original width and trans is transposed width
-func ContiguousTranspose3(row []uint8, orig, trans int) []uint8 {
+func contiguousTranspose3(row []uint8, orig, trans int) []uint8 {
 	transposed := make([]uint8, len(row))
 	for i := range row {
 		index := i / orig
@@ -159,7 +150,7 @@ func ContiguousTranspose3(row []uint8, orig, trans int) []uint8 {
 }
 
 // The following two function have poor performance because the goroutines access a global slice which crosses cache lines
-func ContiguousParallelTranspose(row, transposed []uint8, start, width, height int, wg *sync.WaitGroup) {
+func contiguousParallelTranspose(row, transposed []uint8, start, width, height int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	index := start / width
 	for i := start; i < start+width; i++ {
@@ -167,7 +158,7 @@ func ContiguousParallelTranspose(row, transposed []uint8, start, width, height i
 	}
 }
 
-func ContiguousParallelTranspose2(row []uint8, width, height int) []uint8 {
+func contiguousParallelTranspose2(row []uint8, width, height int) []uint8 {
 	var wg sync.WaitGroup
 	transposed := make([]uint8, len(row))
 	wg.Add(height)
@@ -186,7 +177,7 @@ func ContiguousParallelTranspose2(row []uint8, width, height int) []uint8 {
 	return transposed
 }
 
-func ContiguousParallelTranspose3(row []uint8, width, height int) []uint8 {
+func contiguousParallelTranspose3(row []uint8, width, height int) []uint8 {
 	length := width * height
 	element := make(chan uint8, length)
 	location := make(chan int, length)
@@ -214,105 +205,6 @@ func ContiguousParallelTranspose3(row []uint8, width, height int) []uint8 {
 	return transposed
 }
 
-/*
-// width is width of transposed matrix
-func ContiguousTranspose4(row []uint8, width int) []uint8 {
-	transposed := make([]uint8, len(row))
-	j := 0
-	for i := range row {
-		transposed[i%width+j] = row[i]
-		if i%width == 0 {
-			j = 0
-		} else {
-			j += 1
-		}
-	}
-	return transposed
-}
-*/
-/*
-// Transpose returns the transpose of a 2D slices of uint8
-// from (m x k) to (k x m)
-func TransposeInPlace(matrix [][]uint8) [][]uint8 {
-	m := len(matrix)
-	n := len(matrix[0])
-
-	// determine by how much to expand matrix to make it square
-	longSide := m
-	if n > m {
-		longSide = n
-	}
-
-	if longSide < 2 {
-		// tiny matrix
-		longSide = 2
-	} else {
-		// otherwise we want divible by 4
-		longSide += 4 - (longSide % 4)
-	}
-
-	// make expanded square matrix
-	sqMatrix := make([][]uint8, longSide)
-	for row := range sqMatrix {
-		sqMatrix[row] = make([]uint8, longSide)
-		if row < m {
-			copy(sqMatrix[row], matrix[row])
-		}
-	}
-
-	// set initial value for recursion
-	for boxSize := longSide / 2; boxSize > 0; boxSize /= 2 {
-
-	}
-	return tr
-}
-*/
-/*
-// RecTranspose
-func TransposeRec(matrix [][]uint8) [][][]uint8 {
-	m := len(matrix)
-	k := len(matrix[0])
-	// cacheLimit/2 + 1 represents the the maximum size
-	// matrix with which you'll need to iterate using
-	// the naive algorithm
-	cacheLimit := 4
-
-	// create k x m transposed matrix to store values
-	transposed := make([][]uint8, k)
-	for r := range transposed {
-		transposed[r] = make([]uint8, m)
-	}
-
-	mb := m
-	kb := k
-	// recursively divide the matrices
-	for mb > cacheLimit || kb > cacheLimit {
-		if mb > kb {
-			mb /= 2
-		} else {
-			kb /= 2
-		}
-	}
-
-	mt := m
-	kt := k
-	// populate the transposed matrix with divided blocks
-	for i := 0; mt < len(matrix) || kt < len(matrix[0]); i++ {
-		if kb*(i+1) > k {
-			// finish the unusual block size
-			for _, row := range transposed[kb*i:] {
-
-			}
-		} else {
-			for _, row := range transposed[kb*i:kb*(i+1)] {
-				row = 4
-		}
-		}
-	}
-
-
-}
-*/
 // Transpose3D returns the transpose of a 3D slices of uint8
 // from (m x 2 x k) to (k x 2 x m)
 func Transpose3D(matrix [][][]uint8) [][][]uint8 {
@@ -425,8 +317,22 @@ func BitSetToBytes(bset *bitset.BitSet) []byte {
 	return b
 }
 
+// Extract a slice of bytes (each holding a single bit)
+// from a BitSet
+func BitSetToBits(bset *bitset.BitSet) []byte {
+	b := make([]byte, bset.Len())
+
+	for i := range b {
+		if bset.Test(uint(i)) {
+			b[i] = 1
+		}
+	}
+
+	return b
+}
+
 // Extract a matrix of bytes from slices of BitSets
-func BitSetsToByteMatrix(bsets []*bitset.BitSet) [][]byte {
+func bitSetsToByteMatrix(bsets []*bitset.BitSet) [][]byte {
 	b := make([][]byte, len(bsets))
 
 	for i, x := range bsets {
@@ -436,8 +342,20 @@ func BitSetsToByteMatrix(bsets []*bitset.BitSet) [][]byte {
 	return b
 }
 
+// Extract a matrix of bytes (each holding a single bit)
+// from slices of BitSets
+func BitSetsToBitMatrix(bsets []*bitset.BitSet) [][]byte {
+	b := make([][]byte, len(bsets))
+
+	for i, x := range bsets {
+		b[i] = BitSetToBits(x)
+	}
+
+	return b
+}
+
 // Extract a contiguous slice of bytes from slices of BitSets
-func BitSetsToByteSlice(bsets []*bitset.BitSet) []byte {
+func bitSetsToByteSlice(bsets []*bitset.BitSet) []byte {
 	bLen := len(bsets[0].Bytes()) * 8
 	b := make([]byte, len(bsets)*bLen)
 
@@ -446,6 +364,23 @@ func BitSetsToByteSlice(bsets []*bitset.BitSet) []byte {
 			binary.LittleEndian.PutUint64(b[i*bLen+j*8:], y)
 		}
 	}
+	return b
+}
+
+// Extract a contiguous slice of bytes (each holding a single bit)
+// from slices of BitSets
+func bitSetsToBitSlice(bsets []*bitset.BitSet) []byte {
+	bLen := int(bsets[0].Len())
+	b := make([]byte, len(bsets)*bLen)
+
+	for i := range bsets {
+		for j := 0; j < bLen; j++ {
+			if bsets[i].Test(uint(j)) {
+				b[i*bLen+j] = 1
+			}
+		}
+	}
+
 	return b
 }
 
@@ -469,8 +404,31 @@ func BytesToBitSet(b []byte) *bitset.BitSet {
 	return bitset.From(b64)
 }
 
+// Convert slice of bytes (each holding a single bit)
+// to Bitset (note that the BitSet structure will add
+// additional zeros since it is truly a uint64)
+func BitsToBitSet(b []byte) *bitset.BitSet {
+	// expand byte slice to a multiple of 8
+	var x int
+	if len(b)%8 != 0 {
+		x = 8 - (len(b) % 8)
+	}
+
+	b = append(b, make([]byte, x)...)
+
+	bset := bitset.New(uint(len(b)))
+
+	for i, x := range b {
+		if x == 1 {
+			bset.Set(uint(i))
+		}
+	}
+
+	return bset
+}
+
 // Convert matrix of bytes to slices of BitSets
-func ByteMatrixToBitsets(b [][]byte) []*bitset.BitSet {
+func byteMatrixToBitSets(b [][]byte) []*bitset.BitSet {
 	bsets := make([]*bitset.BitSet, len(b))
 
 	for i, x := range b {
@@ -480,9 +438,21 @@ func ByteMatrixToBitsets(b [][]byte) []*bitset.BitSet {
 	return bsets
 }
 
+// Convert matrix of bytes (each holding a single bit)
+// to slices of BitSets
+func BitMatrixToBitSets(b [][]byte) []*bitset.BitSet {
+	bsets := make([]*bitset.BitSet, len(b))
+
+	for i, x := range b {
+		bsets[i] = BitsToBitSet(x)
+	}
+
+	return bsets
+}
+
 // Convert slice of bytes (representing a contiguous matrix)
 // to slices of BitSets
-func ByteSliceToBitsets(b []byte, width int) []*bitset.BitSet {
+func byteSliceToBitSets(b []byte, width int) []*bitset.BitSet {
 	bsets := make([]*bitset.BitSet, len(b)/width)
 
 	for i := range bsets {
@@ -491,8 +461,20 @@ func ByteSliceToBitsets(b []byte, width int) []*bitset.BitSet {
 	return bsets
 }
 
+// Convert slices of bytes (each holding a single bit and
+// the whole slice representing a contiguous matrix) to
+// slices of BitSets
+func BitSliceToBitSets(b []byte, width int) []*bitset.BitSet {
+	bsets := make([]*bitset.BitSet, len(b)/width)
+
+	for i := range bsets {
+		bsets[i] = BitsToBitSet(b[i*width : (i+1)*width])
+	}
+	return bsets
+}
+
 // m x k to k x m
-func TransposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
+func transposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
 	m := uint(len(bmat))
 	k := bmat[0].Len()
 
@@ -511,4 +493,132 @@ func TransposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
 		}
 	}
 	return transposed
+}
+
+func transposeBitSets2(bmat []*bitset.BitSet) []*bitset.BitSet {
+	m := uint(len(bmat))
+	k := bmat[0].Len()
+
+	// setup new matrix of BitSets to hold transposed values
+	transposed := make([]*bitset.BitSet, k)
+	for row := range transposed {
+		transposed[row] = bitset.New(m)
+	}
+
+	// find set bits in original BitSets
+	for i, b := range bmat {
+		setBits := make([]uint, b.Count())
+		b.NextSetMany(0, setBits)
+		for _, s := range setBits {
+			transposed[s].Set(uint(i))
+		}
+	}
+	return transposed
+}
+
+// expand BitSet matrix to make it square
+func expandBitSets(bsets []*bitset.BitSet) []*bitset.BitSet {
+	// due to nature of BitSet, this will be multiple of 64
+	bLen := bsets[0].Len()
+	expandBy := int(bLen) - len(bsets)
+
+	if expandBy > 0 {
+		expandBlock := make([]*bitset.BitSet, expandBy)
+		for i := range expandBlock {
+			expandBlock[i] = bitset.New(bLen)
+		}
+
+		bsets = append(bsets, expandBlock...)
+	}
+
+	return bsets
+}
+
+// expand BitSet matrix using the underlying uint64s
+// this is faster than expanding directly with BitSets
+func expandBitSetInts(bsets []*bitset.BitSet) [][]uint64 {
+	numInts := int(bsets[0].Len()) / 64
+	intSet := make([][]uint64, numInts*64)
+
+	for i := range intSet {
+		if i < len(bsets) {
+			intSet[i] = bsets[i].Bytes()
+		} else {
+			intSet[i] = make([]uint64, numInts)
+		}
+	}
+
+	return intSet
+}
+
+// expand BitSet matrix using the underlying uint64s
+// this is faster than expanding directly with BitSets
+// TODO each 64x64 bitset block is replaced by a row-ordered 64 uint64 slice
+func expandBitSetToLinearInts(bsets []*bitset.BitSet) [][]uint64 {
+	numInts := int(bsets[0].Len()) / 64
+	intSet := make([][]uint64, numInts*64)
+
+	for i := range intSet {
+		if i < len(bsets) {
+			intSet[i] = bsets[i].Bytes()
+		} else {
+			intSet[i] = make([]uint64, numInts)
+		}
+	}
+
+	return intSet
+}
+
+// Transpose returns the transpose of a 2D slices of uint8
+// from (m x k) to (k x m)
+// This is MORE efficient that the other version
+// This one iterates over the matrix and populates the
+// contiguous row
+func contiguousBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+	m := len(matrix)
+	k := int(matrix[0].Len())
+	tr := make([]*bitset.BitSet, k)
+	longRow := bitset.New(uint(m * k))
+
+	for i := 0; i < m; i++ {
+		for j := 0; j < k; j++ {
+			if matrix[i].Test(uint(j)) {
+				longRow.Set(uint(j*m + i))
+			}
+		}
+	}
+
+	longInts := longRow.Bytes()
+	for i := range tr {
+		tr[i] = bitset.From(longInts[i*(m/64) : (i+1)*(m/64)])
+	}
+
+	return tr
+}
+
+// no uint64 conversion
+func contiguousBitSetTranspose2(matrix []*bitset.BitSet) []*bitset.BitSet {
+	m := len(matrix)
+	k := int(matrix[0].Len())
+	tr := make([]*bitset.BitSet, k)
+	longRow := bitset.New(uint(m * k))
+
+	for i := 0; i < m; i++ {
+		for j := 0; j < k; j++ {
+			if matrix[i].Test(uint(j)) {
+				longRow.Set(uint(j*m + i))
+			}
+		}
+	}
+
+	for i := range tr {
+		tr[i] = bitset.New(uint(m))
+		for j := 0; j < m; j++ {
+			if longRow.Test(uint(i*m + j)) {
+				tr[i].Set(uint(j))
+			}
+		}
+	}
+
+	return tr
 }
