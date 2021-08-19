@@ -574,7 +574,7 @@ func expandBitSetToLinearInts(bsets []*bitset.BitSet) [][]uint64 {
 // This is MORE efficient that the other version
 // This one iterates over the matrix and populates the
 // contiguous row
-func contiguousBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+func ContiguousBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 	m := len(matrix)
 	k := int(matrix[0].Len())
 	tr := make([]*bitset.BitSet, k)
@@ -597,7 +597,7 @@ func contiguousBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 }
 
 // no uint64 conversion
-func contiguousBitSetTranspose2(matrix []*bitset.BitSet) []*bitset.BitSet {
+func ContiguousBitSetTranspose2(matrix []*bitset.BitSet) []*bitset.BitSet {
 	m := len(matrix)
 	k := int(matrix[0].Len())
 	tr := make([]*bitset.BitSet, k)

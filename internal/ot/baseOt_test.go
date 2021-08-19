@@ -296,6 +296,23 @@ func BenchmarkTranspose(t *testing.B) {
 	}
 }
 
+func BenchmarkTransposeBitSetXOR(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
+		tm := util.Transpose(bm)
+		ttm := util.Transpose(tm)
+		bbm := util.BitMatrixToBitSets(ttm)
+		for _, y := range bbm {
+			y.SymmetricDifference(y)
+		}
+		for j, x := range bbm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
 func BenchmarkContiguousTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
@@ -305,6 +322,23 @@ func BenchmarkContiguousTranspose(t *testing.B) {
 			util.XorBytes(y, y)
 		}
 		bbm := util.BitMatrixToBitSets(ttm)
+		for j, x := range bbm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkContiguousTransposeBitSetXOR(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
+		tm := util.ContiguousTranspose(bm)
+		ttm := util.ContiguousTranspose(tm)
+		bbm := util.BitMatrixToBitSets(ttm)
+		for _, y := range bbm {
+			y.SymmetricDifference(y)
+		}
 		for j, x := range bbm {
 			if !x.Equal(bitsetMessages[0][j]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
@@ -452,13 +486,13 @@ func BenchmarkTransposeBitSet2(t *testing.B) {
 		}
 	}
 }
-
+*/
 func BenchmarkContiguousBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ContiguousBitSetTranspose(bitsetMessages[0])
 		ttm := util.ContiguousBitSetTranspose(tm)
-		for _, y := range tm {
-			util.XorBitsets(y, y)
+		for _, y := range ttm {
+			y.SymmetricDifference(y)
 		}
 		for j, x := range ttm {
 			if !x.Equal(bitsetMessages[0][j]) {
@@ -472,8 +506,8 @@ func BenchmarkContiguousBitSetTranspose2(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ContiguousBitSetTranspose2(bitsetMessages[0])
 		ttm := util.ContiguousBitSetTranspose2(tm)
-		for _, y := range tm {
-			util.XorBitsets(y, y)
+		for _, y := range ttm {
+			y.SymmetricDifference(y)
 		}
 		for j, x := range ttm {
 			if !x.Equal(bitsetMessages[0][j]) {
@@ -483,6 +517,7 @@ func BenchmarkContiguousBitSetTranspose2(t *testing.B) {
 	}
 }
 
+/*
 func BenchmarkExpandBitSets(t *testing.B) {
 	a := util.SampleRandomBitSetMatrix(r, 4035, 12689)
 	for i := 0; i < t.N; i++ {
