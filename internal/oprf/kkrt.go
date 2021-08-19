@@ -17,13 +17,14 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/optable/match/internal/cipher"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
 var (
 	curve      = "P256"
-	cipherMode = ot.XORBlake3
+	cipherMode = cipher.XORBlake3
 )
 
 type kkrt struct {
@@ -31,14 +32,13 @@ type kkrt struct {
 	m      int   // number of message tuples
 	k      int   // width of base OT binary matrix as well as
 	// pseudorandom code output length
-	n    int        // number of messages in each tuple
 	prng *rand.Rand // source of randomness
 }
 
-// key contains the relaxed OPRF key: (C, s), (j, q_j)
+// Key contains the relaxed OPRF key: (C, s), (j, q_j)
 // the index j is implicit when key is stored into a key slice.
 // Pseudorandom code C is represented by sk
-type key struct {
+type Key struct {
 	sk []byte // secret key for pseudorandom code
 	s  []byte // secret choice bits
 	q  []byte // m x k bit matrice
@@ -47,10 +47,9 @@ type key struct {
 // NewKKRT returns a KKRT OPRF
 // m: number of message tuples
 // k: width of OT extension binary matrix
-// n: number of messages in each tuple
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
-func NewKKRT(m, k, n, baseOT int, ristretto bool) (OPRF, error) {
+func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -62,11 +61,11 @@ func NewKKRT(m, k, n, baseOT int, ristretto bool) (OPRF, error) {
 		return kkrt{}, err
 	}
 
-	return kkrt{baseOT: ot, m: m, k: k, n: n, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	return kkrt{baseOT: ot, m: m, k: k, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
 // Send returns the OPRF keys
-func (o kkrt) Send(rw io.ReadWriter) (keys []key, err error) {
+func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
 	if _, err = o.prng.Read(sk); err != nil {
@@ -94,9 +93,9 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []key, err error) {
 	q = util.Transpose(q)
 
 	// store oprf keys
-	keys = make([]key, len(q))
+	keys = make([]Key, len(q))
 	for j := range q {
-		keys[j] = key{sk: sk, s: s, q: q[j]}
+		keys[j] = Key{sk: sk, s: s, q: q[j]}
 	}
 
 	return
@@ -125,7 +124,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	for i := range baseMsgs {
 		baseMsgs[i] = make([][]byte, 2)
 		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], ot.PseudorandomCode(sk, o.k, choices[i]))
+		baseMsgs[i][1], err = util.XorBytes(t[i], cipher.PseudorandomCode(sk, o.k, choices[i]))
 		if err != nil {
 			return nil, err
 		}
@@ -140,9 +139,9 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 }
 
 // Encode computes and returns OPRF(k, in)
-func (o kkrt) Encode(k key, in []byte) (out []byte, err error) {
+func (o kkrt) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	x, err := util.AndBytes(ot.PseudorandomCode(k.sk, o.k, in), k.s)
+	x, err := util.AndBytes(cipher.PseudorandomCode(k.sk, o.k, in), k.s)
 	if err != nil {
 		return
 	}

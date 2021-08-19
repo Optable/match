@@ -1,9 +1,11 @@
-package ot
+package cipher
 
 import (
 	"bytes"
 	"crypto/sha256"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
@@ -13,6 +15,7 @@ var (
 	p      = []byte("example testing plaintext that holds important secrets: %QWEQW$##%Y^&%^*(*)&, []m")
 	aesKey = make([]byte, 16)
 	xorKey = make([]byte, len(p))
+	r      = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func init() {
@@ -33,12 +36,12 @@ func BenchmarkBlake3(b *testing.B) {
 }
 
 func TestCTREncrypDecrypt(t *testing.T) {
-	ciphertext, err := encrypt(CTR, aesKey, 0, p)
+	ciphertext, err := Encrypt(CTR, aesKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := decrypt(CTR, aesKey, 0, ciphertext)
+	plain, err := Decrypt(CTR, aesKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,12 +52,12 @@ func TestCTREncrypDecrypt(t *testing.T) {
 }
 
 func TestGCMEncrypDecrypt(t *testing.T) {
-	ciphertext, err := encrypt(GCM, aesKey, 0, p)
+	ciphertext, err := Encrypt(GCM, aesKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := decrypt(GCM, aesKey, 0, ciphertext)
+	plain, err := Decrypt(GCM, aesKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,12 +68,12 @@ func TestGCMEncrypDecrypt(t *testing.T) {
 }
 
 func TestXORShakeEncryptDecrypt(t *testing.T) {
-	ciphertext, err := encrypt(XORShake, xorKey, 0, p)
+	ciphertext, err := Encrypt(XORShake, xorKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := decrypt(XORShake, xorKey, 1, ciphertext)
+	plain, err := Decrypt(XORShake, xorKey, 1, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +82,7 @@ func TestXORShakeEncryptDecrypt(t *testing.T) {
 		t.Fatalf("decryption should not work!")
 	}
 
-	plain, err = decrypt(XORShake, xorKey, 0, ciphertext)
+	plain, err = Decrypt(XORShake, xorKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +98,7 @@ func TestXORBlake2EncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plain, err := decrypt(XORBlake2, xorKey, 1, ciphertext)
+	plain, err := Decrypt(XORBlake2, xorKey, 1, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,12 +118,12 @@ func TestXORBlake2EncryptDecrypt(t *testing.T) {
 }
 
 func TestXORBlake3EncryptDecrypt(t *testing.T) {
-	ciphertext, err := encrypt(XORBlake3, xorKey, 0, p)
+	ciphertext, err := Encrypt(XORBlake3, xorKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := decrypt(XORBlake3, xorKey, 1, ciphertext)
+	plain, err := Decrypt(XORBlake3, xorKey, 1, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +132,7 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 		t.Fatalf("decryption should not work!")
 	}
 
-	plain, err = decrypt(XORBlake3, xorKey, 0, ciphertext)
+	plain, err = Decrypt(XORBlake3, xorKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/bits-and-blooms/bitset"
+	"github.com/optable/match/internal/cipher"
 	"github.com/optable/match/internal/util"
 )
 
@@ -94,7 +95,7 @@ func (n naorPinkas) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err err
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			ciphertext, err = encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBytes(plaintext))
+			ciphertext, err = cipher.Encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBytes(plaintext))
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -168,9 +169,9 @@ func (n naorPinkas) Receive(choices *bitset.BitSet, messages []*bitset.BitSet, r
 
 	e := make([]*bitset.BitSet, 2)
 	var K points
-	// receive encrypted messages (as BitSets) and decrypt them
-	for i := uint(0); i < uint(n.baseCount); i++ {
-		// read both messages
+	// receive encrypted messages, and decrypt it.
+	for i := 0; i < n.baseCount; i++ {
+		// read both msg
 		for j := range e {
 			e[j] = bitset.New(0)
 			if _, err := e[j].ReadFrom(rw); err != nil {
@@ -184,10 +185,11 @@ func (n naorPinkas) Receive(choices *bitset.BitSet, messages []*bitset.BitSet, r
 
 		// decrypt the message indexed by choice bit
 		var choice uint8
-		if choices.Test(i) {
+		if choices.Test(uint(i)) {
 			choice = 1
 		}
-		message, err := decrypt(n.cipherMode, K.deriveKey(), choice, util.BitSetToBytes(e[choice]))
+		message, err := cipher.Decrypt(n.cipherMode, K.deriveKey(), choice, util.BitSetToBytes(e[choice]))
+
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

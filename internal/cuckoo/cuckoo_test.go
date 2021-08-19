@@ -2,7 +2,6 @@ package cuckoo
 
 import (
 	"bytes"
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -20,7 +19,7 @@ var (
 func makeSeeds() [Nhash][]byte {
 	var seeds [Nhash][]byte
 
-	for i, _ := range seeds {
+	for i := range seeds {
 		seeds[i] = make([]byte, 32)
 		rand.Read(seeds[i])
 	}
@@ -57,7 +56,7 @@ func TestNewCuckoo(t *testing.T) {
 		size  uint64
 		bSize uint64 //bucketSize
 	}{
-		{uint64(0), uint64(0)},
+		{uint64(0), uint64(1)},
 		{uint64(math.Pow(2, 4)), uint64(2 * math.Pow(2, 4))},
 		{uint64(math.Pow(2, 8)), uint64(2 * math.Pow(2, 8))},
 		{uint64(math.Pow(2, 16)), uint64(2 * math.Pow(2, 16))},
@@ -163,16 +162,4 @@ func stashOccupation(c *Cuckoo) int {
 	}
 
 	return n
-}
-
-func printBucket(c *Cuckoo) {
-	for k, v := range c.buckets {
-		fmt.Printf("bIdx: %d, item: %s, hIdx:%d\n", k, string(v.item[:]), v.hIdx)
-	}
-}
-
-func printStash(c *Cuckoo) {
-	for _, s := range c.stash {
-		fmt.Printf("item: %s, hIdx: %d", string(s.item[:]), s.hIdx)
-	}
 }
