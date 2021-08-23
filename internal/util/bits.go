@@ -115,6 +115,36 @@ func ContiguousTranspose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+// Transpose returns the transpose of a 3D slices of uint8
+// from (m x k) to (k x m)
+// This one iterates over the matrix and populates the
+// contiguous row
+func ContiguousTranspose3D(matrix [][][]uint8) [][][]uint8 {
+	depth := len(matrix)
+	height := len(matrix[0])
+	width := len(matrix[0][0])
+	tr := make([][][]uint8, width)
+	longRow := make([]uint8, depth*height*width)
+
+	for i := 0; i < depth; i++ {
+		for j := 0; j < height; j++ {
+			for k := 0; k < width; k++ {
+				longRow[k*(height*depth)+j*depth+i] = matrix[i][j][k]
+			}
+		}
+	}
+
+	for i := range tr {
+		tr[i] = make([][]uint8, height)
+		for j := range tr[i] {
+			pindex := i * (height * depth)
+			tr[i][j] = longRow[pindex+j*depth : pindex+(j+1)*depth]
+		}
+	}
+
+	return tr
+}
+
 // Convert 2D slices into a 1D slice where each row is
 // contiguous
 func linearize2DMatrix(matrix [][]uint8) []uint8 {
@@ -354,6 +384,16 @@ func BitSetsToBitMatrix(bsets []*bitset.BitSet) [][]byte {
 	return b
 }
 
+func BitSetsToBitMatrix3D(bsets [][]*bitset.BitSet) [][][]byte {
+	b := make([][][]byte, len(bsets))
+
+	for i, x := range bsets {
+		b[i] = BitSetsToBitMatrix(x)
+	}
+
+	return b
+}
+
 // Extract a contiguous slice of bytes from slices of BitSets
 func bitSetsToByteSlice(bsets []*bitset.BitSet) []byte {
 	bLen := len(bsets[0].Bytes()) * 8
@@ -445,6 +485,18 @@ func BitMatrixToBitSets(b [][]byte) []*bitset.BitSet {
 
 	for i, x := range b {
 		bsets[i] = BitsToBitSet(x)
+	}
+
+	return bsets
+}
+
+// Convert matrix of bytes (each holding a single bit)
+// to slices of BitSets
+func BitMatrixToBitSets3D(b [][][]byte) [][]*bitset.BitSet {
+	bsets := make([][]*bitset.BitSet, len(b))
+
+	for i, x := range b {
+		bsets[i] = BitMatrixToBitSets(x)
 	}
 
 	return bsets
@@ -622,3 +674,60 @@ func ContiguousBitSetTranspose2(matrix []*bitset.BitSet) []*bitset.BitSet {
 
 	return tr
 }
+
+// Transpose returns the transpose of a 2D slices of uint8
+// from (m x k) to (k x m)
+// This is MORE efficient that the other version
+// This one iterates over the matrix and populates the
+// contiguous row
+func ContiguousSparseBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+	m := len(matrix)
+	k := int(matrix[0].Len())
+	tr := make([]*bitset.BitSet, k)
+	longRow := bitset.New(uint(m * k))
+
+	for i := 0; i < m; i++ {
+		setBits := make([]uint, matrix[i].Count())
+		matrix[i].NextSetMany(0, setBits)
+		for _, bit := range setBits {
+			longRow.Set(bit*uint(m) + uint(i))
+		}
+	}
+
+	longInts := longRow.Bytes()
+	for i := range tr {
+		tr[i] = bitset.From(longInts[i*(m/64) : (i+1)*(m/64)])
+	}
+
+	return tr
+}
+
+// Transpose returns the transpose of a 2D slices of uint8
+// from (m x k) to (k x m)
+// This is MORE efficient that the other version
+// This one iterates over the matrix and populates the
+// contiguous row
+/*
+func ContiguousSparseBitSetTranspose2(matrix []*bitset.BitSet) []*bitset.BitSet {
+	m := len(matrix)
+	k := int(matrix[0].Len())
+	tr := make([]*bitset.BitSet, k)
+	longRow := bitset.New(uint(m * k))
+
+	for i := 0; i < m; i++ {
+		bitsLeft := true
+		index := uint(0)
+		for bitsLeft == true {
+			index, bitsLeft = matrix[i].NextSet(index)
+			longRow.Set(index*uint(m) + uint(i))
+		}
+	}
+
+	longInts := longRow.Bytes()
+	for i := range tr {
+		tr[i] = bitset.From(longInts[i*(m/64) : (i+1)*(m/64)])
+	}
+
+	return tr
+}
+*/
