@@ -50,18 +50,6 @@ H':         OPRF evaluation of input X that are put in cuckoo hash table
 S':         OPRF evaluation of input X that are put in cuckoo stash
 ```
 
-## Progress
-- [x] KKRT PSI protobuf definition
-- [x] KKRT PSI data flow chart
-- [x] Cuckoohash pkg implementation
-- [x] Base OT protocol implementation
-- [x] Naor-Pinkas base OT implementation
-- [x] Simplest base OT implementation
-- [x] IKNP 1 out of 2 OT extension implementation
-- [x] KKRT 1 out of n OT extension implementation
-- [x] KKRT OPRF implementation
-- [ ] KKRT PSI implementation
-
 ## References
 
 [1] V. Kolesnikov, R. Kumaresan, M. Rosulek, N.Trieu. "Efficient Batched Oblivious PRF with Applications to Private Set Intersection." In Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security (pp. 818-829),2016. Paper available here: https://dl.acm.org/doi/pdf/10.1145/2976749.2978381.

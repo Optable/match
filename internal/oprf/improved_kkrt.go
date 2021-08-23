@@ -4,7 +4,7 @@ package oprf
 Oblivious pseudorandom function (OPRF)
 based on KKRT 1 out of 2 OT extension
 from the paper: Efficient Batched Oblivious PRF with Applications to Private Set Intersection
-by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016.
+by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016, and improved by Justin Li.
 Reference:	http://dx.doi.org/10.1145/2976749.2978381 (KKRT)
 
 It is effectively KKRT OT, but instead of encrypting and decrypting messages,
@@ -160,7 +160,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		u, _ = util.XorBytes(t[col], u)
 		u, _ = util.XorBytes(u, d[col])
 
-		// send w
+		// send u
 		if _, err = rw.Write(u); err != nil {
 			return nil, err
 		}

@@ -13,6 +13,7 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
+	crand "crypto/rand"
 	"io"
 	"math/rand"
 	"sync"
@@ -69,7 +70,7 @@ func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = o.prng.Read(sk); err != nil {
+	if _, err = crand.Read(sk); err != nil {
 		return nil, nil
 	}
 
