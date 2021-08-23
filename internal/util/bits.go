@@ -449,13 +449,14 @@ func BytesToBitSet(b []byte) *bitset.BitSet {
 // additional zeros since it is truly a uint64)
 func BitsToBitSet(b []byte) *bitset.BitSet {
 	// expand byte slice to a multiple of 8
-	var x int
-	if len(b)%8 != 0 {
-		x = 8 - (len(b) % 8)
-	}
+	/*
+		var x int
+		if len(b)%8 != 0 {
+			x = 8 - (len(b) % 8)
+		}
 
-	b = append(b, make([]byte, x)...)
-
+		b = append(b, make([]byte, x)...)
+	*/
 	bset := bitset.New(uint(len(b)))
 
 	for i, x := range b {

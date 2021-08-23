@@ -26,7 +26,6 @@ func TestInitCurve(t *testing.T) {
 	}
 }
 
-/*
 func TestNewNaorPinkas(t *testing.T) {
 	ot, err := NewBaseOT(NaorPinkas, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -37,7 +36,18 @@ func TestNewNaorPinkas(t *testing.T) {
 		t.Fatalf("expected type naorPinkas, got %T", ot)
 	}
 }
-*/
+
+func TestNewNaorPinkasBitSet(t *testing.T) {
+	ot, err := NewBaseOTBitSet(NaorPinkas, false, 3, curve, []int{1, 2, 3}, cipherMode)
+	if err != nil {
+		t.Fatalf("got error %v while creating NaorPinkasBitSet baseOT", err)
+	}
+
+	if _, ok := ot.(naorPinkasBitSet); !ok {
+		t.Fatalf("expected type naorPinkasBitSet, got %T", ot)
+	}
+}
+
 func TestNewSimplest(t *testing.T) {
 	ot, err := NewBaseOT(Simplest, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -49,6 +59,17 @@ func TestNewSimplest(t *testing.T) {
 	}
 }
 
+func TestNewSimplestBitSet(t *testing.T) {
+	ot, err := NewBaseOTBitSet(Simplest, false, 3, curve, []int{1, 2, 3}, cipherMode)
+	if err != nil {
+		t.Fatalf("got error %v while creating SimplestBitSet baseOT", err)
+	}
+
+	if _, ok := ot.(simplestBitSet); !ok {
+		t.Fatalf("expected type simplestBitSet, got %T", ot)
+	}
+}
+
 func TestNewUnknownOT(t *testing.T) {
 	_, err := NewBaseOT(2, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err == nil {
@@ -56,7 +77,6 @@ func TestNewUnknownOT(t *testing.T) {
 	}
 }
 
-/*
 func TestNewNaorPinkasRistretto(t *testing.T) {
 	ot, err := NewBaseOT(NaorPinkas, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -67,7 +87,18 @@ func TestNewNaorPinkasRistretto(t *testing.T) {
 		t.Fatalf("expected type naorPinkasRistretto, got %T", ot)
 	}
 }
-*/
+
+func TestNewNaorPinkasRistrettoBitSet(t *testing.T) {
+	ot, err := NewBaseOTBitSet(NaorPinkas, true, 3, curve, []int{1, 2, 3}, cipherMode)
+	if err != nil {
+		t.Fatalf("got error %v while creating NaorPinkasRistrettoBitSet baseOT", err)
+	}
+
+	if _, ok := ot.(naorPinkasRistrettoBitSet); !ok {
+		t.Fatalf("expected type naorPinkasRistrettoBitSet, got %T", ot)
+	}
+}
+
 func TestNewSimplestRistretto(t *testing.T) {
 	ot, err := NewBaseOT(Simplest, true, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -76,6 +107,17 @@ func TestNewSimplestRistretto(t *testing.T) {
 
 	if _, ok := ot.(simplestRistretto); !ok {
 		t.Fatalf("expected type simplestRistretto, got %T", ot)
+	}
+}
+
+func TestNewSimplestRistrettoBitSet(t *testing.T) {
+	ot, err := NewBaseOTBitSet(Simplest, true, 3, curve, []int{1, 2, 3}, cipherMode)
+	if err != nil {
+		t.Fatalf("got error %v while creating SimplestRistrettoBitSet baseOT", err)
+	}
+
+	if _, ok := ot.(simplestRistrettoBitSet); !ok {
+		t.Fatalf("expected type simplestRistrettoBitSet, got %T", ot)
 	}
 }
 

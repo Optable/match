@@ -79,7 +79,7 @@ func initReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- erro
 	return l.Addr().String(), nil
 }
 
-func initBitSetReceiver(ot naorPinkas, choices []uint8, msgBus chan<- *bitset.BitSet, errs chan<- error) (string, error) {
+func initBitSetReceiver(ot OTBitSet, choices *bitset.BitSet, msgBus chan<- *bitset.BitSet, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -110,13 +110,11 @@ func receiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte,
 	}
 }
 
-func receiveBitSetHandler(conn net.Conn, ot naorPinkas, choices []uint8, msgBus chan<- *bitset.BitSet, errs chan<- error) {
+func receiveBitSetHandler(conn net.Conn, ot OTBitSet, choices *bitset.BitSet, msgBus chan<- *bitset.BitSet, errs chan<- error) {
 	defer close(msgBus)
 
-	//msg := make([][]byte, baseCount)
 	msg := make([]*bitset.BitSet, baseCount)
-	//err := ot.Receive(choices, msg, conn)
-	err := ot.Receive(util.BitsToBitSet(choices), msg, conn)
+	err := ot.Receive(choices, msg, conn)
 	if err != nil {
 		errs <- err
 	}
@@ -126,7 +124,7 @@ func receiveBitSetHandler(conn net.Conn, ot naorPinkas, choices []uint8, msgBus 
 	}
 }
 
-func testSimplestOT(t *testing.T) {
+func TestSimplestOT(t *testing.T) {
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}
@@ -195,6 +193,74 @@ func testSimplestOT(t *testing.T) {
 }
 
 func TestNaorPinkasOT(t *testing.T) {
+	for i, m := range messages {
+		msgLen[i] = len(m[0])
+	}
+
+	msgBus := make(chan []byte)
+	errs := make(chan error, 5)
+
+	// start timer
+	start := time.Now()
+
+	ot, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating NaorPinkas OT: %s", err)
+	}
+
+	addr, err := initReceiver(ot, choices, msgBus, errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		conn, err := net.Dial(network, addr)
+		if err != nil {
+			errs <- fmt.Errorf("Cannot dial: %s", err)
+		}
+		ss, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+		if err != nil {
+			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
+		}
+
+		err = ss.Send(messages, conn)
+		if err != nil {
+			errs <- fmt.Errorf("Send encountered error: %s", err)
+			close(msgBus)
+		}
+
+	}()
+
+	// Receive msg
+	var msg [][]byte
+	for m := range msgBus {
+		msg = append(msg, m)
+	}
+
+	//errors?
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	default:
+	}
+
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for NaorPinkas OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+
+	// verify if the received msgs are correct:
+	if len(msg) == 0 {
+		t.Fatal("OT failed, did not receive any messages")
+	}
+
+	for i, m := range msg {
+		if !bytes.Equal(m, messages[i][choices[i]]) {
+			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
+		}
+	}
+}
+
+func TestSimplestOTBitSet(t *testing.T) {
 	for i, m := range bitsetMessages {
 		msgLen[i] = int(m[0].Len())
 	}
@@ -205,13 +271,12 @@ func TestNaorPinkasOT(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	//ot, err := NewBaseOT(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
-	ot, err := newNaorPinkas(baseCount, curve, msgLen, cipherMode)
+	ot, err := NewBaseOTBitSet(Simplest, false, baseCount, curve, msgLen, cipherMode)
 	if err != nil {
-		t.Fatalf("Error creating NaorPinkas OT: %s", err)
+		t.Fatalf("Error creating SimplestBitSet OT: %s", err)
 	}
 
-	addr, err := initBitSetReceiver(ot, util.BitSetToBits(bitsetChoices), msgBus, errs)
+	addr, err := initBitSetReceiver(ot, bitsetChoices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +286,79 @@ func TestNaorPinkasOT(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := newNaorPinkas(baseCount, curve, msgLen, cipherMode)
+		ss, err := newSimplestBitSet(baseCount, curve, msgLen, cipherMode)
+		if err != nil {
+			errs <- fmt.Errorf("Error creating simplestBitSet OT: %s", err)
+		}
+
+		err = ss.Send(bitsetMessages, conn)
+		if err != nil {
+			errs <- fmt.Errorf("Send encountered error: %s", err)
+			close(msgBus)
+		}
+
+	}()
+
+	// Receive msg
+	var msg []*bitset.BitSet
+	for m := range msgBus {
+		msg = append(msg, m)
+	}
+
+	//errors?
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	default:
+	}
+
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for SimplestBitSet OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+
+	// verify if the received msgs are correct:
+	if len(msg) == 0 {
+		t.Fatal("OT failed, did not receive any messages")
+	}
+
+	for i, m := range msg {
+		var choice uint8
+		if bitsetChoices.Test(uint(i)) {
+			choice = 1
+		}
+		if !m.Equal(bitsetMessages[i][choice]) {
+			t.Fatalf("OT failed at message %d, got: %s, want %s", i, m, bitsetMessages[i][choice])
+		}
+	}
+}
+
+func TestNaorPinkasOTBitSet(t *testing.T) {
+	for i, m := range bitsetMessages {
+		msgLen[i] = int(m[0].Len())
+	}
+
+	msgBus := make(chan *bitset.BitSet)
+	errs := make(chan error, 5)
+
+	// start timer
+	start := time.Now()
+
+	ot, err := NewBaseOTBitSet(NaorPinkas, false, baseCount, curve, msgLen, cipherMode)
+	if err != nil {
+		t.Fatalf("Error creating NaorPinkasBitSet OT: %s", err)
+	}
+
+	addr, err := initBitSetReceiver(ot, bitsetChoices, msgBus, errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		conn, err := net.Dial(network, addr)
+		if err != nil {
+			errs <- fmt.Errorf("Cannot dial: %s", err)
+		}
+		ss, err := newNaorPinkasBitSet(baseCount, curve, msgLen, cipherMode)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
@@ -249,7 +386,7 @@ func TestNaorPinkasOT(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for NaorPinkas OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for NaorPinkasBitSet OT of %d OTs is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {

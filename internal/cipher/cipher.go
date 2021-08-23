@@ -81,6 +81,16 @@ func xorCipherWithBlake3(key []byte, ind uint8, src []byte) (dst []byte, err err
 	return util.XorBytes(hash, src)
 }
 
+/*
+func XorCipherWithBlake3BitSet(key []byte, ind uint8, src *bitset.BitSet) (dst *bitset.BitSet, err error) {
+	hash := make([]byte, src.Len()/8)
+	err = getBlake3Hash(key, ind, hash)
+	if err != nil {
+		return nil, err
+	}
+	return util.BytesToBitSet(hash).SymmetricDifference(src), nil
+}
+*/
 func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 	h := blake3.New()
 	h.Write(key)

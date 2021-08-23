@@ -6,7 +6,9 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -19,7 +21,7 @@ Tested to be slightly faster than Naor-Pinkas
 but has the same computation costs.
 */
 
-type simplest struct {
+type simplestBitSet struct {
 	baseCount  int
 	curve      elliptic.Curve
 	encodeLen  int
@@ -27,15 +29,15 @@ type simplest struct {
 	cipherMode int
 }
 
-func newSimplest(baseCount int, curveName string, msgLen []int, cipherMode int) (simplest, error) {
+func newSimplestBitSet(baseCount int, curveName string, msgLen []int, cipherMode int) (simplestBitSet, error) {
 	if len(msgLen) != baseCount {
-		return simplest{}, ErrBaseCountMissMatch
+		return simplestBitSet{}, ErrBaseCountMissMatch
 	}
 	curve, encodeLen := initCurve(curveName)
-	return simplest{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
+	return simplestBitSet{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
-func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
+func (s simplestBitSet) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err error) {
 	if len(messages) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
@@ -79,27 +81,43 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		K[0] = B[i].scalarMult(a)
 		//k1 = a(B - A) = aB - aA
 		K[1] = K[0].sub(A)
-
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
 			// encrypt plaintext using aes GCM mode
-			ciphertext, err := cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
+			// ciphertext, err := cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBits(plaintext))
+			ciphertext, err := cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBytes(plaintext))
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
-			if _, err = writer.w.Write(ciphertext); err != nil {
+			if _, err = util.BytesToBitSet(ciphertext).WriteTo(rw); err != nil {
 				return err
 			}
 		}
+		/*
+			// Encrypt plaintext message with key derived from received points B
+			for choice, plaintext := range messages[i] {
+				// encrypt plaintext using aes GCM mode
+				// ciphertext, err := cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBits(plaintext))
+				ciphertext, err := cipher.XorCipherWithBlake3BitSet(K[choice].deriveKey(), uint8(choice), plaintext)
+				if err != nil {
+					return fmt.Errorf("error encrypting sender message: %s", err)
+				}
+
+				// send ciphertext
+				if _, err = ciphertext.WriteTo(rw); err != nil {
+					return err
+				}
+			}
+		*/
 	}
 
 	return
 }
 
-func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != s.baseCount {
+func (s simplestBitSet) Receive(choices *bitset.BitSet, messages []*bitset.BitSet, rw io.ReadWriter) (err error) {
+	if int(choices.Len()) < len(messages) || int(choices.Len()) > len(messages)+63 || len(messages) != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
@@ -122,7 +140,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 	bSecrets := make([][]byte, s.baseCount)
 	var B points
 	var b []byte
-	for i := 0; i < s.baseCount; i++ {
+	for i := uint(0); i < uint(s.baseCount); i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
 		b, B, err = generateKeyWithPoints(s.curve)
 		if err != nil {
@@ -131,45 +149,59 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point B and send it
-		switch choices[i] {
-		case 0:
-			// B
-			if err := writer.write(B); err != nil {
-				return err
-			}
-		case 1:
+		if choices.Test(i) {
 			// B = A + B
 			if err := writer.write(A.add(B)); err != nil {
 				return err
 			}
-		default:
-			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
+		} else {
+			// B
+			if err := writer.write(B); err != nil {
+				return err
+			}
 		}
 	}
 
-	e := make([][]byte, 2)
+	e := make([]*bitset.BitSet, 2)
 	var K points
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := cipher.EncryptLen(s.cipherMode, s.msgLen[i])
+		l := uint(cipher.EncryptLen(s.cipherMode, s.msgLen[i]))
 
 		// read both msg
 		for j := range e {
-			e[j] = make([]byte, l)
-			if _, err = io.ReadFull(reader.r, e[j]); err != nil {
+			e[j] = bitset.New(l)
+			if _, err = e[j].ReadFrom(rw); err != nil {
 				return err
 			}
 		}
 
 		// build keys for decrypting choice messages
 		K = A.scalarMult(bSecrets[i])
-
 		// decrypt the message indexed by choice bit
-		messages[i], err = cipher.Decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
+		var choice uint8
+		if choices.Test(uint(i)) {
+			choice = 1
+		}
+
+		// message, err := cipher.Decrypt(s.cipherMode, K.deriveKey(), choice, util.BitSetToBits(e[choice]))
+		message, err := cipher.Decrypt(s.cipherMode, K.deriveKey(), choice, util.BitSetToBytes(e[choice]))
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
+		messages[i] = util.BytesToBitSet(message)
+		// message, err := cipher.Decrypt(s.cipherMode, K.deriveKey(), choice, util.BitSetToBits(e[choice]))
+		/*
+			if choices.Test(uint(i)) {
+				messages[i], err = cipher.XorCipherWithBlake3BitSet(K.deriveKey(), 1, e[1])
+			} else {
+				messages[i], err = cipher.XorCipherWithBlake3BitSet(K.deriveKey(), 0, e[0])
+			}
+			if err != nil {
+				return fmt.Errorf("error decrypting sender message: %s", err)
+			}
+		*/
 	}
 
 	return

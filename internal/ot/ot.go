@@ -4,6 +4,8 @@ import (
 	"crypto/elliptic"
 	"fmt"
 	"io"
+
+	"github.com/bits-and-blooms/bitset"
 )
 
 /*
@@ -29,24 +31,44 @@ var (
 // OT implements different BaseOT
 type OT interface {
 	Send(messages [][][]byte, rw io.ReadWriter) error
-	//Send(messages [][]*bitset.BitSet, rw io.ReadWriter) error
 	Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) error
-	//Receive(choices *bitset.BitSet, messages []*bitset.BitSet, rw io.ReadWriter) error
+}
+
+type OTBitSet interface {
+	Send(messages [][]*bitset.BitSet, rw io.ReadWriter) error
+	Receive(choices *bitset.BitSet, messages []*bitset.BitSet, rw io.ReadWriter) error
 }
 
 // NewBaseOT returns an OT of type t
 func NewBaseOT(t int, ristretto bool, baseCount int, curveName string, msgLen []int, cipherMode int) (OT, error) {
 	switch t {
-	//case NaorPinkas:
-	//	if ristretto {
-	//		return newNaorPinkasRistretto(baseCount, msgLen, cipherMode)
-	//	}
-	//	return newNaorPinkas(baseCount, curveName, msgLen, cipherMode)
+	case NaorPinkas:
+		if ristretto {
+			return newNaorPinkasRistretto(baseCount, msgLen, cipherMode)
+		}
+		return newNaorPinkas(baseCount, curveName, msgLen, cipherMode)
 	case Simplest:
 		if ristretto {
 			return newSimplestRistretto(baseCount, msgLen, cipherMode)
 		}
 		return newSimplest(baseCount, curveName, msgLen, cipherMode)
+	default:
+		return nil, ErrUnknownOT
+	}
+}
+
+func NewBaseOTBitSet(t int, ristretto bool, baseCount int, curveName string, msgLen []int, cipherMode int) (OTBitSet, error) {
+	switch t {
+	case NaorPinkas:
+		if ristretto {
+			return newNaorPinkasRistrettoBitSet(baseCount, msgLen, cipherMode)
+		}
+		return newNaorPinkasBitSet(baseCount, curveName, msgLen, cipherMode)
+	case Simplest:
+		if ristretto {
+			return newSimplestRistrettoBitSet(baseCount, msgLen, cipherMode)
+		}
+		return newSimplestBitSet(baseCount, curveName, msgLen, cipherMode)
 	default:
 		return nil, ErrUnknownOT
 	}
