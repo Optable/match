@@ -38,7 +38,7 @@ func TestStashSize(t *testing.T) {
 		{uint64(math.Pow(2, 16) - 1), uint8(4)},
 		{uint64(math.Pow(2, 20) - 1), uint8(3)},
 		{uint64(math.Pow(2, 24)), uint8(2)},
-		{uint64(math.Pow(2, 25)), uint8(0)},
+		{uint64(math.Pow(2, 25)), uint8(2)},
 	}
 
 	for _, tt := range stashSizeTests {
@@ -57,9 +57,9 @@ func TestNewCuckoo(t *testing.T) {
 		bSize uint64 //bucketSize
 	}{
 		{uint64(0), uint64(1)},
-		{uint64(math.Pow(2, 4)), uint64(2 * math.Pow(2, 4))},
-		{uint64(math.Pow(2, 8)), uint64(2 * math.Pow(2, 8))},
-		{uint64(math.Pow(2, 16)), uint64(2 * math.Pow(2, 16))},
+		{uint64(math.Pow(2, 4)), uint64(Factor * math.Pow(2, 4))},
+		{uint64(math.Pow(2, 8)), uint64(Factor * math.Pow(2, 8))},
+		{uint64(math.Pow(2, 16)), uint64(Factor * math.Pow(2, 16))},
 	}
 
 	for _, tt := range cuckooTests {

@@ -58,12 +58,13 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	// for cuckoo hashing parameters agreement.
 	// read local ids and store the potential bucket indexes for each id.
 	stage1 := func() error {
-		// init randomness source
+		// seed randomness
 		rand.Seed(time.Now().UnixNano())
 
 		// sample Nhash hash seeds
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
+			// slower read, but we need robust pseudorandomness for the hash seeds.
 			rand.Read(seeds[i])
 			// write it into rw
 			if _, err := s.rw.Write(seeds[i]); err != nil {
@@ -76,7 +77,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		// read all local ids, and precompute all potential
+		// exhaust local ids, and precompute all potential
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
 		cuckooHashTable := cuckoo.NewCuckoo(uint64(remoteN), seeds)
@@ -98,7 +99,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err = oprf.NewKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
+		oSender, err = oprf.NewImprovedKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
 		if err != nil {
 			return err
 		}

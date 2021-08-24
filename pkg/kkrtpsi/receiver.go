@@ -89,7 +89,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oReceiver, err := oprf.NewKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
+		oReceiver, err := oprf.NewImprovedKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -186,14 +186,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 		// hash local oprf output
 		local := make([]uint64, len(oprfOutput))
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := range oprfOutput {
-				local[i] = hasher.Hash64(oprfOutput[i])
-			}
-		}()
+		for i := range oprfOutput {
+			local[i] = hasher.Hash64(oprfOutput[i])
+		}
 
+		// Wait for all encode to complete.
 		wg.Wait()
 
 		// intersect
@@ -201,34 +198,24 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		localBucket := cuckooHashTable.Bucket()
 		bucketSize := cuckooHashTable.BucketSize()
 
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			for idx, value := range localStash {
-				// compare oprf output to every encoded in remoteStashes at index i
-				if remoteStashes[idx][local[idx+bucketSize]] {
-					intersected = append(intersected, value.GetItem())
-					// dedup
-					// how?
-				}
+		for idx, value := range localStash {
+			// compare oprf output to every encoded in remoteStashes at index i
+			if remoteStashes[idx][local[idx+bucketSize]] {
+				intersected = append(intersected, value.GetItem())
+				// dedup
+				// how?
 			}
-		}()
+		}
 
-		go func() {
-			defer wg.Done()
-			for key, value := range localBucket {
-				// compare oprf output to every encoded in remoteHashTable at hIdx
-				hIdx := value.GetHashIdx()
-				if remoteHashtables[hIdx][local[value.GetBucketIdx()]] {
-					intersected = append(intersected, value.GetItem())
-					// dedup
-					delete(localBucket, key)
-				}
+		for key, value := range localBucket {
+			// compare oprf output to every encoded in remoteHashTable at hIdx
+			hIdx := value.GetHashIdx()
+			if remoteHashtables[hIdx][local[value.GetBucketIdx()]] {
+				intersected = append(intersected, value.GetItem())
+				// dedup
+				delete(localBucket, key)
 			}
-		}()
-
-		// Wait for all encode to complete.
-		wg.Wait()
+		}
 
 		// end stage3
 		end3 := time.Now()

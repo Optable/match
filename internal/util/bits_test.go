@@ -45,3 +45,9 @@ func TestTranspose(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkSampleBitMatrix(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		SampleRandomBitMatrix(prng, 10000, 424)
+	}
+}
