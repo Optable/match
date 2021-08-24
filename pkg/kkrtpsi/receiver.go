@@ -90,7 +90,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		oReceiver, err := oprf.NewImprovedKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
-		//oReceiver, err := oprf.NewKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
 		if err != nil {
 			return err
 		}

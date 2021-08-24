@@ -106,7 +106,6 @@ func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
 	// read up to len(b) pseudorandom bits
 	t := make([]byte, len(b)/8)
-	//fmt.Println(len(t))
 	if _, err = prng.Read(t); err != nil {
 		return nil
 	}
