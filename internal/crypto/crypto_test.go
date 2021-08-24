@@ -280,7 +280,7 @@ func BenchmarkXORCipherWithAESCTR(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		XorCipherWithAESCTR(block, xorKey, p)
+		xorCipherWithAESCTR(block, xorKey, p)
 	}
 }
 
@@ -291,7 +291,7 @@ func BenchmarkXORCipherWithAESCTR2(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		XorCipherWithAESCTR2(block, xorKey, p)
+		xorCipherWithAESCTR2(block, xorKey, p)
 	}
 }
 
@@ -316,6 +316,6 @@ func BenchmarkPRGWithAESGCM(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		PseudorandomGeneratorWithAESGCM(aesgcm, xorKey, len(p))
+		pseudorandomGeneratorWithAESGCM(aesgcm, xorKey, len(p))
 	}
 }

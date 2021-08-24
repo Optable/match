@@ -13,7 +13,6 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	crand "crypto/rand"
 	"io"
 	"math/rand"
 	"sync"
@@ -35,15 +34,6 @@ type kkrt struct {
 	k      int   // width of base OT binary matrix as well as
 	// pseudorandom code output length
 	prng *rand.Rand // source of randomness
-}
-
-// Key contains the relaxed OPRF key: (C, s), (j, q_j)
-// the index j is implicit when key is stored into a key slice.
-// Pseudorandom code C is represented by sk
-type Key struct {
-	sk []byte // secret key for pseudorandom code
-	s  []byte // secret choice bits
-	q  []byte // m x k bit matrice
 }
 
 // NewKKRT returns a KKRT OPRF
@@ -70,7 +60,7 @@ func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = crand.Read(sk); err != nil {
+	if _, err = o.prng.Read(sk); err != nil {
 		return nil, nil
 	}
 

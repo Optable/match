@@ -3,7 +3,6 @@ package cuckoo
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"math/rand"
 	"time"
 
@@ -320,18 +319,16 @@ func (c *Cuckoo) StashSize() int {
 
 // findStashSize is a helper function that selects the correct stash size
 func findStashSize(size uint64) uint8 {
-	logSize := uint8(math.Log2(float64(size)))
-
 	switch {
-	case logSize > 0 && logSize <= 8:
+	case size > 0 && size <= 256:
 		return stashSize[8]
-	case logSize > 8 && logSize <= 12:
+	case size > 256 && size <= 4096:
 		return stashSize[12]
-	case logSize > 12 && logSize <= 16:
+	case size > 4096 && size <= 65536:
 		return stashSize[16]
-	case logSize > 16 && logSize <= 20:
+	case size > 65536 && size <= 1048576:
 		return stashSize[20]
-	case logSize > 20 && logSize <= 24:
+	case size > 1048576:
 		return stashSize[24]
 	default:
 		return uint8(0)

@@ -87,7 +87,7 @@ func PseudorandomGeneratorWithBlake3(s *blake3.Hasher, seed []byte, length int) 
 }
 
 // aes gcm(seed, src)
-func PseudorandomGeneratorWithAESGCM(gcm cipher.AEAD, seed []byte, length int) (dst []byte, err error) {
+func pseudorandomGeneratorWithAESGCM(gcm cipher.AEAD, seed []byte, length int) (dst []byte, err error) {
 	seed = append(seed, bytes.Repeat(seed, (length+7)/8/len(seed)+1)...)
 	tmp := gcm.Seal(nil, seed[:nonceSize], seed, nil)
 	dst = make([]byte, length)
@@ -96,7 +96,7 @@ func PseudorandomGeneratorWithAESGCM(gcm cipher.AEAD, seed []byte, length int) (
 	return
 }
 
-func XorCipherWithAESCTR(block cipher.Block, seed []byte, src []byte) (dst []byte, err error) {
+func xorCipherWithAESCTR(block cipher.Block, seed []byte, src []byte) (dst []byte, err error) {
 	dst = make([]byte, len(src))
 	iv := seed[:aes.BlockSize]
 	stream := cipher.NewCTR(block, iv)
@@ -104,7 +104,7 @@ func XorCipherWithAESCTR(block cipher.Block, seed []byte, src []byte) (dst []byt
 	return
 }
 
-func XorCipherWithAESCTR2(block cipher.Block, seed []byte, src []byte) (dst []byte, err error) {
+func xorCipherWithAESCTR2(block cipher.Block, seed []byte, src []byte) (dst []byte, err error) {
 	dst = make([]byte, len(src))
 	h := blake3.Sum256(seed)
 	iv, _ := util.XorBytes(h[:16], h[16:])
