@@ -84,16 +84,21 @@ func (s simplestBitSet) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
 			// encrypt plaintext using aes GCM mode
-			// ciphertext, err := cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBits(plaintext))
-			ciphertext, err := cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBytes(plaintext))
+			//ciphertext, err := cipher.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBytes(plaintext))
+			ciphertext, err := cipher.EncryptBitSet(s.cipherMode, util.BytesToBitSet(K[choice].deriveKey()), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
-			if _, err = util.BytesToBitSet(ciphertext).WriteTo(rw); err != nil {
+			if _, err = ciphertext.WriteTo(rw); err != nil {
 				return err
 			}
+			/*
+				if _, err = util.BytesToBitSet(ciphertext).WriteTo(rw); err != nil {
+					return err
+				}
+			*/
 		}
 		/*
 			// Encrypt plaintext message with key derived from received points B
@@ -185,12 +190,13 @@ func (s simplestBitSet) Receive(choices *bitset.BitSet, messages []*bitset.BitSe
 			choice = 1
 		}
 
-		// message, err := cipher.Decrypt(s.cipherMode, K.deriveKey(), choice, util.BitSetToBits(e[choice]))
-		message, err := cipher.Decrypt(s.cipherMode, K.deriveKey(), choice, util.BitSetToBytes(e[choice]))
+		//message, err := cipher.Decrypt(s.cipherMode, K.deriveKey(), choice, util.BitSetToBytes(e[choice]))
+		messages[i], err = cipher.DecryptBitSet(s.cipherMode, util.BytesToBitSet(K.deriveKey()), choice, e[choice])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
-		messages[i] = util.BytesToBitSet(message)
+		//messages[i] = util.BytesToBitSet(message)
+
 		// message, err := cipher.Decrypt(s.cipherMode, K.deriveKey(), choice, util.BitSetToBits(e[choice]))
 		/*
 			if choices.Test(uint(i)) {

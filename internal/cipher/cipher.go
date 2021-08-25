@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/blake2b"
@@ -81,6 +82,15 @@ func xorCipherWithBlake3(key []byte, ind uint8, src []byte) (dst []byte, err err
 	return util.XorBytes(hash, src)
 }
 
+func xorCipherWithBlake3BitSet(key *bitset.BitSet, ind uint8, src *bitset.BitSet) (dst *bitset.BitSet, err error) {
+	hash := bitset.New(src.Len())
+	err = getBlake3HashBitSet(key, ind, hash)
+	if err != nil {
+		return nil, err
+	}
+	return hash.SymmetricDifference(src), nil
+}
+
 /*
 func XorCipherWithBlake3BitSet(key []byte, ind uint8, src *bitset.BitSet) (dst *bitset.BitSet, err error) {
 	hash := make([]byte, src.Len()/8)
@@ -99,6 +109,21 @@ func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 	// convert to *digest to take a snapshot of the hashstate for XOF
 	d := h.Digest()
 	_, err := d.Read(dst)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getBlake3HashBitSet(key *bitset.BitSet, ind uint8, dst *bitset.BitSet) error {
+	h := blake3.New()
+	h.Write(util.BitSetToBytes(key))
+	h.Write([]byte{ind})
+
+	// convert to *digest to take a snapshot of the hashstate for XOF
+	d := h.Digest()
+	_, err := d.Read(util.BitSetToBytes(dst))
 	if err != nil {
 		return err
 	}
@@ -251,6 +276,15 @@ func Encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 	return nil, fmt.Errorf("wrong encrypt mode")
 }
 
+func EncryptBitSet(mode int, key *bitset.BitSet, ind uint8, plaintext *bitset.BitSet) (*bitset.BitSet, error) {
+	switch mode {
+	case XORBlake3:
+		return xorCipherWithBlake3BitSet(key, ind, plaintext)
+	}
+
+	return nil, fmt.Errorf("wrong encrypt mode")
+}
+
 func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
 	switch mode {
 	case CTR:
@@ -263,6 +297,15 @@ func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 		return xorCipherWithBlake3(key, ind, ciphertext)
 	case XORShake:
 		return xorCipherWithShake(key, ind, ciphertext)
+	}
+
+	return nil, fmt.Errorf("wrong decrypt mode")
+}
+
+func DecryptBitSet(mode int, key *bitset.BitSet, ind uint8, ciphertext *bitset.BitSet) (*bitset.BitSet, error) {
+	switch mode {
+	case XORBlake3:
+		return xorCipherWithBlake3BitSet(key, ind, ciphertext)
 	}
 
 	return nil, fmt.Errorf("wrong decrypt mode")
