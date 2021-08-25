@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"sync"
 	"time"
 
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -21,7 +22,7 @@ A possible improvement is to use bitset to store the bit matrices/bit sets.
 
 const (
 	iknpCurve      = "P256"
-	iknpCipherMode = cipher.XORBlake3
+	iknpCipherMode = crypto.XORBlake3
 )
 
 type iknp struct {
@@ -75,7 +76,7 @@ func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 				}
 			}
 
-			ciphertext, err = cipher.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -101,13 +102,36 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		return err
 	}
 
+	var errBus = make(chan error)
+	var msg = make(chan []byte)
+	var wg sync.WaitGroup
 	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
 	baseMsgs := make([][][]byte, ext.k)
-	for j := range baseMsgs {
-		baseMsgs[j] = make([][]byte, 2)
-		// []uint8 = []byte, since byte is an alias to uint8
-		baseMsgs[j][0] = t[j]
-		baseMsgs[j][1], err = util.XorBytes(t[j], choices)
+	for i := range baseMsgs {
+		wg.Add(1)
+		go func(i int, msg chan<- []byte) {
+			defer wg.Done()
+			msg <- t[i]
+			m2, err := util.XorBytes(t[i], choices)
+			msg <- m2
+			if err != nil {
+				errBus <- err
+			}
+		}(i, msg)
+
+		baseMsgs[i] = make([][]byte, 2)
+		baseMsgs[i][0] = <-msg
+		baseMsgs[i][1] = <-msg
+	}
+
+	// wait for all operation to be done
+	go func() {
+		wg.Wait()
+		close(errBus)
+		close(msg)
+	}()
+	//errors?
+	for err := range errBus {
 		if err != nil {
 			return err
 		}
@@ -118,13 +142,13 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		return err
 	}
 
-	// compute k x m transpose to access columns easier
+	// compute m x k transpose to access columns easier
 	t = util.Transpose(t)
 
 	e := make([][]byte, 2)
 	for i := range choices {
 		// compute # of bytes to be read
-		l := cipher.EncryptLen(iknpCipherMode, ext.msgLen[i])
+		l := crypto.EncryptLen(iknpCipherMode, ext.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -134,7 +158,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = cipher.Decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -79,7 +79,7 @@ func (n naorPinkasBitSet) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (e
 	}
 
 	K := make([]points, 2)
-	var ciphertext []byte
+	//var ciphertext []byte
 	// encrypt plaintext messages and send them.
 	for i := 0; i < n.baseCount; i++ {
 		// sanity check
@@ -95,17 +95,22 @@ func (n naorPinkasBitSet) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (e
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			// ciphertext, err = cipher.Encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBits(plaintext))
-			ciphertext, err = cipher.Encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBytes(plaintext))
+			// ciphertext, err = crypto.Encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), util.BitSetToBits(plaintext))
+			ciphertext, err := crypto.EncryptBitSet(n.cipherMode, util.BytesToBitSet(K[choice].deriveKey()), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// convert ciphertext into BitSet
-			cipherBitSet := util.BytesToBitSet(ciphertext)
+			//cipherBitSet := util.BytesToBitSet(ciphertext)
 
 			// send ciphertext
-			if _, err = cipherBitSet.WriteTo(rw); err != nil {
+			/*
+				if _, err = BitSet.WriteTo(rw); err != nil {
+					return err
+				}
+			*/
+			if _, err = ciphertext.WriteTo(rw); err != nil {
 				return err
 			}
 		}
@@ -188,13 +193,13 @@ func (n naorPinkasBitSet) Receive(choices *bitset.BitSet, messages []*bitset.Bit
 		if choices.Test(uint(i)) {
 			choice = 1
 		}
-		// message, err := cipher.Decrypt(n.cipherMode, K.deriveKey(), choice, util.BitSetToBits(e[choice]))
-		message, err := cipher.Decrypt(n.cipherMode, K.deriveKey(), choice, util.BitSetToBytes(e[choice]))
+		// message, err := crypto.Decrypt(n.cipherMode, K.deriveKey(), choice, util.BitSetToBits(e[choice]))
+		messages[i], err = crypto.DecryptBitSet(n.cipherMode, util.BytesToBitSet(K.deriveKey()), choice, e[choice])
 
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
-		messages[i] = util.BytesToBitSet(message)
+		//messages[i] = util.BytesToBitSet(message)
 	}
 
 	return

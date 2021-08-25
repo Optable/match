@@ -23,7 +23,7 @@ Computation overhead seems to make it more time consuming at the expense
 of the smaller network costs.
 */
 
-type imprvIKNP struct {
+type alsz struct {
 	baseOT OT
 	m      int
 	k      int
@@ -32,7 +32,7 @@ type imprvIKNP struct {
 	g      *blake3.Hasher
 }
 
-func NewImprovedIKNP(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIKNP, error) {
+func NewAlsz(m, k, baseOt int, ristretto bool, msgLen []int) (alsz, error) {
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -41,16 +41,15 @@ func NewImprovedIKNP(m, k, baseOt int, ristretto bool, msgLen []int) (imprvIKNP,
 
 	ot, err := NewBaseOT(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
 	if err != nil {
-		return imprvIKNP{}, err
+		return alsz{}, err
 	}
 	g := blake3.New()
 
-	return imprvIKNP{baseOT: ot, m: m, k: k, msgLen: msgLen,
-		prng: rand.New(rand.NewSource(time.Now().UnixNano())),
-		g:    g}, nil
+	return alsz{baseOT: ot, m: m, k: k, msgLen: msgLen,
+		prng: rand.New(rand.NewSource(time.Now().UnixNano())), g: g}, nil
 }
 
-func (ext imprvIKNP) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
+func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
 	if err = util.SampleBitSlice(ext.prng, s); err != nil {
@@ -63,23 +62,22 @@ func (ext imprvIKNP) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		return err
 	}
 
-	// receive masked columns
+	// receive masked columns u
+	u := make([]byte, ext.m)
 	q := make([][]byte, ext.k)
-	e := make([][]byte, 2)
-	for i := range q {
-		// read both msg
-		for j := range e {
-			// each column is m bytes long
-			e[j] = make([]byte, ext.m)
-			if _, err = io.ReadFull(rw, e[j]); err != nil {
-				return err
-			}
+	for col := range q {
+		if _, err = io.ReadFull(rw, u); err != nil {
+			return err
 		}
-		// unmask e and store it in q.
-		q[i], err = crypto.XorCipherWithPRG(ext.g, seeds[i], e[s[i]])
+
+		q[col], err = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
+		if err != nil {
+			return err
+		}
+
+		q[col], _ = util.XorBytes(util.AndByte(s[col], u), q[col])
 	}
 
-	//fmt.Printf("q:\n%v\n", q)
 	q = util.Transpose(q)
 
 	// encrypt messages and send them
@@ -88,7 +86,7 @@ func (ext imprvIKNP) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			key = q[i]
 			if choice == 1 {
-				key, err = util.XorBytes(q[i], s)
+				key, err = util.XorBytes(key, s)
 				if err != nil {
 					return err
 				}
@@ -109,29 +107,22 @@ func (ext imprvIKNP) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	return
 }
 
-func (ext imprvIKNP) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
+func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
 	if len(choices) != len(messages) || len(choices) != ext.m {
 		return ErrBaseCountMissMatch
 	}
 
-	// compute actual messages to be sent
-	// t is pseudorandom binary matrix
-	t, err := util.SampleRandomBitMatrix(ext.prng, ext.k, ext.m)
+	// sample k x k bit mtrix
+	seeds, err := util.SampleRandomBitMatrix(ext.prng, 2*ext.k, ext.k)
 	if err != nil {
 		return err
 	}
 
-	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
 	baseMsgs := make([][][]byte, ext.k)
 	for j := range baseMsgs {
 		baseMsgs[j] = make([][]byte, 2)
-		for b := range baseMsgs[j] {
-			baseMsgs[j][b] = make([]byte, ext.k)
-			err = util.SampleBitSlice(ext.prng, baseMsgs[j][b])
-			if err != nil {
-				return err
-			}
-		}
+		baseMsgs[j][0] = seeds[2*j]
+		baseMsgs[j][1] = seeds[2*j+1]
 	}
 
 	// act as sender in baseOT to send k columns
@@ -139,38 +130,37 @@ func (ext imprvIKNP) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		return err
 	}
 
-	// compute actual t^j, u^j and send them masked: t^j xor G(s)
-	// u^j = t^j xor choice
-	var u []uint8
-	//u := make([][]uint8, ext.k)
-	for row := range t {
-		//u, err = xorBytes(t[row], choices)
-		u, err = util.XorBytes(t[row], choices)
+	var t = make([][]byte, ext.k)
+	var u = make([]byte, ext.m)
+	// u^i = G(seeds[1])
+	// t^i = d^i ^ u^i
+	for col := range t {
+		t[col], err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
 		if err != nil {
 			return err
 		}
 
-		maskedTj, err := crypto.XorCipherWithPRG(ext.g, baseMsgs[row][0], t[row])
+		u, err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+		if err != nil {
+			return err
+		}
+		u, err = util.XorBytes(u, t[col])
 		if err != nil {
 			return err
 		}
 
-		maskedUj, err := crypto.XorCipherWithPRG(ext.g, baseMsgs[row][1], u)
+		u, err = util.XorBytes(u, choices)
 		if err != nil {
 			return err
 		}
 
-		// send t^j
-		if _, err = rw.Write(maskedTj); err != nil {
-			return err
-		}
-
-		// send u^j
-		if _, err = rw.Write(maskedUj); err != nil {
+		// send u^col
+		if _, err = rw.Write(u); err != nil {
 			return err
 		}
 	}
 
+	// transpose t to m x k for easier row operations
 	t = util.Transpose(t)
 
 	// receive encrypted messages.

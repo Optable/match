@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -22,7 +22,7 @@ A possible improvement is to use bitset to store the bit matrices/bit sets.
 
 const (
 	iknpCurveBitSet      = "P256"
-	iknpCipherModeBitSet = cipher.XORBlake3
+	iknpCipherModeBitSet = crypto.XORBlake3
 )
 
 type iknpBitSet struct {
@@ -72,8 +72,8 @@ func (ext iknpBitSet) Send(messages [][]*bitset.BitSet, rw io.ReadWriter) (err e
 
 			//fmt.Println("sen", plaintext.DumpAsBits())
 
-			//ciphertext, err = cipher.Encrypt(iknpCipherModeBitSet, util.BitSetToBytes(key), uint8(choice), util.BitSetToBytes(plaintext))
-			ciphertext, err := cipher.EncryptBitSet(iknpCipherModeBitSet, key, uint8(choice), plaintext)
+			//ciphertext, err = crypto.Encrypt(iknpCipherModeBitSet, util.BitSetToBytes(key), uint8(choice), util.BitSetToBytes(plaintext))
+			ciphertext, err := crypto.EncryptBitSet(iknpCipherModeBitSet, key, uint8(choice), plaintext)
 
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
@@ -122,7 +122,7 @@ func (ext iknpBitSet) Receive(choices *bitset.BitSet, messages []*bitset.BitSet,
 	// TODO couldn't this just be "i := range messages" ?
 	for i := range messages {
 		// compute # of bytes to be read
-		l := uint(cipher.EncryptLen(iknpCipherModeBitSet, ext.msgLen[i]))
+		l := uint(crypto.EncryptLen(iknpCipherModeBitSet, ext.msgLen[i]))
 		// read both msg
 		for j := range e {
 			e[j] = bitset.New(l)
@@ -136,8 +136,8 @@ func (ext iknpBitSet) Receive(choices *bitset.BitSet, messages []*bitset.BitSet,
 		if choices.Test(uint(i)) {
 			choice = 1
 		}
-		//message, err := cipher.Decrypt(iknpCipherModeBitSet, util.BitSetToBytes(t[i]), choice, util.BitSetToBytes(e[choice]))
-		messages[i], err = cipher.DecryptBitSet(iknpCipherModeBitSet, t[i], choice, e[choice])
+		//message, err := crypto.Decrypt(iknpCipherModeBitSet, util.BitSetToBytes(t[i]), choice, util.BitSetToBytes(e[choice]))
+		messages[i], err = crypto.DecryptBitSet(iknpCipherModeBitSet, t[i], choice, e[choice])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

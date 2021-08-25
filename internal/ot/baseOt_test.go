@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -17,7 +17,7 @@ var (
 	network        = "tcp"
 	address        = "127.0.0.1:"
 	curve          = "P256"
-	cipherMode     = cipher.XORBlake3
+	cipherMode     = crypto.XORBlake3
 	baseCount      = 1024
 	messages       = genMsg(baseCount, 2)
 	bitsetMessages = genBitSetMsg(baseCount, 2)

@@ -6,7 +6,7 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	gr "github.com/bwesterb/go-ristretto"
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -78,16 +78,21 @@ func (s simplestRistrettoBitSet) Send(messages [][]*bitset.BitSet, rw io.ReadWri
 
 			// encrypt
 			// ciphertext, err := cipher.Encrypt(s.cipherMode, key, uint8(choice), util.BitSetToBits(plaintext))
-			ciphertext, err := cipher.Encrypt(s.cipherMode, key, uint8(choice), util.BitSetToBytes(plaintext))
+			ciphertext, err := crypto.EncryptBitSet(s.cipherMode, util.BytesToBitSet(key), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// convert ciphertext into BitSet
-			cipherBitSet := util.BytesToBitSet(ciphertext)
+			//cipherBitSet := util.BytesToBitSet(ciphertext)
 
 			// send ciphertext
-			if _, err = cipherBitSet.WriteTo(rw); err != nil {
+			/*
+				if _, err = cipherBitSet.WriteTo(rw); err != nil {
+					return err
+				}
+			*/
+			if _, err = ciphertext.WriteTo(rw); err != nil {
 				return err
 			}
 		}
@@ -140,7 +145,7 @@ func (s simplestRistrettoBitSet) Receive(choices *bitset.BitSet, messages []*bit
 	var K gr.Point
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := cipher.EncryptLen(s.cipherMode, s.msgLen[i])
+		l := crypto.EncryptLen(s.cipherMode, s.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = bitset.New(uint(l))
@@ -162,11 +167,11 @@ func (s simplestRistrettoBitSet) Receive(choices *bitset.BitSet, messages []*bit
 			choice = 1
 		}
 		// message, err := cipher.Decrypt(s.cipherMode, key, choice, util.BitSetToBits(e[choice]))
-		message, err := cipher.Decrypt(s.cipherMode, key, choice, util.BitSetToBytes(e[choice]))
+		messages[i], err = crypto.DecryptBitSet(s.cipherMode, util.BytesToBitSet(key), choice, e[choice])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
-		messages[i] = util.BytesToBitSet(message)
+		//messages[i] = util.BytesToBitSet(message)
 	}
 
 	return

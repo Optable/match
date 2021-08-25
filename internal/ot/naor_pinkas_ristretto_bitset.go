@@ -6,7 +6,7 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	gr "github.com/bwesterb/go-ristretto"
-	"github.com/optable/match/internal/cipher"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -83,17 +83,22 @@ func (n naorPinkasRistrettoBitSet) Send(messages [][]*bitset.BitSet, rw io.ReadW
 			}
 
 			// encrypt
-			// ciphertext, err := cipher.Encrypt(n.cipherMode, key, uint8(choice), util.BitSetToBits(plaintext))
-			ciphertext, err := cipher.Encrypt(n.cipherMode, key, uint8(choice), util.BitSetToBytes(plaintext))
+			// ciphertext, err := crypto.Encrypt(n.cipherMode, key, uint8(choice), util.BitSetToBits(plaintext))
+			ciphertext, err := crypto.EncryptBitSet(n.cipherMode, util.BytesToBitSet(key), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// convert ciphertext to BitSet
-			cipherBitSet := util.BytesToBitSet(ciphertext)
+			//cipherBitSet := util.BytesToBitSet(ciphertext)
 
 			// send ciphertext
-			if _, err = cipherBitSet.WriteTo(rw); err != nil {
+			/*
+				if _, err = cipherBitSet.WriteTo(rw); err != nil {
+					return err
+				}
+			*/
+			if _, err = ciphertext.WriteTo(rw); err != nil {
 				return err
 			}
 		}
@@ -155,7 +160,7 @@ func (n naorPinkasRistrettoBitSet) Receive(choices *bitset.BitSet, messages []*b
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
-		l := cipher.EncryptLen(n.cipherMode, n.msgLen[i])
+		l := crypto.EncryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = bitset.New(uint(l))
@@ -178,11 +183,11 @@ func (n naorPinkasRistrettoBitSet) Receive(choices *bitset.BitSet, messages []*b
 			choice = 1
 		}
 		// message, err := cipher.Decrypt(n.cipherMode, key, choice, util.BitSetToBits(e[choice]))
-		message, err := cipher.Decrypt(n.cipherMode, key, choice, util.BitSetToBytes(e[choice]))
+		messages[i], err = crypto.DecryptBitSet(n.cipherMode, util.BytesToBitSet(key), choice, e[choice])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
-		messages[i] = util.BytesToBitSet(message)
+		//messages[i] = util.BytesToBitSet(message)
 	}
 
 	return
