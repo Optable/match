@@ -59,7 +59,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 		counter := 0
 		starttime := time.Now()
 	*/
-	for i, item := range testData {
+	for _, item := range testData {
 		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
 		}
