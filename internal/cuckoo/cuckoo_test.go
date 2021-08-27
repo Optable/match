@@ -8,12 +8,13 @@ import (
 	"time"
 )
 
-var test_n = uint64(1e6)  // 1Million
-var bench_n = uint64(1e7) // 10 Million
-
 var (
 	bench_cuckoo *Cuckoo
-	bench_data   [][]byte
+	test_n       = uint64(1e7) // 1Million
+	bench_n      = uint64(1e6) // 10 Million
+	seeds        = makeSeeds()
+	testData     = genBytes(int(test_n))
+	benchData    = genBytes(int(bench_n))
 )
 
 func makeSeeds() [Nhash][]byte {
@@ -27,31 +28,7 @@ func makeSeeds() [Nhash][]byte {
 	return seeds
 }
 
-func TestStashSize(t *testing.T) {
-	stashSizeTests := []struct {
-		n    uint64 //input size
-		want uint8  // stash size
-	}{
-		{uint64(0), uint8(0)},
-		{uint64(math.Pow(2, 8) - 1), uint8(12)},
-		{uint64(math.Pow(2, 12) - 1), uint8(6)},
-		{uint64(math.Pow(2, 16) - 1), uint8(4)},
-		{uint64(math.Pow(2, 20) - 1), uint8(3)},
-		{uint64(math.Pow(2, 24)), uint8(2)},
-		{uint64(math.Pow(2, 25)), uint8(2)},
-	}
-
-	for _, tt := range stashSizeTests {
-		got := findStashSize(tt.n)
-		if got != tt.want {
-			t.Errorf("findStashSize(%d): want: %d, got: %d", tt.n, tt.want, got)
-		}
-	}
-}
-
 func TestNewCuckoo(t *testing.T) {
-	seeds := makeSeeds()
-
 	cuckooTests := []struct {
 		size  uint64
 		bSize uint64 //bucketSize
@@ -60,6 +37,9 @@ func TestNewCuckoo(t *testing.T) {
 		{uint64(math.Pow(2, 4)), uint64(Factor * math.Pow(2, 4))},
 		{uint64(math.Pow(2, 8)), uint64(Factor * math.Pow(2, 8))},
 		{uint64(math.Pow(2, 16)), uint64(Factor * math.Pow(2, 16))},
+		//{uint64(math.Pow(2, 4)), uint64(FindBucketSize(uint64(math.Pow(2, 4))) * math.Pow(2, 4))},
+		//{uint64(math.Pow(2, 8)), uint64(FindBucketSize(uint64(math.Pow(2, 8))) * math.Pow(2, 8))},
+		//{uint64(math.Pow(2, 16)), uint64(FindBucketSize(uint64(math.Pow(2, 16))) * math.Pow(2, 16))},
 	}
 
 	for _, tt := range cuckooTests {
@@ -71,44 +51,39 @@ func TestNewCuckoo(t *testing.T) {
 }
 
 func TestInsertAndGetHashIdx(t *testing.T) {
-	seeds := makeSeeds()
-
 	cuckoo := NewCuckoo(test_n, seeds)
-	data := genBytes(int(test_n))
 	errCount := 0
 
 	//test Insert
-	for _, item := range data {
+	/*
+		counter := 0
+		starttime := time.Now()
+	*/
+	for i, item := range testData {
 		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
 		}
+		/*
+			if i%1000000 == 0 {
+				counter++
+				t.Logf("inserted %dmillion in %v", counter, time.Since(starttime))
+			}
+		*/
 	}
 
-	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, stashSize: %d, items on stash: %d\n",
-		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, len(cuckoo.stash), stashOccupation(cuckoo))
+	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d",
+		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount)
 
 	//test GetHashIdx
-	for _, item := range data {
-		idx, found := cuckoo.GetHashIdx(item)
+	for _, item := range testData {
+		hIdx, found := cuckoo.GetHashIdx(item)
 		if !found {
-			t.Errorf("Cuckoo GetHashIdx, item: %s not inserted.", string(item[:]))
+			t.Fatalf("Cuckoo GetHashIdx, item: %v not inserted.", item[:])
 		}
 
-		if idx != StashHidx {
-			bIdx := cuckoo.bucketIndex(cuckoo.hash(item)[idx])
-			if !bytes.Equal(cuckoo.buckets[bIdx].item, item) {
-				t.Errorf("Cuckoo GetHashIdx, hashIdx not correct for item: %s", string(item[:]))
-			}
-		} else {
-			found = false
-			for _, v := range cuckoo.stash {
-				if bytes.Equal(v.item, item) {
-					found = true
-				}
-			}
-			if !found {
-				t.Errorf("Cuckoo GetHashIdx, hashIdx is StashHidx but not found in stash for item: %s", string(item[:]))
-			}
+		bIdx := cuckoo.BucketIndices(item)[hIdx]
+		if !bytes.Equal(cuckoo.buckets[bIdx].item, item) {
+			t.Fatalf("Cuckoo GetHashIdx, hashIdx not correct for item: %v, with hIdx: %d, item : %v", item[:], hIdx, cuckoo.buckets[bIdx].item)
 		}
 	}
 }
@@ -116,11 +91,17 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
 	bench_cuckoo = NewCuckoo(bench_n, seeds)
-	bench_data = genBytes(int(bench_n))
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		bench_cuckoo.Insert(bench_data[i%int(bench_n)])
+		bench_cuckoo.Insert(benchData[i%int(bench_n)])
+	}
+}
+
+func BenchmarkBucketIndicesPipeline(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bench_cuckoo.BucketIndices(benchData[i%int(bench_n)])
 	}
 }
 
@@ -129,7 +110,7 @@ func BenchmarkCuckooGetHashIdx(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		bench_cuckoo.GetHashIdx(bench_data[i%int(bench_n)])
+		bench_cuckoo.GetHashIdx(benchData[i%int(bench_n)])
 	}
 }
 
@@ -138,7 +119,8 @@ func BenchmarkCuckooExists(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		bench_cuckoo.Exists(bench_data[i%int(bench_n)])
+		d := benchData[i%int(bench_n)]
+		bench_cuckoo.Exists(d, bench_cuckoo.BucketIndices(d))
 	}
 }
 
@@ -151,15 +133,4 @@ func genBytes(n int) [][]byte {
 	}
 
 	return data
-}
-
-func stashOccupation(c *Cuckoo) int {
-	n := 0
-	for _, v := range c.stash {
-		if len(v.item) > 0 {
-			n += 1
-		}
-	}
-
-	return n
 }

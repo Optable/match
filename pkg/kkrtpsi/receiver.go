@@ -123,9 +123,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
 		var remoteHashtables = make([]map[uint64]bool, cuckoo.Nhash)
-		var remoteStashes = make([]map[uint64]bool, cuckooHashTable.StashSize())
 		var buckets = make([]chan uint64, cuckoo.Nhash)
-		var stashes = make([]chan uint64, cuckooHashTable.StashSize())
 
 		for i := range remoteHashtables {
 			var u uint64
@@ -144,22 +142,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			close(buckets[i])
 		}
 
-		// read stashSize number of stash of encoded remote IDs
-		for i := range remoteStashes {
-			var u uint64
-			// read encoded id and insert to map.
-			remoteStashes[i] = make(map[uint64]bool, remoteN)
-			stashes[i] = make(chan uint64, remoteN)
-			for j := int64(0); j < remoteN; j++ {
-				if err := npsi.HashRead(r.rw, &u); err != nil {
-					return err
-				}
-
-				stashes[i] <- u
-			}
-			close(stashes[i])
-		}
-
 		for i := range remoteHashtables {
 			wg.Add(1)
 			go func(i int) {
@@ -170,17 +152,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}(i)
 		}
 
-		for i := range remoteStashes {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				for encoded := range stashes[i] {
-					remoteStashes[i][encoded] = true
-				}
-			}(i)
-		}
-
-		hasher, err := hash.New(hash.Highway, seeds[0])
+		hasher, err := hash.New(hash.HighwayMinio, seeds[0])
 		if err != nil {
 			return err
 		}
@@ -194,26 +166,18 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		wg.Wait()
 
 		// intersect
-		localStash := cuckooHashTable.Stash()
 		localBucket := cuckooHashTable.Bucket()
-		bucketSize := cuckooHashTable.BucketSize()
 
-		for idx, value := range localStash {
-			// compare oprf output to every encoded in remoteStashes at index i
-			if remoteStashes[idx][local[idx+bucketSize]] {
-				intersected = append(intersected, value.GetItem())
-				// dedup
-				// how?
-			}
-		}
-
-		for key, value := range localBucket {
+		for key := range localBucket {
 			// compare oprf output to every encoded in remoteHashTable at hIdx
-			hIdx := value.GetHashIdx()
-			if remoteHashtables[hIdx][local[value.GetBucketIdx()]] {
-				intersected = append(intersected, value.GetItem())
-				// dedup
-				delete(localBucket, key)
+			value := localBucket[key]
+			if value != nil {
+				hIdx := value.GetHashIdx()
+				if remoteHashtables[hIdx][local[value.GetBucketIdx()]] {
+					intersected = append(intersected, value.GetItem())
+					// dedup
+					localBucket[uint64(key)] = nil
+				}
 			}
 		}
 
