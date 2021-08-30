@@ -80,10 +80,8 @@ func (ext imprvIKNPNCO) Send(messages [][][]byte, rw io.ReadWriter) (err error) 
 			return err
 		}
 
-		q[col], err = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
-		if err != nil {
-			return err
-		}
+		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
+
 		if s[col] == 0 {
 			q[col], err = util.XorBytes(u, q[col])
 			if err != nil {
@@ -172,16 +170,12 @@ func (ext imprvIKNPNCO) Receive(choices []uint8, messages [][]byte, rw io.ReadWr
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		u, err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
-		if err != nil {
-			return err
-		}
+		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+
 		t[col], _ = util.XorBytes(d[col], u)
 
-		u, err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-		if err != nil {
-			return err
-		}
+		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
+
 		u, _ = util.XorBytes(u, t[col])
 
 		// send w

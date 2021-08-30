@@ -51,7 +51,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
-	var hashedIds = make([]hashable, n)
+	var hashedIds = make(chan hashable)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	// for cuckoo hashing parameters agreement.
@@ -79,12 +79,13 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// exhaust local ids, and precompute all potential
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
-		cuckooHashTable := cuckoo.NewCuckoo(uint64(remoteN), seeds)
-		var i = 0
-		for id := range identifiers {
-			hashedIds[i] = hashable{identifier: id, bucketIdx: cuckooHashTable.BucketIndices(id)}
-			i++
-		}
+		go func() {
+			cuckooHashTable := cuckoo.NewCuckoo(uint64(remoteN), seeds)
+			for id := range identifiers {
+				hashedIds <- hashable{identifier: id, bucketIdx: cuckooHashTable.BucketIndices(id)}
+			}
+			close(hashedIds)
+		}()
 
 		return nil
 	}
@@ -131,9 +132,9 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		var wg sync.WaitGroup
 		var errBus = make(chan error)
 
-		for idx, hash := range hashedIds {
+		for hash := range hashedIds {
 			wg.Add(1)
-			go func(idx int, hash hashable) {
+			go func(hash hashable) {
 				defer wg.Done()
 				// encode identifiers that are potentially stored in receiver's cuckoo hash table
 				// in any of the cuckoo.Nhash bukcet index and store it.
@@ -145,7 +146,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 					hashtable[hIdx] <- hasher.Hash64(encoded)
 				}
-			}(idx, hash)
+			}(hash)
 		}
 
 		// Wait for all encode to complete.

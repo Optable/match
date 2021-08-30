@@ -70,10 +70,7 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			return err
 		}
 
-		q[col], err = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
-		if err != nil {
-			return err
-		}
+		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
 
 		q[col], _ = util.XorBytes(util.AndByte(s[col], u), q[col])
 	}
@@ -135,15 +132,10 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range t {
-		t[col], err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-		if err != nil {
-			return err
-		}
+		t[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
 
-		u, err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
-		if err != nil {
-			return err
-		}
+		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+
 		u, err = util.XorBytes(u, t[col])
 		if err != nil {
 			return err

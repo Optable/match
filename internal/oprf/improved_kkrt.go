@@ -13,6 +13,7 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 	"time"
@@ -55,6 +56,7 @@ func NewImprovedKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 
 // Send returns the OPRF keys
 func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
+	start := time.Now()
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
 	if _, err = ext.prng.Read(sk); err != nil {
@@ -78,6 +80,8 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 		return nil, err
 	}
 
+	fmt.Println("Received ", ext.k, " base OTs in: ", time.Since(start))
+
 	// receive masked columns u
 	u := make([]byte, ext.m)
 	q := make([][]byte, ext.k)
@@ -86,15 +90,11 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 			return nil, err
 		}
 
-		q[col], err = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
-		if err != nil {
-			return nil, err
-		}
-
-		q[col], _ = util.XorBytes(util.AndByte(s[col], u), q[col])
+		q[col], _ = util.XorBytes(util.AndByte(s[col], u), crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m))
 	}
 
 	q = util.Transpose(q)
+	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
 
 	// store oprf keys
 	keys = make([]Key, len(q))
@@ -117,13 +117,17 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		return nil, err
 	}
 
-	// compute code word using pseudorandom code on choice stirng r
-	d := make([][]byte, ext.m)
-	for row := range d {
-		d[row] = crypto.PseudorandomCode(sk, ext.k, choices[row])
-	}
+	// compute code word using pseudorandom code on choice stirng r in a separate thread
+	var pseudorandomChan = make(chan [][]byte)
+	go func() {
+		d := make([][]byte, ext.m)
+		for i := 0; i < ext.m; i++ {
+			d[i] = crypto.PseudorandomCode(sk, ext.k, choices[i])
+		}
+		pseudorandomChan <- util.Transpose(d)
+	}()
 
-	d = util.Transpose(d)
+	// Receive pseudorandom msg from bitSliceChan
 
 	// sample k x k bit mtrix
 	seeds, err := util.SampleRandomBitMatrix(ext.prng, 2*ext.k, ext.k)
@@ -143,21 +147,15 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		return nil, err
 	}
 
+	d := <-pseudorandomChan
+
 	t = make([][]byte, ext.k)
 	var u = make([]byte, ext.m)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		t[col], err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-		if err != nil {
-			return nil, err
-		}
-
-		u, err = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
-		if err != nil {
-			return nil, err
-		}
-		u, _ = util.XorBytes(t[col], u)
+		t[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
+		u, _ = util.XorBytes(t[col], crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m))
 		u, _ = util.XorBytes(u, d[col])
 
 		// send u

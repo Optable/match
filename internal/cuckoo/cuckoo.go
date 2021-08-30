@@ -24,9 +24,8 @@ const (
 // the hash function used to compute which bucket index
 // the item is inserted in.
 type value struct {
-	item      []byte
-	hIdx      uint8
-	bucketIdx uint64
+	item []byte
+	hIdx uint8
 }
 
 func (v *value) empty() bool {
@@ -143,7 +142,7 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 
 		if c.buckets[bIdx].empty() {
 			// this is a free slot
-			c.buckets[bIdx] = &value{item, uint8(hIdx), bIdx}
+			c.buckets[bIdx] = &value{item, uint8(hIdx)}
 			return true
 		}
 	}
@@ -160,7 +159,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 		evictedBIdx := bucketIndices[evictedHIdx]
 		evictedItem := c.buckets[evictedBIdx]
 		// insert the item in the evicted slot
-		c.buckets[evictedBIdx] = &value{item, uint8(evictedHIdx), evictedBIdx}
+		c.buckets[evictedBIdx] = &value{item, uint8(evictedHIdx)}
 
 		evictedBucketIndices := c.BucketIndices(evictedItem.item)
 		// try to reinsert the evicted items
@@ -240,9 +239,8 @@ func (v *value) oprfInput() []byte {
 // if the bucket has nothing it in, it returns a dummy value: 255
 func (c *Cuckoo) OPRFInput() [][]byte {
 	r := make([][]byte, c.Len())
-	for i := range r {
-		r[i] = c.buckets[uint64(i)].oprfInput()
-		i++
+	for i, b := range c.buckets {
+		r[i] = b.oprfInput()
 	}
 
 	return r
@@ -254,10 +252,6 @@ func (v *value) GetItem() []byte {
 
 func (v *value) GetHashIdx() uint8 {
 	return v.hIdx
-}
-
-func (v *value) GetBucketIdx() uint64 {
-	return v.bucketIdx
 }
 
 func (c *Cuckoo) Bucket() []*value {

@@ -20,9 +20,7 @@ func findK(n int64) int {
 	case n > 4096 && n <= 65536:
 		return 440
 	// 2^20
-	case n > 65536 && n <= 1048576:
-		return 448
-	case n > 1048576:
+	case n > 65536:
 		return 448
 	default:
 		return 128
