@@ -1,33 +1,21 @@
 package oprf
 
 import (
-	"bytes"
 	"fmt"
-	"math/rand"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/ot"
+	"github.com/optable/match/internal/util"
 )
 
 var (
-	network   = "tcp"
-	address   = "127.0.0.1:"
-	baseCount = 1000000
-	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
-	choices   = genChoiceString()
+	choicesBitSet = util.SampleRandomBitSetMatrix(prng, baseCount, 64)
 )
 
-func genChoiceString() [][]byte {
-	choices := make([][]byte, baseCount)
-	for i := range choices {
-		choices[i] = make([]byte, 64)
-		prng.Read(choices[i])
-	}
-	return choices
-}
-func initOPRFReceiver(oprf OPRF, choices [][]uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
+func initOPRFReceiverBitSet(oprf OPRFBitSet, choices []*bitset.BitSet, msgBus chan<- *bitset.BitSet, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -39,12 +27,12 @@ func initOPRFReceiver(oprf OPRF, choices [][]uint8, msgBus chan<- []byte, errs c
 			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
 
-		go oprfReceiveHandler(conn, oprf, choices, msgBus, errs)
+		go oprfReceiveHandlerBitSet(conn, oprf, choices, msgBus, errs)
 	}()
 	return l.Addr().String(), nil
 }
 
-func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices [][]uint8, outBus chan<- []byte, errs chan<- error) {
+func oprfReceiveHandlerBitSet(conn net.Conn, oprf OPRFBitSet, choices []*bitset.BitSet, outBus chan<- *bitset.BitSet, errs chan<- error) {
 	defer close(outBus)
 
 	out, err := oprf.Receive(choices, conn)
@@ -57,24 +45,24 @@ func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices [][]uint8, outBus chan
 	}
 }
 
-func TestKKRT(t *testing.T) {
-	outBus := make(chan []byte)
-	keyBus := make(chan Key)
+func TestKKRTBitSet(t *testing.T) {
+	outBus := make(chan *bitset.BitSet)
+	keyBus := make(chan KeyBitSet)
 	errs := make(chan error, 5)
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewKKRTBitSet(baseCount, 448, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr, err := initOPRFReceiver(receiverOPRF, choices, outBus, errs)
+	addr, err := initOPRFReceiverBitSet(receiverOPRF, choicesBitSet, outBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewKKRTBitSet(baseCount, 448, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,6 +77,7 @@ func TestKKRT(t *testing.T) {
 		}
 
 		defer close(keyBus)
+
 		keys, err := senderOPRF.Send(conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
@@ -101,13 +90,12 @@ func TestKKRT(t *testing.T) {
 	}()
 
 	// Receive keys
-	var keys []Key
+	var keys []KeyBitSet
 	for key := range keyBus {
 		keys = append(keys, key)
 	}
-
 	// Receive msg
-	var out [][]byte
+	var out []*bitset.BitSet
 	for o := range outBus {
 		out = append(out, o)
 	}
@@ -121,7 +109,7 @@ func TestKKRT(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for %d KKRT OPRF is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for %d KKRT BitSet OPRF is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(out) == 0 {
@@ -130,18 +118,16 @@ func TestKKRT(t *testing.T) {
 
 	for i, o := range out {
 		// encode choice with key
-		enc, err := senderOPRF.Encode(keys[i], choices[i])
-		if err != nil {
-			t.Fatal(err)
-		}
+		enc := senderOPRF.Encode(keys[i], choicesBitSet[i])
 
-		if !bytes.Equal(o, enc) {
+		if !o.Equal(enc) {
 			t.Logf("choice[%d]=%v\n", i, choices[i])
 			t.Fatalf("KKRT OPRF failed, got: %v, want %v", enc, o)
 		}
 	}
 }
 
+/*
 func TestImprovedKKRT(t *testing.T) {
 	outBus := make(chan []byte)
 	keyBus := make(chan Key)
@@ -226,3 +212,4 @@ func TestImprovedKKRT(t *testing.T) {
 		}
 	}
 }
+*/

@@ -416,6 +416,13 @@ func BenchmarkSampleBitSetSlice(b *testing.B) {
 	}
 }
 
+func BenchmarkSampleBitSlice(b *testing.B) {
+	s := make([]uint8, baseCount)
+	for i := 0; i < b.N; i++ {
+		util.SampleBitSlice(r, s)
+	}
+}
+
 func BenchmarkTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := util.BitSetsToBitMatrix(bitsetMessages[0])

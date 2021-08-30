@@ -80,6 +80,31 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+// This tranpose function returns the transpose of a 2D slice of uint8
+// Due to limitations of golang, appending a series of transposed matrix
+// chunks is easiest (maybe not most efficient) when each chunk was
+// produced using a rectangular matrix of some width but height equal to
+// the original matrix. This means that reconstructing the full matrix at
+// the end is simply a matter of appending the chunks directly.
+/*
+func VerticalTranspose(matrix [][]uint8, chunkWidth int) [][]uint8 {
+	height := len(matrix)
+	width := len(matrix[0])
+	var numChunks int
+	if width % chunkWidth != 0 {
+		numChunks = width/chunkWidth + 1
+	} else {
+		numChunks = width/chunkWidth
+	}
+	chunks := make([][][]uint8, numChunks)
+
+	for i := 0, i < numChunks, i++ {
+		chunk[i] := make([][]uint8, chunkWidth)
+		for j :=
+
+	}
+}
+*/
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
 // This one iterates across the contiguous row and pulls
