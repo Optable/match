@@ -10,8 +10,8 @@ import (
 
 var (
 	bench_cuckoo *Cuckoo
-	test_n       = uint64(1e7) // 1Million
-	bench_n      = uint64(1e6) // 10 Million
+	test_n       = uint64(1e6) // 1 Million
+	bench_n      = uint64(1e6) // 1 Million
 	seeds        = makeSeeds()
 	testData     = genBytes(int(test_n))
 	benchData    = genBytes(int(bench_n))
@@ -37,9 +37,6 @@ func TestNewCuckoo(t *testing.T) {
 		{uint64(math.Pow(2, 4)), uint64(Factor * math.Pow(2, 4))},
 		{uint64(math.Pow(2, 8)), uint64(Factor * math.Pow(2, 8))},
 		{uint64(math.Pow(2, 16)), uint64(Factor * math.Pow(2, 16))},
-		//{uint64(math.Pow(2, 4)), uint64(FindBucketSize(uint64(math.Pow(2, 4))) * math.Pow(2, 4))},
-		//{uint64(math.Pow(2, 8)), uint64(FindBucketSize(uint64(math.Pow(2, 8))) * math.Pow(2, 8))},
-		//{uint64(math.Pow(2, 16)), uint64(FindBucketSize(uint64(math.Pow(2, 16))) * math.Pow(2, 16))},
 	}
 
 	for _, tt := range cuckooTests {
@@ -54,21 +51,10 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	cuckoo := NewCuckoo(test_n, seeds)
 	errCount := 0
 
-	//test Insert
-	/*
-		counter := 0
-		starttime := time.Now()
-	*/
 	for _, item := range testData {
 		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
 		}
-		/*
-			if i%1000000 == 0 {
-				counter++
-				t.Logf("inserted %dmillion in %v", counter, time.Since(starttime))
-			}
-		*/
 	}
 
 	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d",

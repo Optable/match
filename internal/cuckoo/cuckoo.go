@@ -20,6 +20,10 @@ const (
 	Factor        = 1.4
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 // a value holds the inserted item, and the index of
 // the hash function used to compute which bucket index
 // the item is inserted in.
@@ -43,10 +47,6 @@ type Cuckoo struct {
 	hashers [Nhash]hash.Hasher
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 // NewCuckoo instantiate the struct Cuckoo with a bucket of size 2 * size,
 // a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
@@ -54,7 +54,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	//bSize := max(1, uint64(FindBucketSize(size)*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
-		hashers[i], _ = hash.New(hash.HighwayMinio, s)
+		hashers[i], _ = hash.New(hash.Highway, s)
 	}
 
 	return &Cuckoo{
@@ -64,6 +64,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	}
 }
 
+// libPSI method, added for comparison
 func FindBucketSize(size uint64) float64 {
 	if size == 0 {
 		return 0
@@ -191,7 +192,7 @@ func (c *Cuckoo) onBucket(item []byte, bucketIndices [Nhash]uint64) (found bool)
 
 func (c *Cuckoo) onBucketAtIndex(item []byte, bucketIndices [Nhash]uint64) (uint8, bool) {
 	for _, bIdx := range bucketIndices {
-		if c.buckets[bIdx] != nil && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
+		if !c.buckets[bIdx].empty() && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
 			// the index for hash function is the same as the
 			// index for the bucketIndices
 			return c.buckets[bIdx].hIdx, true

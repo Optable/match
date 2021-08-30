@@ -154,7 +154,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}(i)
 		}
 
-		hasher, err := hash.New(hash.HighwayMinio, seeds[0])
+		hasher, err := hash.New(hash.Highway, seeds[0])
 		if err != nil {
 			return err
 		}
