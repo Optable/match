@@ -172,7 +172,7 @@ func TestPseudorandomGeneratorWithBlake3(t *testing.T) {
 	seed := make([]byte, 424)
 	r.Read(seed)
 	n := 212
-	p, _ := PseudorandomGeneratorWithBlake3(blake3.New(), seed, n)
+	p := PseudorandomGeneratorWithBlake3(blake3.New(), seed, n)
 	if bytes.Equal(make([]byte, n), p) {
 		t.Fatalf("pseudorandom should not be 0")
 	}

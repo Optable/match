@@ -96,7 +96,7 @@ func XorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, er
 }
 
 // H(seed, src), where H is modeled as a pseudorandom generator.
-func PseudorandomGeneratorWithBlake3(s *blake3.Hasher, seed []byte, length int) (dst []byte, err error) {
+func PseudorandomGeneratorWithBlake3(s *blake3.Hasher, seed []byte, length int) (dst []byte) {
 	// purposely allocate more random bytes to fill in the remaining bits
 	// that does not fit in a byte
 	tmp := make([]byte, (length+7)/8)
@@ -107,7 +107,7 @@ func PseudorandomGeneratorWithBlake3(s *blake3.Hasher, seed []byte, length int) 
 	d.Read(tmp)
 	// extract pseudorandom bytes to bits
 	util.ExtractBytesToBits(tmp, dst)
-	return dst[:length], nil
+	return dst[:length]
 }
 
 // aes gcm(seed, src)
