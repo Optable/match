@@ -8,6 +8,7 @@ import (
 	"github.com/cespare/xxhash"
 	"github.com/dchest/siphash"
 	"github.com/dgryski/go-highway"
+	"github.com/minio/highwayhash"
 	"github.com/spaolacci/murmur3"
 )
 
@@ -18,6 +19,7 @@ const (
 	Murmur3
 	XX
 	Highway
+	HighwayMinio
 )
 
 var (
@@ -58,6 +60,8 @@ func New(t int, salt []byte) (Hasher, error) {
 		return NewXXHasher(salt)
 	case Highway:
 		return NewHighwayHasher(salt)
+	case HighwayMinio:
+		return NewHighwayHasherMinio(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
@@ -156,4 +160,20 @@ func NewHighwayHasher(salt []byte) (hw, error) {
 func (h hw) Hash64(p []byte) uint64 {
 	// prepend the salt in m and then Sum
 	return highway.Hash(h.key, p)
+}
+
+type hwMinio struct {
+	salt []byte
+}
+
+func NewHighwayHasherMinio(salt []byte) (hwMinio, error) {
+	if len(salt) != SaltLength {
+		return hwMinio{}, ErrSaltLengthMismatch
+	}
+
+	return hwMinio{salt: salt}, nil
+}
+
+func (h hwMinio) Hash64(p []byte) uint64 {
+	return highwayhash.Sum64(p, h.salt)
 }
