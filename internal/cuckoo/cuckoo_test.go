@@ -10,7 +10,7 @@ import (
 
 var (
 	bench_cuckoo *Cuckoo
-	test_n       = uint64(1e6) // 1 Million
+	test_n       = uint64(1e7) // 1 Million
 	bench_n      = uint64(1e6) // 1 Million
 	seeds        = makeSeeds()
 	testData     = genBytes(int(test_n))
