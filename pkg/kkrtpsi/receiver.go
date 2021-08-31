@@ -172,12 +172,12 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		for key, value := range localBucket {
 			// compare oprf output to every encoded in remoteHashTable at hIdx
-			if value != nil {
+			if !value.Empty() {
 				hIdx := value.GetHashIdx()
 				if remoteHashtables[hIdx][local[key]] {
 					intersected = append(intersected, value.GetItem())
 					// dedup
-					localBucket[uint64(key)] = nil
+					delete(remoteHashtables[hIdx], local[key])
 				}
 			}
 		}

@@ -32,15 +32,15 @@ type value struct {
 	hIdx uint8
 }
 
-func (v *value) empty() bool {
-	return v == nil
+func (v value) Empty() bool {
+	return len(v.item) == 0 && v.hIdx == 0
 }
 
 // A Cuckoo represents a 3-way Cuckoo hash table data structure
 // that contains buckets and a stash with 3 hash functions
 type Cuckoo struct {
 	//hashmap (k, v) -> k: bucket index, v: value
-	buckets []*value
+	buckets []value
 	// Total bucket count, len(bucket)
 	bucketSize uint64
 	// 3 hash functions h_0, h_1, h_2
@@ -58,7 +58,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	}
 
 	return &Cuckoo{
-		buckets:    make([]*value, bSize),
+		buckets:    make([]value, bSize),
 		bucketSize: bSize,
 		hashers:    hashers,
 	}
@@ -141,9 +141,9 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 			continue
 		}
 
-		if c.buckets[bIdx].empty() {
+		if c.buckets[bIdx].Empty() {
 			// this is a free slot
-			c.buckets[bIdx] = &value{item, uint8(hIdx)}
+			c.buckets[bIdx] = value{item, uint8(hIdx)}
 			return true
 		}
 	}
@@ -160,7 +160,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 		evictedBIdx := bucketIndices[evictedHIdx]
 		evictedItem := c.buckets[evictedBIdx]
 		// insert the item in the evicted slot
-		c.buckets[evictedBIdx] = &value{item, uint8(evictedHIdx)}
+		c.buckets[evictedBIdx] = value{item, uint8(evictedHIdx)}
 
 		evictedBucketIndices := c.BucketIndices(evictedItem.item)
 		// try to reinsert the evicted items
@@ -192,7 +192,7 @@ func (c *Cuckoo) onBucket(item []byte, bucketIndices [Nhash]uint64) (found bool)
 
 func (c *Cuckoo) onBucketAtIndex(item []byte, bucketIndices [Nhash]uint64) (uint8, bool) {
 	for _, bIdx := range bucketIndices {
-		if !c.buckets[bIdx].empty() && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
+		if !c.buckets[bIdx].Empty() && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
 			// the index for hash function is the same as the
 			// index for the bucketIndices
 			return c.buckets[bIdx].hIdx, true
@@ -211,7 +211,7 @@ func (c *Cuckoo) Exists(item []byte, bucketIndices [Nhash]uint64) (found bool) {
 func (c *Cuckoo) LoadFactor() (factor float64) {
 	occupation := 0
 	for _, v := range c.buckets {
-		if !v.empty() {
+		if !v.Empty() {
 			occupation += 1
 		}
 	}
@@ -227,7 +227,7 @@ func (c *Cuckoo) Len() uint64 {
 
 func (v *value) oprfInput() []byte {
 	// no item inserted, return dummy value
-	if v.empty() {
+	if v.Empty() {
 		return []byte{255}
 	}
 
@@ -255,9 +255,9 @@ func (v *value) GetHashIdx() uint8 {
 	return v.hIdx
 }
 
-func (c *Cuckoo) Bucket() []*value {
+func (c *Cuckoo) Bucket() []value {
 	if c.buckets != nil {
-		clone := make([]*value, len(c.buckets))
+		clone := make([]value, len(c.buckets))
 		copy(clone, c.buckets)
 		return clone
 	} else {
