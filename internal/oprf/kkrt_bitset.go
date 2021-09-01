@@ -60,8 +60,8 @@ func NewKKRTBitSet(m, k, baseOT int, ristretto bool) (OPRFBitSet, error) {
 
 // Send returns the OPRF keys
 func (o kkrtBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) {
-	// sample random 16 byte secret key for AES-128
-	sk := util.SampleBitSetSlice(o.prng, 16*8)
+	// sample random 16 byte (128 bit) secret key for AES-128
+	sk := util.SampleBitSetSlice(o.prng, 128)
 
 	// send the secret key
 	if _, err := sk.WriteTo(rw); err != nil {
@@ -96,7 +96,7 @@ func (o kkrtBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (t []*bi
 	}
 
 	// receive AES-128 secret key
-	sk := bitset.New(16 * 8)
+	sk := bitset.New(128)
 	if _, err = sk.ReadFrom(rw); err != nil {
 		return nil, err
 	}

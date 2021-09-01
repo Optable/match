@@ -65,6 +65,21 @@ func AndByte(a uint8, b []byte) (dst []byte) {
 	return
 }
 
+func AndBitSet(a bool, b *bitset.BitSet) *bitset.BitSet {
+	// Create a bitset of zeros with the appropriate length
+	// You could actually instantiate a bitset with length 0
+	// and the bitwise operations would still work but you
+	// can end up with a resultant bitset with zero length
+	// because you've performed a bitset operation with a null
+	// bitset
+	aSet := bitset.New(b.Len())
+	if a {
+		return b.Difference(aSet)
+	} else {
+		return b.Intersection(aSet)
+	}
+}
+
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
 func Transpose(matrix [][]uint8) [][]uint8 {

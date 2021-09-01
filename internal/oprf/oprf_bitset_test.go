@@ -121,31 +121,30 @@ func TestKKRTBitSet(t *testing.T) {
 		enc := senderOPRF.Encode(keys[i], choicesBitSet[i])
 
 		if !o.Equal(enc) {
-			t.Logf("choice[%d]=%v\n", i, choices[i])
+			t.Logf("choice[%d]=%v\n", i, choicesBitSet[i])
 			t.Fatalf("KKRT OPRF failed, got: %v, want %v", enc, o)
 		}
 	}
 }
 
-/*
-func TestImprovedKKRT(t *testing.T) {
-	outBus := make(chan []byte)
-	keyBus := make(chan Key)
+func TestImprovedKKRTBitSet(t *testing.T) {
+	outBus := make(chan *bitset.BitSet)
+	keyBus := make(chan KeyBitSet)
 	errs := make(chan error, 5)
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRTBitSet(baseCount, 512, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr, err := initOPRFReceiver(receiverOPRF, choices, outBus, errs)
+	addr, err := initOPRFReceiverBitSet(receiverOPRF, choicesBitSet, outBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRTBitSet(baseCount, 512, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,13 +171,13 @@ func TestImprovedKKRT(t *testing.T) {
 	}()
 
 	// Receive keys
-	var keys []Key
+	var keys []KeyBitSet
 	for key := range keyBus {
 		keys = append(keys, key)
 	}
 
 	// Receive msg
-	var out [][]byte
+	var out []*bitset.BitSet
 	for o := range outBus {
 		out = append(out, o)
 	}
@@ -192,24 +191,20 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for %d imporved KKRT OPRF is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for %d improved KKRT BitSet OPRF is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(out) == 0 {
 		t.Fatal("Improved KKRT OT failed, did not receive any messages")
 	}
 
-	for i, o := range out {
+	for i, o := range out[:baseCount] {
 		// encode choice with key
-		enc, err := senderOPRF.Encode(keys[i], choices[i])
-		if err != nil {
-			t.Fatal(err)
-		}
+		enc := senderOPRF.Encode(keys[i], choicesBitSet[i])
 
-		if !bytes.Equal(o, enc) {
-			t.Logf("choice[%d]=%v\n", i, choices[i])
+		if !o.Equal(enc) {
+			t.Logf("choice[%d]=%v\n", i, choicesBitSet[i])
 			t.Fatalf("Improved KKRT OPRF failed, got: %v, want %v", enc, o)
 		}
 	}
 }
-*/

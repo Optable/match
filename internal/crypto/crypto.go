@@ -110,6 +110,22 @@ func PseudorandomGeneratorWithBlake3(s *blake3.Hasher, seed []byte, length int) 
 	return dst[:length]
 }
 
+// H(seed, src), where H is modeled as a pseudorandom generator.
+func PseudorandomBitSetGeneratorWithBlake3(s *blake3.Hasher, seed *bitset.BitSet, length int) (dst *bitset.BitSet) {
+	// purposely allocate more random bytes to fill in the remaining bits
+	// that does not fit in a byte
+	tmp := make([]byte, (length+7)/8)
+	//dst = make([]byte, len(tmp)*8)
+	s.Reset()
+	s.Write(util.BitSetToBits(seed))
+	d := s.Digest()
+	d.Read(tmp)
+	// extract pseudorandom bytes to bits
+	dst = util.BytesToBitSet(tmp)
+	// util.ExtractBytesToBits(tmp, dst)
+	return dst
+}
+
 // aes gcm(seed, src)
 func pseudorandomGeneratorWithAESGCM(gcm cipher.AEAD, seed []byte, length int) (dst []byte, err error) {
 	seed = append(seed, bytes.Repeat(seed, (length+7)/8/len(seed)+1)...)
