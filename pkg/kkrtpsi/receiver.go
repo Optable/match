@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/optable/match/internal/cuckoo"
@@ -135,38 +134,20 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		var wg sync.WaitGroup
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
 		var remoteHashtables = make([]map[uint64]bool, cuckoo.Nhash)
-		var buckets = make([]chan uint64, cuckoo.Nhash)
 
 		for i := range remoteHashtables {
 			var u uint64
 			// read encoded id and insert
 			remoteHashtables[i] = make(map[uint64]bool)
-			buckets[i] = make(chan uint64, remoteN)
 			for j := int64(0); j < remoteN; j++ {
 				if err := npsi.HashRead(r.rw, &u); err != nil {
 					return err
 				}
-
-				buckets[i] <- u
+				remoteHashtables[i][u] = true
 			}
-			close(buckets[i])
 		}
-
-		for i := range remoteHashtables {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				for encoded := range buckets[i] {
-					remoteHashtables[i][encoded] = true
-				}
-			}(i)
-		}
-
-		// Wait for all encode to complete.
-		wg.Wait()
 
 		// intersect
 		var localOutput uint64
