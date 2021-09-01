@@ -51,7 +51,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
-	var hashedIds = make(chan hashable)
+	var hashedIds = make(chan hashable, n)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	// for cuckoo hashing parameters agreement.
