@@ -255,14 +255,16 @@ func (v *value) GetHashIdx() uint8 {
 	return v.hIdx
 }
 
-func (c *Cuckoo) Bucket() []value {
-	if c.buckets != nil {
-		clone := make([]value, len(c.buckets))
-		copy(clone, c.buckets)
-		return clone
-	} else {
-		return nil
-	}
+func (c *Cuckoo) Bucket() <-chan value {
+	var valueChan = make(chan value, c.bucketSize)
+	go func() {
+		for _, v := range c.buckets {
+			valueChan <- v
+		}
+		close(valueChan)
+	}()
+
+	return valueChan
 }
 
 func (c *Cuckoo) BucketSize() int {
