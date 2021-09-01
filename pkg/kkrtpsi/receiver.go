@@ -66,7 +66,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				cuckooHashTable.Insert(identifier)
 			}
 
-			input <- cuckooHashTable.OPRFInput()
+			var oprfInputs [][]byte
+			for in := range cuckooHashTable.OPRFInput() {
+				oprfInputs = append(oprfInputs, in)
+			}
+			input <- oprfInputs
 			close(input)
 		}()
 
@@ -116,7 +120,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
-
+		bucket := cuckooHashTable.Bucket()
 		localChan := make(chan uint64, len(oprfOutput))
 		// hash local oprf output
 		go func() {
@@ -136,7 +140,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
 		var remoteHashtables = make([]map[uint64]bool, cuckoo.Nhash)
-
 		for i := range remoteHashtables {
 			var u uint64
 			// read encoded id and insert
@@ -151,7 +154,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// intersect
 		var localOutput uint64
-		for value := range cuckooHashTable.Bucket() {
+		for value := range bucket {
 			localOutput = <-localChan
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			if !value.Empty() {
