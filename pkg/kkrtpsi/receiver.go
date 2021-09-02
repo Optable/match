@@ -139,27 +139,28 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteHashtables [cuckoo.Nhash]map[uint64]bool
+		var remoteHashtables [cuckoo.Nhash]map[uint64]struct{}
 		for i := range remoteHashtables {
 			var u uint64
 			// read encoded id and insert
-			remoteHashtables[i] = make(map[uint64]bool)
+			remoteHashtables[i] = make(map[uint64]struct{})
 			for j := int64(0); j < remoteN; j++ {
 				if err := npsi.HashRead(r.rw, &u); err != nil {
 					return err
 				}
-				remoteHashtables[i][u] = true
+				remoteHashtables[i][u] = struct{}{}
 			}
 		}
 
 		// intersect
 		var localOutput uint64
+		var exists bool
 		for value := range bucket {
 			localOutput = <-localChan
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			if !value.Empty() {
 				hIdx := value.GetHashIdx()
-				if remoteHashtables[hIdx][localOutput] {
+				if _, exists = remoteHashtables[hIdx][localOutput]; exists {
 					intersected = append(intersected, value.GetItem())
 					// dedup
 					delete(remoteHashtables[hIdx], localOutput)
