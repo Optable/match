@@ -82,7 +82,7 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	// transpose q to m x k matrix for easier row operations
-	q = util.Transpose(q)
+	q = util.ContiguousTranspose(q)
 
 	// store oprf keys
 	keys = make([]Key, len(q))
@@ -148,7 +148,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	}
 
 	// act as sender in baseOT to send k columns
-	if err = o.baseOT.Send(util.Transpose3D(baseMsgs), rw); err != nil {
+	if err = o.baseOT.Send(util.ContiguousTranspose3D(baseMsgs), rw); err != nil {
 		return nil, err
 	}
 

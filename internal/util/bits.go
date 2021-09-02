@@ -58,11 +58,11 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 func AndByte(a uint8, b []byte) (dst []byte) {
 	dst = make([]byte, len(b))
 
-	for i := range b {
-		dst[i] = a & b[i]
+	if a == 0 {
+		return dst
 	}
 
-	return
+	return b
 }
 
 func AndBitSet(a bool, b *bitset.BitSet) *bitset.BitSet {
@@ -74,10 +74,10 @@ func AndBitSet(a bool, b *bitset.BitSet) *bitset.BitSet {
 	// bitset
 	aSet := bitset.New(b.Len())
 	if a {
-		return b.Difference(aSet)
-	} else {
-		return b.Intersection(aSet)
+		return b
 	}
+
+	return aSet
 }
 
 // Transpose returns the transpose of a 2D slices of uint8
@@ -141,6 +141,28 @@ func contiguousTranspose2(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+/*
+// Cache-oblivious transpose
+// Recursive matrix transposition that
+func CacheObliviousTranspose(matrix, transposed [][]uint8, minBlock, blockHeight, blockWidth, indexHeight, indexWidth uint) {
+	if blockHeight < minBlock {
+		for row := indexHeight; row < indexHeight+blockHeight; row++ {
+			for col := indexWidth; col < indexWidth+blockWidth; col++ {
+				transposed[col][row] = matrix[row][col]
+			}
+		}
+	} else {
+		// subdivide by long side
+		if blockHeight > blockWidth {
+			CacheObliviousTranspose(matrix, transposed, minBlock, blockHeight/2, blockWidth, indexHeight, indexWidth)
+			CacheObliviousTranspose(matrix, transposed, minBlock, blockHeight/2, blockWidth, indexHeight+blockHeight/2, indexWidth)
+		} else {
+			CacheObliviousTranspose(matrix, transposed, minBlock, blockHeight, blockWidth/2, indexHeight, indexWidth)
+			CacheObliviousTranspose(matrix, transposed, minBlock, blockHeight, blockWidth/2, indexHeight, indexWidth+blockWidth/2)
+		}
+	}
+}
+*/
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
 // This is MORE efficient that the other version
@@ -205,6 +227,136 @@ func linearize2DMatrix(matrix [][]uint8) []uint8 {
 	}
 
 	return row
+}
+
+// This is basically the same as the standard transpose
+func ColumnarTranspose(matrix [][]uint8) [][]uint8 {
+	m := len(matrix)
+	n := len(matrix[0])
+	tr := make([][]uint8, n)
+
+	for i := 0; i < n; i++ {
+		tr[i] = make([]uint8, m)
+		for j := 0; j < m; j++ {
+			tr[i][j] = matrix[j][i]
+		}
+	}
+
+	return tr
+}
+
+// TODO this is not working currently!
+
+// The major failing of my last attempt at concurrent transposition
+// was that each goroutine (and there were far too many) was accessing
+// the same shared array. This meant that the cache on each core had to
+// be constantly updated as each coroutine updated their cache-local
+// version. Instead this version splits everything by column. Each
+// goroutine reads from the same shared matrix, but since nothing is
+// is changed, the local cache shouldn't need an update. Then each
+// goroutine sends the transposed row back to an ordered channel. Once
+// all transpositions are done, rows are recombined into a 2D matrix.
+func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
+	var wg sync.WaitGroup
+	m := len(matrix)
+	n := len(matrix[0])
+	tr := make([][]uint8, n)
+
+	// the optimal number of goroutines will likely vary due to
+	// hardware and array size
+	nThreads := 1 // one thread per column (likely only efficient for huge matrix)
+	// nThreads := runtime.NumCPU()
+	// nThreads := runtime.NumCPU()*2
+
+	wg.Add(nThreads)
+
+	// number of columns for which each goroutine is responsible
+	nColumns := n / nThreads
+	var extraColumns int
+
+	fmt.Println(nColumns)
+
+	// create ordered channels to store values from goroutines
+	// each channel is buffered to store the number of desired rows
+	channels := make([]chan []uint8, nThreads)
+	for i := 0; i < nThreads-1; i++ {
+		channels[i] = make(chan []uint8, nColumns)
+	}
+	// last one may have excess columns
+	channels[nThreads-1] = make(chan []uint8, nColumns+n%nThreads)
+
+	// goroutine
+	for i := 0; i < nThreads; i++ {
+		go func(i int) {
+			defer wg.Done()
+			// we need to handle excess columns which don't evenly divide among
+			// number of threads -> in this case, I just add to the last goroutine
+			// perhaps a more sophisticated division of labor would be more efficient
+			if i == nThreads {
+				extraColumns = n % nThreads
+			}
+
+			row := make([]uint8, m)
+			for c := 0; c < (nColumns + extraColumns); c++ {
+				for r := 0; r < m; r++ {
+					row[r] = matrix[r][(i*nColumns)+c]
+					fmt.Println("go", row)
+				}
+				channels[i] <- row
+			}
+			close(channels[i])
+		}(i)
+	}
+
+	// Wait until all goroutines have finished
+	wg.Wait()
+
+	// Reconstruct a transposed matrix from the channels
+	/*
+		for i, channel := range channels {
+			fmt.Println("channel", i)
+
+			var j int
+			for row := range channel {
+				tr[(i*nColumns)+j] = row
+				fmt.Println("row", j, row)
+
+				if i == nThreads-1 {
+					if j == nColumns+extraColumns-1 {
+						close(channel)
+						fmt.Println("one")
+					}
+				} else {
+					if j == nColumns-1 {
+						close(channel)
+						fmt.Println("two")
+					}
+				}
+
+				j++
+			}
+	*/
+
+	for i := 0; i < nThreads-1; i++ {
+		fmt.Println("hit 1")
+		for j := 0; j < nColumns-1; j++ {
+			tr[(i*nColumns)+j] = <-channels[i]
+		}
+	}
+	for j := 0; j < nColumns+extraColumns; j++ {
+		fmt.Println("hit 2")
+		tr[((nThreads-1)*nColumns)+j] = <-channels[nThreads-1]
+	}
+
+	for i := range matrix {
+		fmt.Println(matrix[i])
+	}
+	fmt.Println("---tr---")
+	for j := range tr {
+		fmt.Println(tr[j])
+	}
+
+	return tr
 }
 
 // Convert 1D slice into a 2D matrix with rows of desired width

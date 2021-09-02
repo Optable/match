@@ -18,9 +18,9 @@ var (
 	address        = "127.0.0.1:"
 	curve          = "P256"
 	cipherMode     = crypto.XORBlake3
-	baseCount      = 1024
+	baseCount      = 1
 	messages       = genMsg(baseCount, 2)
-	bitsetMessages = genBitSetMsg(baseCount, 2)
+	bitsetMessages = genBitSetMsg(baseCount, 4)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)
@@ -428,6 +428,23 @@ func BenchmarkTranspose(t *testing.B) {
 		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
 		tm := util.Transpose(bm)
 		ttm := util.Transpose(tm)
+		for _, y := range tm {
+			util.XorBytes(y, y)
+		}
+		bbm := util.BitMatrixToBitSets(ttm)
+		for j, x := range bbm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkConcurrentColumnarTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
+		tm := util.ConcurrentColumnarTranspose(bm)
+		ttm := util.ConcurrentColumnarTranspose(tm)
 		for _, y := range tm {
 			util.XorBytes(y, y)
 		}
