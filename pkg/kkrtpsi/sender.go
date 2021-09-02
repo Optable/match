@@ -118,7 +118,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		var hashtable = make([]chan uint64, cuckoo.Nhash)
+		var hashtable [cuckoo.Nhash]chan uint64
 
 		hasher, err := hash.New(hash.Highway, seeds[0])
 		if err != nil {

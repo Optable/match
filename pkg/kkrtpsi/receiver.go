@@ -139,7 +139,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteHashtables = make([]map[uint64]bool, cuckoo.Nhash)
+		var remoteHashtables [cuckoo.Nhash]map[uint64]bool
 		for i := range remoteHashtables {
 			var u uint64
 			// read encoded id and insert
