@@ -20,7 +20,7 @@ var (
 	cipherMode     = crypto.XORBlake3
 	baseCount      = 1
 	messages       = genMsg(baseCount, 2)
-	bitsetMessages = genBitSetMsg(baseCount, 4)
+	bitsetMessages = genBitSetMsg(baseCount, 1000000)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)

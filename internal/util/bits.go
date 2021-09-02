@@ -246,6 +246,7 @@ func ColumnarTranspose(matrix [][]uint8) [][]uint8 {
 }
 
 // TODO this is not working currently!
+// Currently it only seems to work with 1, 4 or 64 threads
 
 // The major failing of my last attempt at concurrent transposition
 // was that each goroutine (and there were far too many) was accessing
@@ -264,17 +265,18 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 
 	// the optimal number of goroutines will likely vary due to
 	// hardware and array size
-	nThreads := 1 // one thread per column (likely only efficient for huge matrix)
+	//nThreads := n // one thread per column (likely only efficient for huge matrix)
 	// nThreads := runtime.NumCPU()
 	// nThreads := runtime.NumCPU()*2
-
-	wg.Add(nThreads)
+	nThreads := 64
+	// add to quick check to ensure there are not more threads than columns
+	if n < nThreads {
+		nThreads = n
+	}
 
 	// number of columns for which each goroutine is responsible
 	nColumns := n / nThreads
 	var extraColumns int
-
-	fmt.Println(nColumns)
 
 	// create ordered channels to store values from goroutines
 	// each channel is buffered to store the number of desired rows
@@ -286,21 +288,24 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 	channels[nThreads-1] = make(chan []uint8, nColumns+n%nThreads)
 
 	// goroutine
+	//wg.Add(nThreads)
 	for i := 0; i < nThreads; i++ {
+		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			// we need to handle excess columns which don't evenly divide among
 			// number of threads -> in this case, I just add to the last goroutine
 			// perhaps a more sophisticated division of labor would be more efficient
-			if i == nThreads {
+			if i == nThreads-1 {
 				extraColumns = n % nThreads
+			} else {
+				extraColumns = 0
 			}
 
-			row := make([]uint8, m)
 			for c := 0; c < (nColumns + extraColumns); c++ {
+				row := make([]uint8, m)
 				for r := 0; r < m; r++ {
 					row[r] = matrix[r][(i*nColumns)+c]
-					fmt.Println("go", row)
 				}
 				channels[i] <- row
 			}
@@ -312,50 +317,34 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 	wg.Wait()
 
 	// Reconstruct a transposed matrix from the channels
-	/*
-		for i, channel := range channels {
-			fmt.Println("channel", i)
-
-			var j int
-			for row := range channel {
-				tr[(i*nColumns)+j] = row
-				fmt.Println("row", j, row)
-
-				if i == nThreads-1 {
-					if j == nColumns+extraColumns-1 {
-						close(channel)
-						fmt.Println("one")
-					}
-				} else {
-					if j == nColumns-1 {
-						close(channel)
-						fmt.Println("two")
-					}
-				}
-
-				j++
-			}
-	*/
-
-	for i := 0; i < nThreads-1; i++ {
-		fmt.Println("hit 1")
-		for j := 0; j < nColumns-1; j++ {
-			tr[(i*nColumns)+j] = <-channels[i]
+	for i, channel := range channels {
+		var j int
+		for row := range channel {
+			tr[(i*nColumns)+j] = row
+			j++
 		}
 	}
-	for j := 0; j < nColumns+extraColumns; j++ {
-		fmt.Println("hit 2")
-		tr[((nThreads-1)*nColumns)+j] = <-channels[nThreads-1]
-	}
 
-	for i := range matrix {
-		fmt.Println(matrix[i])
-	}
-	fmt.Println("---tr---")
-	for j := range tr {
-		fmt.Println(tr[j])
-	}
-
+	/*
+		for i := 0; i < nThreads-1; i++ {
+			for j := 0; j < nColumns-1; j++ {
+				tr[(i*nColumns)+j] = <-channels[i]
+			}
+		}
+		for j := 0; j < nColumns+extraColumns; j++ {
+			tr[((nThreads-1)*nColumns)+j] = <-channels[nThreads-1]
+		}
+	*/
+	/*
+		for i := range matrix {
+			fmt.Println(matrix[i])
+		}
+		fmt.Println("---tr---")
+		for j := range tr {
+			fmt.Println(tr[j])
+		}
+		fmt.Println("-------")
+	*/
 	return tr
 }
 
