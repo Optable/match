@@ -28,8 +28,8 @@ func init() {
 // the hash function used to compute which bucket index
 // the item is inserted in.
 type value struct {
-	item []byte
 	hIdx uint8
+	item []byte
 }
 
 func (v value) Empty() bool {
@@ -143,7 +143,7 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 
 		if c.buckets[bIdx].Empty() {
 			// this is a free slot
-			c.buckets[bIdx] = value{item, uint8(hIdx)}
+			c.buckets[bIdx] = value{uint8(hIdx), item}
 			return true
 		}
 	}
@@ -160,7 +160,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 		evictedBIdx := bucketIndices[evictedHIdx]
 		evictedItem := c.buckets[evictedBIdx]
 		// insert the item in the evicted slot
-		c.buckets[evictedBIdx] = value{item, uint8(evictedHIdx)}
+		c.buckets[evictedBIdx] = value{uint8(evictedHIdx), item}
 
 		evictedBucketIndices := c.BucketIndices(evictedItem.item)
 		// try to reinsert the evicted items

@@ -90,7 +90,9 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 			return nil, err
 		}
 
-		q[col], _ = util.XorBytes(util.AndByte(s[col], u), crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m))
+		util.InPlaceAndByte(s[col], u)
+		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
+		util.InPlaceXorBytes(u, q[col])
 	}
 
 	q = util.Transpose(q)
@@ -155,8 +157,15 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	// t^i = d^i ^ u^i
 	for col := range d {
 		t[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-		u, _ = util.XorBytes(t[col], crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m))
-		u, _ = util.XorBytes(u, d[col])
+		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+		err = util.InPlaceXorBytes(t[col], u)
+		if err != nil {
+			return nil, err
+		}
+		err = util.InPlaceXorBytes(d[col], u)
+		if err != nil {
+			return nil, err
+		}
 
 		// send u
 		if _, err = rw.Write(u); err != nil {
@@ -170,15 +179,12 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 // Encode computes and returns OPRF(k, in)
 func (o imprvKKRT) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	x, err := util.AndBytes(crypto.PseudorandomCode(k.sk, o.k, in), k.s)
+	out, err = util.AndBytes(crypto.PseudorandomCode(k.sk, o.k, in), k.s)
 	if err != nil {
 		return
 	}
 
-	t, err := util.XorBytes(k.q, x)
-	if err != nil {
-		return
-	}
+	err = util.InPlaceXorBytes(k.q, out)
 
-	return t, nil
+	return
 }

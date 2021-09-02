@@ -24,6 +24,20 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
+// Inplace XorBytes xors each byte from a with b and returns dst
+// if a and b are the same length
+func InPlaceXorBytes(a, dst []byte) error {
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := range dst {
+		dst[i] = a[i] ^ dst[i]
+	}
+
+	return nil
+}
+
 // AndBytes returns the binary and of each byte in a and b
 // if a and b are the same length
 func AndBytes(a, b []byte) (dst []byte, err error) {
@@ -41,6 +55,20 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
+// InplaceAndBytes returns the binary and of each byte in a and b
+// if a and b are the same length
+func InPlaceAndBytes(a, dst []byte) error {
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := range dst {
+		dst[i] = a[i] & dst[i]
+	}
+
+	return nil
+}
+
 func AndByte(a uint8, b []byte) (dst []byte) {
 	dst = make([]byte, len(b))
 
@@ -49,6 +77,12 @@ func AndByte(a uint8, b []byte) (dst []byte) {
 	}
 
 	return
+}
+
+func InPlaceAndByte(a uint8, dst []byte) {
+	for i := range dst {
+		dst[i] = a & dst[i]
+	}
 }
 
 // Transpose returns the transpose of a 2D slices of uint8

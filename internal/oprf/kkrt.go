@@ -158,15 +158,12 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 // Encode computes and returns OPRF(k, in)
 func (o kkrt) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	x, err := util.AndBytes(crypto.PseudorandomCode(k.sk, o.k, in), k.s)
+	out, err = util.AndBytes(crypto.PseudorandomCode(k.sk, o.k, in), k.s)
 	if err != nil {
 		return
 	}
 
-	t, err := util.XorBytes(k.q, x)
-	if err != nil {
-		return
-	}
+	err = util.InPlaceXorBytes(k.q, out)
 
-	return t, nil
+	return
 }
