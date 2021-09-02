@@ -311,3 +311,88 @@ func TestImprovedKKRTBitSetSend(t *testing.T) {
 		}
 	}
 }
+
+func TestImprovedKKRTNonTrans(t *testing.T) {
+	outBus := make(chan []byte)
+	keyBus := make(chan Key)
+	errs := make(chan error, 5)
+
+	// start timer
+	start := time.Now()
+	receiverOPRF, err := NewImprovedKKRTNonTrans(baseCount, 424, ot.Simplest, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := initOPRFReceiver(receiverOPRF, choices, outBus, errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	senderOPRF, err := NewImprovedKKRTNonTrans(baseCount, 424, ot.Simplest, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		conn, err := net.Dial(network, addr)
+		if err != nil {
+			errs <- fmt.Errorf("Cannot dial: %s", err)
+		}
+		if err != nil {
+			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
+		}
+
+		defer close(keyBus)
+		keys, err := senderOPRF.Send(conn)
+		if err != nil {
+			errs <- fmt.Errorf("Send encountered error: %s", err)
+			close(outBus)
+		}
+
+		for _, key := range keys {
+			keyBus <- key
+		}
+	}()
+
+	// Receive keys
+	var keys []Key
+	for key := range keyBus {
+		keys = append(keys, key)
+	}
+
+	// Receive msg
+	var out [][]byte
+	for o := range outBus {
+		out = append(out, o)
+	}
+
+	//errors?
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	default:
+	}
+
+	// stop timer
+	end := time.Now()
+	t.Logf("Time taken for %d improved KKRT Non Trans OPRF is: %v\n", baseCount, end.Sub(start))
+
+	// verify if the received msgs are correct:
+	if len(out) == 0 {
+		t.Fatal("Improved KKRT Non Trans OT failed, did not receive any messages")
+	}
+
+	for i, o := range out {
+		// encode choice with key
+		enc, err := senderOPRF.Encode(keys[i], choices[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !bytes.Equal(o, enc) {
+			t.Logf("choice[%d]=%v\n", i, choices[i])
+			t.Fatalf("Improved KKRT OPRF failed, got: %v, want %v", enc, o)
+		}
+	}
+}

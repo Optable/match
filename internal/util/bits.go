@@ -28,6 +28,34 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
+func XorByteRowCol(a []byte, b [][]byte, index int) (dst []byte, err error) {
+	n := len(b)
+	if n != len(a) {
+		return nil, ErrByteLengthMissMatch
+	}
+
+	dst = make([]byte, n)
+
+	for i := 0; i < n; i++ {
+		dst[i] = a[i] ^ b[i][index]
+	}
+
+	return
+}
+
+func XorByteRowColInPlace(a []byte, b [][]byte, index int) (err error) {
+	n := len(b)
+	if n != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := 0; i < n; i++ {
+		a[i] = a[i] ^ b[i][index]
+	}
+
+	return
+}
+
 // XORs two BitSets if they are the same length
 func XorBitsets(a, b *bitset.BitSet) (*bitset.BitSet, error) {
 	n := b.Len()
@@ -78,6 +106,14 @@ func AndBitSet(a bool, b *bitset.BitSet) *bitset.BitSet {
 	}
 
 	return aSet
+}
+
+func GetCol(matrix [][]uint8, index int) []uint8 {
+	col := make([]uint8, len(matrix))
+	for i := range matrix {
+		col[i] = matrix[i][index]
+	}
+	return col
 }
 
 // Transpose returns the transpose of a 2D slices of uint8
