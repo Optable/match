@@ -131,6 +131,26 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
+// This transpose iterates in reserve order and is less efficient
+/*
+func Transpose(matrix [][]uint8) [][]uint8 {
+	n := len(matrix)
+	tr := make([][]uint8, len(matrix[0]))
+
+	for row := range tr {
+		tr[row] = make([]uint8, n)
+	}
+
+	for col := range tr[0] {
+		for row := range tr {
+			tr[row][col] = matrix[col][row]
+
+		}
+	}
+	return tr
+}
+*/
+
 // This tranpose function returns the transpose of a 2D slice of uint8
 // Due to limitations of golang, appending a series of transposed matrix
 // chunks is easiest (maybe not most efficient) when each chunk was
@@ -291,8 +311,8 @@ func ColumnarTranspose(matrix [][]uint8) [][]uint8 {
 // version. Instead this version splits everything by column. Each
 // goroutine reads from the same shared matrix, but since nothing is
 // is changed, the local cache shouldn't need an update. Then each
-// goroutine sends the transposed row back to an ordered channel. Once
-// all transpositions are done, rows are recombined into a 2D matrix.
+// goroutine sends the transposed row back to a channel in an ordered set.
+// Once all transpositions are done, rows are recombined into a 2D matrix.
 func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 	var wg sync.WaitGroup
 	m := len(matrix)
@@ -304,7 +324,7 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 	//nThreads := n // one thread per column (likely only efficient for huge matrix)
 	// nThreads := runtime.NumCPU()
 	// nThreads := runtime.NumCPU()*2
-	nThreads := 64
+	nThreads := 12
 	// add to quick check to ensure there are not more threads than columns
 	if n < nThreads {
 		nThreads = n
@@ -312,7 +332,6 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 
 	// number of columns for which each goroutine is responsible
 	nColumns := n / nThreads
-	var extraColumns int
 
 	// create ordered channels to store values from goroutines
 	// each channel is buffered to store the number of desired rows
@@ -328,14 +347,14 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 	for i := 0; i < nThreads; i++ {
 		wg.Add(1)
 		go func(i int) {
+			//	fmt.Println("goroutine", i, "created")
 			defer wg.Done()
 			// we need to handle excess columns which don't evenly divide among
 			// number of threads -> in this case, I just add to the last goroutine
 			// perhaps a more sophisticated division of labor would be more efficient
+			var extraColumns int
 			if i == nThreads-1 {
 				extraColumns = n % nThreads
-			} else {
-				extraColumns = 0
 			}
 
 			for c := 0; c < (nColumns + extraColumns); c++ {
@@ -343,8 +362,10 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 				for r := 0; r < m; r++ {
 					row[r] = matrix[r][(i*nColumns)+c]
 				}
+
 				channels[i] <- row
 			}
+
 			close(channels[i])
 		}(i)
 	}
@@ -361,26 +382,6 @@ func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
 		}
 	}
 
-	/*
-		for i := 0; i < nThreads-1; i++ {
-			for j := 0; j < nColumns-1; j++ {
-				tr[(i*nColumns)+j] = <-channels[i]
-			}
-		}
-		for j := 0; j < nColumns+extraColumns; j++ {
-			tr[((nThreads-1)*nColumns)+j] = <-channels[nThreads-1]
-		}
-	*/
-	/*
-		for i := range matrix {
-			fmt.Println(matrix[i])
-		}
-		fmt.Println("---tr---")
-		for j := range tr {
-			fmt.Println(tr[j])
-		}
-		fmt.Println("-------")
-	*/
 	return tr
 }
 
