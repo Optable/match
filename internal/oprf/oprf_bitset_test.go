@@ -13,6 +13,13 @@ import (
 
 var (
 	choicesBitSet = util.SampleRandomBitSetMatrix(prng, baseCount, 64)
+	// the following are for encode benchmark
+	encoderOPRF, _ = NewImprovedKKRTBitSet(baseCount, 512, ot.Simplest, false)
+	sk             = util.SampleBitSetSlice(prng, baseCount)
+	s              = util.SampleBitSetSlice(prng, baseCount)
+	q              = util.SampleBitSetSlice(prng, baseCount)
+	key            = KeyBitSet{sk: sk, s: s, q: q}
+	in             = util.SampleBitSetSlice(prng, baseCount)
 )
 
 func initOPRFReceiverBitSet(oprf OPRFBitSet, choices []*bitset.BitSet, msgBus chan<- *bitset.BitSet, errs chan<- error) (string, error) {
@@ -45,7 +52,7 @@ func oprfReceiveHandlerBitSet(conn net.Conn, oprf OPRFBitSet, choices []*bitset.
 	}
 }
 
-func TestKKRTBitSet(t *testing.T) {
+func testKKRTBitSet(t *testing.T) {
 	outBus := make(chan *bitset.BitSet)
 	keyBus := make(chan KeyBitSet)
 	errs := make(chan error, 5)
@@ -206,5 +213,12 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 			t.Logf("choice[%d]=%v\n", i, choicesBitSet[i])
 			t.Fatalf("Improved KKRT OPRF failed, got: %v, want %v", enc, o)
 		}
+	}
+}
+
+func BenchmarkImprvKKRTEncode(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		fmt.Println(i)
+		encoderOPRF.Encode(key, in)
 	}
 }

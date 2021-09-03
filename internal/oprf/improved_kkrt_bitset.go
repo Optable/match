@@ -88,7 +88,7 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 		q[col] = util.AndBitSet(s.Test(uint(col)), u).SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
 	}
 
-	q = util.BitMatrixToBitSets(util.ContiguousTranspose(util.BitSetsToBitMatrix(q)))
+	q = util.ConcurrentColumnarBitSetTranspose(q)
 	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
 
 	// store oprf keys
@@ -119,7 +119,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		for i := 0; i < ext.m; i++ {
 			d[i] = crypto.PseudorandomCodeBitSet(sk, ext.k, choices[i])
 		}
-		pseudorandomChan <- util.BitMatrixToBitSets(util.ContiguousTranspose(util.BitSetsToBitMatrix(d)))
+		pseudorandomChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
 
 	// Receive pseudorandom msg from bitSliceChan
@@ -156,7 +156,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		}
 	}
 
-	return util.BitMatrixToBitSets(util.ContiguousTranspose(util.BitSetsToBitMatrix(t))), nil
+	return util.ConcurrentColumnarBitSetTranspose(t), nil
 }
 
 // Encode computes and returns OPRF(k, in)

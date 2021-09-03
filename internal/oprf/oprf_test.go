@@ -14,7 +14,7 @@ import (
 var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
-	baseCount = 1000000
+	baseCount = 10000000
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	choices   = genChoiceString()
 )
@@ -57,7 +57,7 @@ func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices [][]uint8, outBus chan
 	}
 }
 
-func TestKKRT(t *testing.T) {
+func testKKRT(t *testing.T) {
 	outBus := make(chan []byte)
 	keyBus := make(chan Key)
 	errs := make(chan error, 5)
@@ -149,7 +149,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRT(baseCount, 512, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRT(baseCount, 512, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestImprovedKKRT(t *testing.T) {
 	}
 }
 
-func TestImprovedKKRTBitSetSend(t *testing.T) {
+func testImprovedKKRTBitSetSend(t *testing.T) {
 	outBus := make(chan []byte)
 	keyBus := make(chan Key)
 	errs := make(chan error, 5)
@@ -312,7 +312,7 @@ func TestImprovedKKRTBitSetSend(t *testing.T) {
 	}
 }
 
-func TestImprovedKKRTNonTrans(t *testing.T) {
+func testImprovedKKRTNonTrans(t *testing.T) {
 	outBus := make(chan []byte)
 	keyBus := make(chan Key)
 	errs := make(chan error, 5)

@@ -93,7 +93,8 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 		q[col], _ = util.XorBytes(util.AndByte(s[col], u), crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m))
 	}
 
-	q = util.Transpose(q)
+	//q = Transpose(q)
+	q = util.ConcurrentColumnarTranspose(q)
 	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
 
 	// store oprf keys
@@ -124,7 +125,8 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		for i := 0; i < ext.m; i++ {
 			d[i] = crypto.PseudorandomCode(sk, ext.k, choices[i])
 		}
-		pseudorandomChan <- util.Transpose(d)
+		//pseudorandomChan <- util.Transpose(d)
+		pseudorandomChan <- util.ConcurrentColumnarTranspose(d)
 	}()
 
 	// Receive pseudorandom msg from bitSliceChan
@@ -164,7 +166,8 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		}
 	}
 
-	return util.Transpose(t), nil
+	//return util.Transpose(t), nil
+	return util.ConcurrentColumnarTranspose(t), nil
 }
 
 // Encode computes and returns OPRF(k, in)
