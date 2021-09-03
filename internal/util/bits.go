@@ -301,9 +301,6 @@ func ColumnarTranspose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// TODO this is not working currently!
-// Currently it only seems to work with 1, 4 or 64 threads
-
 // The major failing of my last attempt at concurrent transposition
 // was that each goroutine (and there were far too many) was accessing
 // the same shared array. This meant that the cache on each core had to
@@ -755,7 +752,7 @@ func BitSliceToBitSets(b []byte, width int) []*bitset.BitSet {
 }
 
 // m x k to k x m
-func transposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
+func TransposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
 	m := uint(len(bmat))
 	k := bmat[0].Len()
 
@@ -776,7 +773,7 @@ func transposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
 	return transposed
 }
 
-func transposeBitSets2(bmat []*bitset.BitSet) []*bitset.BitSet {
+func TransposeBitSets2(bmat []*bitset.BitSet) []*bitset.BitSet {
 	m := uint(len(bmat))
 	k := bmat[0].Len()
 
@@ -795,6 +792,80 @@ func transposeBitSets2(bmat []*bitset.BitSet) []*bitset.BitSet {
 		}
 	}
 	return transposed
+}
+
+func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+	var wg sync.WaitGroup
+	m := len(matrix)
+	n := int(matrix[0].Len())
+	tr := make([]*bitset.BitSet, n)
+
+	// the optimal number of goroutines will likely vary due to
+	// hardware and array size
+	//nThreads := n // one thread per column (likely only efficient for huge matrix)
+	// nThreads := runtime.NumCPU()
+	// nThreads := runtime.NumCPU()*2
+	nThreads := 12
+	// add to quick check to ensure there are not more threads than columns
+	if n < nThreads {
+		nThreads = n
+	}
+
+	// number of columns for which each goroutine is responsible
+	nColumns := n / nThreads
+
+	// create ordered channels to store values from goroutines
+	// each channel is buffered to store the number of desired rows
+	channels := make([]chan *bitset.BitSet, nThreads)
+	for i := 0; i < nThreads-1; i++ {
+		channels[i] = make(chan *bitset.BitSet, nColumns)
+	}
+	// last one may have excess columns
+	channels[nThreads-1] = make(chan *bitset.BitSet, nColumns+n%nThreads)
+
+	// goroutine
+	//wg.Add(nThreads)
+	for i := 0; i < nThreads; i++ {
+		wg.Add(1)
+		go func(i int) {
+			//	fmt.Println("goroutine", i, "created")
+			defer wg.Done()
+			// we need to handle excess columns which don't evenly divide among
+			// number of threads -> in this case, I just add to the last goroutine
+			// perhaps a more sophisticated division of labor would be more efficient
+			var extraColumns int
+			if i == nThreads-1 {
+				extraColumns = n % nThreads
+			}
+
+			for c := 0; c < (nColumns + extraColumns); c++ {
+				row := bitset.New(uint(m))
+				for r := 0; r < m; r++ {
+					if matrix[r].Test(uint((i * nColumns) + c)) {
+						row.Set(uint(r))
+					}
+				}
+
+				channels[i] <- row
+			}
+
+			close(channels[i])
+		}(i)
+	}
+
+	// Wait until all goroutines have finished
+	wg.Wait()
+
+	// Reconstruct a transposed matrix from the channels
+	for i, channel := range channels {
+		var j int
+		for row := range channel {
+			tr[(i*nColumns)+j] = row
+			j++
+		}
+	}
+
+	return tr
 }
 
 // expand BitSet matrix to make it square

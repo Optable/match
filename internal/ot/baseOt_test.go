@@ -457,6 +457,21 @@ func BenchmarkConcurrentColumnarTranspose(t *testing.B) {
 	}
 }
 
+func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.ConcurrentColumnarBitSetTranspose(bitsetMessages[0])
+		ttm := util.ConcurrentColumnarBitSetTranspose(tm)
+		for _, y := range tm {
+			y.SymmetricDifference(y)
+		}
+		for j, x := range ttm {
+			if !x.Equal(bitsetMessages[0][j]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
 func BenchmarkTransposeBitSetXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
@@ -675,13 +690,14 @@ func BenchmarkContiguousParallelTranspose3(t *testing.B) {
 		util.XorBytes(ttm, ttm)
 	}
 }
-
+*/
 func BenchmarkTransposeBitSet(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.TransposeBitSets(bitsetMessages[0])
 		ttm := util.TransposeBitSets(tm)
 		for _, y := range tm {
-			util.XorBitsets(y, y)
+			y.SymmetricDifference(y)
+			//util.XorBitsets(y, y)
 		}
 		for j, x := range ttm {
 			if !x.Equal(bitsetMessages[0][j]) {
@@ -696,7 +712,8 @@ func BenchmarkTransposeBitSet2(t *testing.B) {
 		tm := util.TransposeBitSets2(bitsetMessages[0])
 		ttm := util.TransposeBitSets2(tm)
 		for _, y := range tm {
-			util.XorBitsets(y, y)
+			y.SymmetricDifference(y)
+			//util.XorBitsets(y, y)
 		}
 		for j, x := range ttm {
 			if !x.Equal(bitsetMessages[0][j]) {
@@ -705,7 +722,8 @@ func BenchmarkTransposeBitSet2(t *testing.B) {
 		}
 	}
 }
-*/
+
+/*
 func BenchmarkContiguousBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ContiguousBitSetTranspose(bitsetMessages[0])
@@ -735,7 +753,7 @@ func BenchmarkContiguousBitSetTranspose2(t *testing.B) {
 		}
 	}
 }
-
+*/
 /*
 func BenchmarkContiguousSparseBitSetTranspose2(t *testing.B) {
 	for i := 0; i < t.N; i++ {
