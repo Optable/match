@@ -461,12 +461,38 @@ func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ConcurrentColumnarBitSetTranspose(bitsetMessages[0])
 		ttm := util.ConcurrentColumnarBitSetTranspose(tm)
-		for _, y := range tm {
-			y.SymmetricDifference(y)
+		for j, y := range tm {
+			y.InPlaceSymmetricDifference(tm[j])
 		}
-		for j, x := range ttm {
-			if !x.Equal(bitsetMessages[0][j]) {
+		for k, x := range ttm {
+			if !x.Equal(bitsetMessages[0][k]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+// This is compare speeds if we don't actually transpose but instead just process a column as a column
+func BenchmarkNonTransposeXOR(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := bitsetMessages[0]
+		bmLen := bm[0].Len()
+		bbm := bitsetMessages[0]
+		bbmLen := bbm[0].Len()
+		for j, y := range bm {
+			for k := uint(0); k < bmLen; k++ {
+				bmSet := y.Test(k)
+				bbmSet := bbm[k].Test(bbmLen - k - 1)
+				if bmSet != bbmSet {
+					bm[j].Set(k)
+				} else {
+					bm[j].Clear(k)
+				}
+			}
+		}
+		for k, x := range bitsetMessages[0] {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("No transpose, so original message didn't match with itself.")
 			}
 		}
 	}
@@ -699,8 +725,8 @@ func BenchmarkTransposeBitSet(t *testing.B) {
 			y.SymmetricDifference(y)
 			//util.XorBitsets(y, y)
 		}
-		for j, x := range ttm {
-			if !x.Equal(bitsetMessages[0][j]) {
+		for k, x := range ttm {
+			if !x.Equal(bitsetMessages[0][k]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
 			}
 		}
@@ -711,12 +737,12 @@ func BenchmarkTransposeBitSet2(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.TransposeBitSets2(bitsetMessages[0])
 		ttm := util.TransposeBitSets2(tm)
-		for _, y := range tm {
-			y.SymmetricDifference(y)
+		for j, y := range tm {
+			y.SymmetricDifference(ttm[j])
 			//util.XorBitsets(y, y)
 		}
-		for j, x := range ttm {
-			if !x.Equal(bitsetMessages[0][j]) {
+		for k, x := range ttm {
+			if !x.Equal(bitsetMessages[0][k]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
 			}
 		}
