@@ -19,7 +19,7 @@ var (
 	curve          = "P256"
 	cipherMode     = crypto.XORBlake3
 	baseCount      = 2
-	messages       = genMsg(baseCount, 2)
+	messages       = genMsg(baseCount, 1000000)
 	bitsetMessages = genBitSetMsg(baseCount, 1000000)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
@@ -442,16 +442,17 @@ func BenchmarkTranspose(t *testing.B) {
 
 func BenchmarkConcurrentColumnarTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
+		bm := messages[0]
 		tm := util.ConcurrentColumnarTranspose(bm)
 		ttm := util.ConcurrentColumnarTranspose(tm)
 		for _, y := range tm {
 			util.XorBytes(y, y)
 		}
-		bbm := util.BitMatrixToBitSets(ttm)
-		for j, x := range bbm {
-			if !x.Equal(bitsetMessages[0][j]) {
-				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+		for j, x := range ttm {
+			for k, e := range x {
+				if e != messages[0][j][k] {
+					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+				}
 			}
 		}
 	}
@@ -473,7 +474,7 @@ func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 }
 
 // This is compare speeds if we don't actually transpose but instead just process a column as a column
-func BenchmarkNonTransposeXOR(t *testing.B) {
+func BenchmarkNonTransposeBitSetXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := bitsetMessages[0]
 		bmLen := bm[0].Len()
@@ -493,6 +494,32 @@ func BenchmarkNonTransposeXOR(t *testing.B) {
 		for k, x := range bitsetMessages[0] {
 			if !x.Equal(bitsetMessages[0][k]) {
 				t.Fatalf("No transpose, so original message didn't match with itself.")
+			}
+		}
+	}
+}
+
+func BenchmarkNonTransposeXOR(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := messages[0]
+		//bmLen := len(bm[0])
+		bbm := messages[0]
+		bbmLen := len(bbm[0])
+		for j, y := range bm {
+			for k, z := range y {
+				if z != bbm[k][bbmLen-k-1] {
+					bm[j][k] = 1
+				} else {
+					bm[j][k] = 0
+				}
+			}
+		}
+
+		for j, x := range bm {
+			for k, e := range x {
+				if e != messages[0][j][k] {
+					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+				}
 			}
 		}
 	}
@@ -749,7 +776,6 @@ func BenchmarkTransposeBitSet2(t *testing.B) {
 	}
 }
 
-/*
 func BenchmarkContiguousBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ContiguousBitSetTranspose(bitsetMessages[0])
@@ -779,12 +805,11 @@ func BenchmarkContiguousBitSetTranspose2(t *testing.B) {
 		}
 	}
 }
-*/
-/*
-func BenchmarkContiguousSparseBitSetTranspose2(t *testing.B) {
+
+func BenchmarkContiguousSparseBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
-		tm := util.ContiguousSparseBitSetTranspose2(bitsetMessages[0])
-		ttm := util.ContiguousSparseBitSetTranspose2(tm)
+		tm := util.ContiguousSparseBitSetTranspose(bitsetMessages[0])
+		ttm := util.ContiguousSparseBitSetTranspose(tm)
 		for _, y := range ttm {
 			y.SymmetricDifference(y)
 		}
@@ -795,7 +820,7 @@ func BenchmarkContiguousSparseBitSetTranspose2(t *testing.B) {
 		}
 	}
 }
-*/
+
 /*
 func BenchmarkExpandBitSets(t *testing.B) {
 	a := util.SampleRandomBitSetMatrix(r, 4035, 12689)
