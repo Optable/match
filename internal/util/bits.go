@@ -609,6 +609,28 @@ func BitSetsToBitMatrix(bsets []*bitset.BitSet) [][]byte {
 	return b
 }
 
+// Convert 2D bitset matrix to a matrix containing the uint64 values representing the bitsets
+func BitSetsToUints(bsets []*bitset.BitSet) [][]uint64 {
+	b := make([][]uint64, len(bsets))
+
+	for i, x := range bsets {
+		b[i] = x.Bytes()
+	}
+
+	return b
+}
+
+// Convert 2D matrix of uint64 into a 2D bitset array
+func UintsToBitSets(usets [][]uint64) []*bitset.BitSet {
+	b := make([]*bitset.BitSet, len(usets))
+
+	for i, x := range usets {
+		b[i] = bitset.From(x)
+	}
+
+	return b
+}
+
 func BitSetsToBitMatrix3D(bsets [][]*bitset.BitSet) [][][]byte {
 	b := make([][][]byte, len(bsets))
 
@@ -794,6 +816,47 @@ func TransposeBitSets2(bmat []*bitset.BitSet) []*bitset.BitSet {
 	return transposed
 }
 
+/*
+// take advantage of the underlying uint64 type to transpose subblocks of bitset
+// blockSize represents the width of the uint 64 matrix we want as our smallest blocksize
+// blockSize = 1 => 64 x 64 bitset or 512 bytes in the cache
+// blockSize = 2 => 128 x 128 bitset or 2 kb in the cache
+// blockSize = 3 => 192 x 192 bitset or 4.6 kb in the cache
+// NOTE - This function focuses more on the condensed horizontal dimension but if you
+//        have a BitSet with fewer than 64 elements it is probably quite wasteful.
+func CacheObliviouseBitSetTranspose(matrix []*bitset.BitSet, blockSize int) []*bitset.BitSet {
+	var wg sync.WaitGroup
+
+	uintMatrix := BitSetsToUints(matrix)
+	m := len(uintMatrix)
+	n := len(uintMatrix[0])
+	tr := make([][]uint64, n*64) // 64 rows is dimensionally equivalent to 1 column
+
+	// reduce blockSize if n is too small
+	if n < blockSize {
+		blockSize = n
+	}
+
+	// the optimal number of goroutines will likely vary due to
+	// hardware and array size
+	// nThreads := runtime.NumCPU()
+	// nThreads := runtime.NumCPU()*2
+	nThreads := 12
+	// ensure there are not more threads than blocks
+	if n/blockSize < nThreads {
+		nThreads = n
+	}
+
+	// number of blocks for which each goroutine is responsible
+	nBlocks := (n/blockSize)/nThreads
+
+	// create ordered channels to store values from goroutines
+	// each channel is buffered to store the desired number of blocks
+	channels := make([][]chan [][]uint64, nThreads)
+	for
+
+}
+*/
 func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 	var wg sync.WaitGroup
 	m := len(matrix)
