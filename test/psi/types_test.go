@@ -7,7 +7,7 @@ type test_size struct {
 }
 
 // test scenarios
-// the common part will be substracted from the sender &
+// the common part will be subtracted from the sender &
 // the receiver len, so for instance
 //
 //  100 common, 100 sender will result in the sender len being 100 and only

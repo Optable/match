@@ -149,7 +149,7 @@ func TestMultiplyParallelReader(t *testing.T) {
 	default:
 	}
 
-	// same received and sent lenght?
+	// same received and sent length?
 	if len(sent) != len(received) {
 		t.Errorf("sent (%d) and received (%d) len not equal", len(sent), len(received))
 	}
