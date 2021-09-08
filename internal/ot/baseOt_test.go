@@ -543,6 +543,23 @@ func BenchmarkInPlaceColumnarSymmetricDifference(t *testing.B) {
 	}
 }
 
+func BenchmarkSymmetricDifference(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		xor := bitsetCompare.SymmetricDifference(bitsetCompare)
+		if !xor.Equal(bitsetCompare.SymmetricDifference(bitsetCompare)) {
+			t.Fatalf("XOR operation didn't perform properly.")
+		}
+	}
+}
+
+func BenchmarkConcurrentSymmetricDifference(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		xor, _ := util.ConcurrentSymmetricDifference(bitsetCompare, bitsetCompare)
+		if !xor.Equal(bitsetCompare.SymmetricDifference(bitsetCompare)) {
+			t.Fatalf("XOR operation didn't perform properly.")
+		}
+	}
+}
 func BenchmarkNonTransposeXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := messages[0]

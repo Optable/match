@@ -816,6 +816,69 @@ func TransposeBitSets2(bmat []*bitset.BitSet) []*bitset.BitSet {
 	return transposed
 }
 
+func ConcurrentSymmetricDifference(b *bitset.BitSet, compare *bitset.BitSet) (*bitset.BitSet, error) {
+	if b.Len() != compare.Len() {
+		return nil, fmt.Errorf("BitSets do not have the same length for XOR operations")
+	}
+
+	var wg sync.WaitGroup
+
+	bcod := b.Bytes()
+	bcom := compare.Bytes()
+	n := len(bcod)
+	result := make([]uint64, n)
+
+	nThreads := 12
+	if n < nThreads {
+		nThreads = n
+	}
+
+	// number of blocks for which each goroutine is responsible
+	nBlocks := n / nThreads
+
+	// create ordered channels to store values from goroutines
+	channels := make([]chan uint64, nBlocks)
+	for i := 0; i < nThreads-1; i++ {
+		channels[i] = make(chan uint64, nBlocks)
+	}
+	// last one may have excess columns
+	channels[nThreads-1] = make(chan uint64, nBlocks+n%nThreads)
+
+	// goroutine
+	for i := 0; i < nThreads; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			// handle extra blocks that didn't evenly divide
+			var extraBlocks int
+			if i == nThreads-1 {
+				extraBlocks = n % nThreads
+			}
+
+			for c := 0; c < (nBlocks + extraBlocks); c++ {
+				oBlock := bitset.From(bcod[c : c+1])
+				oCompare := bitset.From(bcom[c : c+1])
+				channels[i] <- oBlock.SymmetricDifference(oCompare).Bytes()[0]
+			}
+			close(channels[i])
+		}(i)
+	}
+
+	// Wait until all goroutines have finished
+	wg.Wait()
+
+	// Reconstruct a transposed matrix from the channels
+	for _, channel := range channels {
+		var j int
+		for block := range channel {
+			result[j] = block
+			j++
+		}
+	}
+
+	return bitset.From(result), nil
+}
+
 func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 	var wg sync.WaitGroup
 	m := len(matrix)
