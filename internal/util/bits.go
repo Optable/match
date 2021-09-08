@@ -816,47 +816,6 @@ func TransposeBitSets2(bmat []*bitset.BitSet) []*bitset.BitSet {
 	return transposed
 }
 
-/*
-// take advantage of the underlying uint64 type to transpose subblocks of bitset
-// blockSize represents the width of the uint 64 matrix we want as our smallest blocksize
-// blockSize = 1 => 64 x 64 bitset or 512 bytes in the cache
-// blockSize = 2 => 128 x 128 bitset or 2 kb in the cache
-// blockSize = 3 => 192 x 192 bitset or 4.6 kb in the cache
-// NOTE - This function focuses more on the condensed horizontal dimension but if you
-//        have a BitSet with fewer than 64 elements it is probably quite wasteful.
-func CacheObliviouseBitSetTranspose(matrix []*bitset.BitSet, blockSize int) []*bitset.BitSet {
-	var wg sync.WaitGroup
-
-	uintMatrix := BitSetsToUints(matrix)
-	m := len(uintMatrix)
-	n := len(uintMatrix[0])
-	tr := make([][]uint64, n*64) // 64 rows is dimensionally equivalent to 1 column
-
-	// reduce blockSize if n is too small
-	if n < blockSize {
-		blockSize = n
-	}
-
-	// the optimal number of goroutines will likely vary due to
-	// hardware and array size
-	// nThreads := runtime.NumCPU()
-	// nThreads := runtime.NumCPU()*2
-	nThreads := 12
-	// ensure there are not more threads than blocks
-	if n/blockSize < nThreads {
-		nThreads = n
-	}
-
-	// number of blocks for which each goroutine is responsible
-	nBlocks := (n/blockSize)/nThreads
-
-	// create ordered channels to store values from goroutines
-	// each channel is buffered to store the desired number of blocks
-	channels := make([][]chan [][]uint64, nThreads)
-	for
-
-}
-*/
 func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 	var wg sync.WaitGroup
 	m := len(matrix)
@@ -865,7 +824,7 @@ func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet
 
 	// the optimal number of goroutines will likely vary due to
 	// hardware and array size
-	//nThreads := n // one thread per column (likely only efficient for huge matrix)
+	// nThreads := n // one thread per column (likely only efficient for huge matrix)
 	// nThreads := runtime.NumCPU()
 	// nThreads := runtime.NumCPU()*2
 	nThreads := 12
@@ -929,6 +888,188 @@ func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet
 	}
 
 	return tr
+}
+
+// ConcurrentColumnarCacheSafeBitSetTranspose performs a transpose on a non-square BitSet matrix
+// The cache-safe nature is due to limiting the number of rows which a goroutine can process sequentially.
+// I am unsure whether this really will incur any benefit since ultimately you will have to rebuilt the row outside a goroutine.
+// In fact, this may be less cache-efficient.
+// With testing this method seems to be less efficient than the normal concurrent columnar transpose taking ~40% longer for 100 million by 64 BitSets
+// TODO this method still has a bug for when you have less than 64 rows in the original BitSet matrix
+func ConcurrentColumnarCacheSafeBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+	var wg sync.WaitGroup
+	m := len(matrix)
+	n := int(matrix[0].Len())
+	tru := make([][]uint64, n) // to hold uint64 values encoding bits
+
+	// the optimal number of goroutines will likely vary due to
+	// hardware and array size
+	// nThreads := n // one thread per column (likely only efficient for huge matrix)
+	// nThreads := runtime.NumCPU()
+	// nThreads := runtime.NumCPU()*2
+	nThreads := 12
+	// add to quick check to ensure there are not more threads than columns
+	if n < nThreads {
+		nThreads = n
+	}
+
+	// number of columns for which each goroutine is responsible
+	nColumns := n / nThreads
+
+	// number of uint64 to hold a given column of bits
+	nUints := m / 64
+	if m%64 > 0 {
+		nUints += 1
+	}
+
+	// populate uint64 matrix
+	for r := range tru {
+		tru[r] = make([]uint64, nUints)
+	}
+
+	// create ordered channels to store values from goroutines
+	// each channel is buffered to store the number of desired rows
+	channels := make([]chan uint64, nThreads)
+	for i := 0; i < nThreads-1; i++ {
+		channels[i] = make(chan uint64, nColumns*nUints)
+	}
+	// last one may have excess columns
+	channels[nThreads-1] = make(chan uint64, (nColumns+n%nThreads)*nUints)
+
+	// goroutine
+	//wg.Add(nThreads)
+	for i := 0; i < nThreads; i++ {
+		wg.Add(1)
+		go func(i int) {
+			//	fmt.Println("goroutine", i, "created")
+			defer wg.Done()
+			// we need to handle excess columns which don't evenly divide among
+			// number of threads -> in this case, I just add to the last goroutine
+			// perhaps a more sophisticated division of labor would be more efficient
+			var extraColumns int
+			if i == nThreads-1 {
+				extraColumns = n % nThreads
+			}
+
+			singleUint := bitset.New(64)
+			for c := 0; c < (nColumns + extraColumns); c++ {
+				for n := 0; n < nUints; n++ {
+					singleUint.ClearAll()
+					for r := 0; r < 64; r++ {
+						if matrix[(64*n)+r].Test(uint((i * nColumns) + c)) {
+							singleUint.Set(uint(r))
+						}
+					}
+					channels[i] <- singleUint.Bytes()[0] // there will only ever be one uint64 to put
+				}
+			}
+
+			close(channels[i])
+		}(i)
+	}
+
+	// Wait until all goroutines have finished
+	wg.Wait()
+
+	// Reconstruct a transposed matrix from the channels
+	for i, channel := range channels {
+		var k int // row in channel
+		var l int // index of integer in row
+		for j := range channel {
+			if l < nUints {
+				tru[(i*nColumns)+k][l] = j
+				l++
+			} else {
+				l = 0
+				k++
+				tru[(i*nColumns)+k][l] = j
+				l++
+			}
+		}
+	}
+
+	// Convert transposed uint64 matrix back into bitset
+	trb := UintsToBitSets(tru)
+
+	return trb
+}
+
+// InPlaceSpliceBitSets takes two input BitSets and splices them together
+// such that bo is spliced to the start of bt in place.
+func InPlaceSpliceBitSets(bo, bt *bitset.BitSet) {
+	indices := make([]uint, bo.Count())
+	bo.NextSetMany(0, indices)
+	for _, x := range indices {
+		bt.Set(x + bo.Len())
+	}
+}
+
+// SpliceBitSets2 takes two input BitSets and splices them together
+// such that bo is spliced to the start of bt.
+func SpliceBitSets2(bo, bt *bitset.BitSet) *bitset.BitSet {
+	indices := make([]uint, bo.Count())
+	bo.NextSetMany(0, indices)
+	spliced := bt.Clone()
+
+	for _, x := range indices {
+		spliced.Set(x + bo.Len())
+	}
+
+	return spliced
+}
+
+// SpliceBitSets takes two input BitSets and splices them together
+// such that bo is spliced to the start of bt.
+// Example bo = 111, bt = 000 => 111000
+// This method (appending uint64 slices) is faster than iterating
+// through set bits (substantially so).
+func SpliceBitSets(bo, bt *bitset.BitSet) *bitset.BitSet {
+	uo := bo.Bytes()
+	ut := bt.Bytes()
+
+	uo = append(ut, uo...)
+
+	return bitset.From(uo)
+}
+
+// ColumnarSymmetricDifference of a column from 2D base set and other set
+// This is the BitSet equivalent of ^ (xor)
+func ColumnarSymmetricDifference(b []*bitset.BitSet, compare *bitset.BitSet, column uint) (*bitset.BitSet, error) {
+	if uint(len(b)) != compare.Len() {
+		return nil, fmt.Errorf("2D BitSet column and compare BitSet do not have the same length for XOR operations")
+	}
+
+	result := bitset.New(uint(len(b)))
+
+	for i, row := range b {
+		var xor bool
+		if row.Test(column) && compare.Test(uint(i)) {
+			xor = false
+		} else {
+			xor = row.Test(column) || compare.Test(uint(i))
+		}
+		result.SetTo(uint(i), xor)
+	}
+	return result, nil
+}
+
+// InPlaceColumnarSymmetricDifference of a column from 2D base set and other set
+// This is the BitSet equivalent of ^ (xor)
+func InPlaceColumnarSymmetricDifference(b []*bitset.BitSet, compare *bitset.BitSet, column uint) error {
+	if uint(len(b)) != compare.Len() {
+		return fmt.Errorf("2D BitSet column and compare BitSet do not have the same length for XOR operations")
+	}
+
+	for i, row := range b {
+		var xor bool
+		if row.Test(column) && compare.Test(uint(i)) {
+			xor = false
+		} else {
+			xor = row.Test(column) || compare.Test(uint(i))
+		}
+		row.SetTo(column, xor)
+	}
+	return nil
 }
 
 // expand BitSet matrix to make it square

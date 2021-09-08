@@ -8,6 +8,8 @@ import (
 )
 
 var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
+var sbs = SampleBitSetSlice(prng, 100000000)
+var sbs2 = SampleBitSetSlice(prng, 100000000)
 
 func TestTranspose3D(t *testing.T) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -49,5 +51,23 @@ func TestTranspose(t *testing.T) {
 func BenchmarkSampleBitMatrix(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		SampleRandomBitMatrix(prng, 10000, 424)
+	}
+}
+
+func BenchmarkInPlaceSpliceBitSets(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		InPlaceSpliceBitSets(sbs, sbs2)
+	}
+}
+
+func BenchmarkSpliceBitSets(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		SpliceBitSets(sbs, sbs2)
+	}
+}
+
+func BenchmarkSpliceBitSets2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		SpliceBitSets2(sbs, sbs2)
 	}
 }

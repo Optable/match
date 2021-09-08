@@ -24,6 +24,7 @@ var (
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)
+	bitsetCompare  = util.SampleBitSetSlice(r, 1000000)
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
@@ -473,6 +474,21 @@ func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 	}
 }
 
+func BenchmarkConcurrentColumnarCacheSafeBitSetTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.ConcurrentColumnarCacheSafeBitSetTranspose(bitsetMessages[0])
+		ttm := util.ConcurrentColumnarCacheSafeBitSetTranspose(tm)
+		for j, y := range tm {
+			y.InPlaceSymmetricDifference(tm[j])
+		}
+		for k, x := range ttm {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
 // This is compare speeds if we don't actually transpose but instead just process a column as a column
 func BenchmarkNonTransposeBitSetXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
@@ -490,6 +506,34 @@ func BenchmarkNonTransposeBitSetXOR(t *testing.B) {
 					bm[j].Clear(k)
 				}
 			}
+		}
+		for k, x := range bitsetMessages[0] {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("No transpose, so original message didn't match with itself.")
+			}
+		}
+	}
+}
+
+func BenchmarkColumnarSymmetricDifference(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := bitsetMessages[0]
+		for j := uint(0); j < bm[0].Len(); j++ {
+			util.ColumnarSymmetricDifference(bm, bitsetCompare, j)
+		}
+		for k, x := range bitsetMessages[0] {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("No transpose, so original message didn't match with itself.")
+			}
+		}
+	}
+}
+
+func BenchmarkInPlaceColumnarSymmetricDifference(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := bitsetMessages[0]
+		for j := uint(0); j < bm[0].Len(); j++ {
+			util.InPlaceColumnarSymmetricDifference(bm, bitsetCompare, j)
 		}
 		for k, x := range bitsetMessages[0] {
 			if !x.Equal(bitsetMessages[0][k]) {
