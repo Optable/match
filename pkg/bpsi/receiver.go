@@ -36,12 +36,12 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// stage 1: read the bloomfilter from the remote side
 	stage1 := func() error {
-		if _bf, _, err := ReadFrom(r.rw); err == nil {
-			bf = _bf
-			return nil
-		} else {
+		_bf, _, err := ReadFrom(r.rw)
+		if err != nil {
 			return err
 		}
+		bf = _bf
+		return nil
 	}
 
 	// stage 2: read local IDs and compare with the remote bloomfilter

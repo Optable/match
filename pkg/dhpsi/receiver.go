@@ -62,66 +62,67 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	gr, _ := NewRistretto(RistrettoTypeR255)
 	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
 	stage1 := func() error {
-		if reader, err := NewMultiplyParallelReader(s.rw, gr); err != nil {
+		reader, err := NewMultiplyParallelReader(s.rw, gr)
+		if err != nil {
 			return err
-		} else {
-			for {
-				// read
-				var p [EncodedLen]byte
-				if err := reader.Read(&p); err != nil {
-					if err == io.EOF {
-						return nil
-					}
-					return err
+		}
+		for {
+			// read
+			var p [EncodedLen]byte
+			if err := reader.Read(&p); err != nil {
+				if err == io.EOF {
+					return nil
 				}
-				// index
-				remoteIDs[p] = true
+				return err
 			}
+			// index
+			remoteIDs[p] = true
 		}
 	}
 	// stage2.1 : permute and write the local identifiers to the sender
 	stage21 := func() error {
-		if writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr); err != nil {
+		writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr)
+		if err != nil {
 			return err
-		} else {
-			// take a snapshot of the reverse of the permutations
-			permutations = writer.Permutations()
-			// read n identifiers from src
-			// and
-			//  1. index them locally
-			//  2. write them to the sender
-			var i int64
-			for identifier := range identifiers {
-				// save this input
-				receiverIDs <- permuted{i, identifier} // {0, "0"}
-				if err := writer.Shuffle(identifier); err != nil {
-					return err
-				}
-				i++
-			}
-
-			return nil
 		}
+		// take a snapshot of the reverse of the permutations
+		permutations = writer.Permutations()
+		// read n identifiers from src
+		// and
+		//  1. index them locally
+		//  2. write them to the sender
+		var i int64
+		for identifier := range identifiers {
+			// save this input
+			receiverIDs <- permuted{i, identifier} // {0, "0"}
+			if err := writer.Shuffle(identifier); err != nil {
+				return err
+			}
+			i++
+		}
+
+		return nil
 	}
 	// step3: reads back the identifiers from the sender and learns the intersection
 	stage22 := func() error {
-		if reader, err := NewReader(s.rw); err != nil {
+		reader, err := NewReader(s.rw)
+		if err != nil {
 			return err
-		} else {
-			for i := int64(0); i < reader.Max(); i++ {
-				// read
-				var p [EncodedLen]byte
-				if err := reader.Read(&p); err != nil {
-					return fmt.Errorf("stage2.2: %v", err)
-				}
-				if remoteIDs[p] {
-					// we can match this local identifier with one received
-					// from the sender
-					matchedIDs <- i
-					delete(remoteIDs, p)
-				}
+		}
+		for i := int64(0); i < reader.Max(); i++ {
+			// read
+			var p [EncodedLen]byte
+			if err := reader.Read(&p); err != nil {
+				return fmt.Errorf("stage2.2: %v", err)
+			}
+			if remoteIDs[p] {
+				// we can match this local identifier with one received
+				// from the sender
+				matchedIDs <- i
+				delete(remoteIDs, p)
 			}
 		}
+
 		return nil
 	}
 
