@@ -464,9 +464,9 @@ func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ConcurrentColumnarBitSetTranspose(bitsetMessages[0])
 		//ttm := util.ConcurrentColumnarBitSetTranspose(tm)
-		for _, y := range tm {
-			//y.InPlaceSymmetricDifference(tm[j])
-			y.InPlaceSymmetricDifference(genCompareBitSet(i))
+		for j, y := range tm {
+			y.InPlaceSymmetricDifference(tm[j])
+			//y.InPlaceSymmetricDifference(genCompareBitSet(i))
 		}
 		/*
 			for k, x := range ttm {
@@ -489,17 +489,12 @@ func genCompareBitSet2(i int) *bitset.BitSet {
 func BenchmarkConcurrentColumnarBitSetSymmetricDifference(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		util.ConcurrentColumnarBitSetSymmetricDifference(bitsetMessages[0], genCompareBitSet)
-		//util.ConcurrentColumnarBitSetTranspose(tm)
-		//for j, y := range tm {
-		//	y.InPlaceSymmetricDifference(tm[j])
-		//}
-		/*
-			for k, x := range ttm {
-				if !x.Equal(bitsetMessages[0][k]) {
-					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
-				}
-			}
-		*/
+	}
+}
+
+func BenchmarkConcurrentColumnarBitSetSymmetricDifference2(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		util.ConcurrentColumnarBitSetSymmetricDifference2(bitsetMessages[0], genCompareBitSet)
 	}
 }
 
