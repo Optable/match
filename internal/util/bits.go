@@ -1009,6 +1009,8 @@ func ConcurrentColumnarBitSetSymmetricDifference(matrix []*bitset.BitSet, f func
 					// Take XOR here
 					if matrix[r].Test(uint((i*nColumns)+c)) != row.Test(uint(r)) {
 						row.Set(uint(r))
+					} else {
+						row.Clear(uint(r))
 					}
 				}
 
@@ -1080,13 +1082,12 @@ func ConcurrentColumnarBitSetSymmetricDifference2(matrix []*bitset.BitSet, f fun
 
 			for c := 0; c < (nColumns + extraColumns); c++ {
 				row := bitset.New(uint(m))
-				genset := f(c)
 				for r := 0; r < m; r++ {
 					if matrix[r].Test(uint((i * nColumns) + c)) {
 						row.Set(uint(r))
 					}
 				}
-				row.InPlaceSymmetricDifference(genset)
+				row.InPlaceSymmetricDifference(f(c))
 				channels[i] <- row
 			}
 
