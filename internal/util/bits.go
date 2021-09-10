@@ -108,6 +108,13 @@ func AndBitSet(a bool, b *bitset.BitSet) *bitset.BitSet {
 	return aSet
 }
 
+// This is a more efficient method than that listed above
+func InPlaceAndBitSet(a bool, b *bitset.BitSet) {
+	if !a {
+		b.ClearAll()
+	}
+}
+
 func GetCol(matrix [][]uint8, index int) []uint8 {
 	col := make([]uint8, len(matrix))
 	for i := range matrix {
@@ -1004,7 +1011,7 @@ func ConcurrentColumnarBitSetSymmetricDifference(matrix []*bitset.BitSet, f func
 			}
 
 			for c := 0; c < (nColumns + extraColumns); c++ {
-				row := f(c)
+				row := f(c).Clone()
 				for r := 0; r < m; r++ {
 					// Take XOR here
 					if matrix[r].Test(uint((i*nColumns)+c)) != row.Test(uint(r)) {

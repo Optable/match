@@ -463,18 +463,18 @@ func BenchmarkConcurrentColumnarTranspose(t *testing.B) {
 func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ConcurrentColumnarBitSetTranspose(bitsetMessages[0])
-		//ttm := util.ConcurrentColumnarBitSetTranspose(tm)
+		ttm := util.ConcurrentColumnarBitSetTranspose(tm)
 		for j, y := range tm {
 			y.InPlaceSymmetricDifference(tm[j])
 			//y.InPlaceSymmetricDifference(genCompareBitSet(i))
 		}
-		/*
-			for k, x := range ttm {
-				if !x.Equal(bitsetMessages[0][k]) {
-					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
-				}
+
+		for k, x := range ttm {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
 			}
-		*/
+		}
+
 	}
 }
 

@@ -81,11 +81,14 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 	u := bitset.New(uint(ext.m))
 	q := make([]*bitset.BitSet, ext.k)
 	for col := range q {
+		//q[col] = bitset.New(uint(ext.m))
 		if _, err := u.ReadFrom(rw); err != nil {
 			return nil, err
 		}
 
-		q[col] = util.AndBitSet(s.Test(uint(col)), u).SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
+		util.InPlaceAndBitSet(s.Test(uint(col)), u)
+		q[col] = u.SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
+		//q[col] = util.AndBitSet(s.Test(uint(col)), u).SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
 	}
 
 	q = util.ConcurrentColumnarBitSetTranspose(q)
@@ -155,7 +158,18 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 			return nil, err
 		}
 	}
+	/*
+		for col := 0; col < int(d[0].Len()); col++ {
+			t[col] = crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
+			u = t[col].SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m))
+			u = u.SymmetricDifference(d[col])
 
+			// send u
+			if _, err = u.WriteTo(rw); err != nil {
+				return nil, err
+			}
+		}
+	*/
 	return util.ConcurrentColumnarBitSetTranspose(t), nil
 }
 
