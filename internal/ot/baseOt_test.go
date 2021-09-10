@@ -19,12 +19,13 @@ var (
 	curve          = "P256"
 	cipherMode     = crypto.XORBlake3
 	baseCount      = 2
-	messages       = genMsg(baseCount, 1000000)
-	bitsetMessages = genBitSetMsg(baseCount, 1000000)
+	messages       = genMsg(baseCount, 10000000)
+	bitsetMessages = genBitSetMsg(baseCount, 10000000)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)
-	bitsetCompare  = util.SampleBitSetSlice(r, 1000000)
+	bitsetCompare  = util.SampleBitSetSlice(r, 10000000)
+	bitsetCompare2 = util.SampleBitSetSlice(r, 64)
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
@@ -462,15 +463,43 @@ func BenchmarkConcurrentColumnarTranspose(t *testing.B) {
 func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ConcurrentColumnarBitSetTranspose(bitsetMessages[0])
-		ttm := util.ConcurrentColumnarBitSetTranspose(tm)
-		for j, y := range tm {
-			y.InPlaceSymmetricDifference(tm[j])
+		//ttm := util.ConcurrentColumnarBitSetTranspose(tm)
+		for _, y := range tm {
+			//y.InPlaceSymmetricDifference(tm[j])
+			y.InPlaceSymmetricDifference(genCompareBitSet(i))
 		}
-		for k, x := range ttm {
-			if !x.Equal(bitsetMessages[0][k]) {
-				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+		/*
+			for k, x := range ttm {
+				if !x.Equal(bitsetMessages[0][k]) {
+					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+				}
 			}
-		}
+		*/
+	}
+}
+
+func genCompareBitSet(i int) *bitset.BitSet {
+	return bitsetCompare
+}
+
+func genCompareBitSet2(i int) *bitset.BitSet {
+	return bitsetCompare2
+}
+
+func BenchmarkConcurrentColumnarBitSetSymmetricDifference(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		util.ConcurrentColumnarBitSetSymmetricDifference(bitsetMessages[0], genCompareBitSet)
+		//util.ConcurrentColumnarBitSetTranspose(tm)
+		//for j, y := range tm {
+		//	y.InPlaceSymmetricDifference(tm[j])
+		//}
+		/*
+			for k, x := range ttm {
+				if !x.Equal(bitsetMessages[0][k]) {
+					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+				}
+			}
+		*/
 	}
 }
 
@@ -495,12 +524,12 @@ func BenchmarkNonTransposeBitSetXOR(t *testing.B) {
 		bm := bitsetMessages[0]
 		bmLen := bm[0].Len()
 		bbm := bitsetMessages[0]
-		bbmLen := bbm[0].Len()
+		//bbmLen := bbm[0].Len()
 		for j, y := range bm {
 			for k := uint(0); k < bmLen; k++ {
-				bmSet := y.Test(k)
-				bbmSet := bbm[k].Test(bbmLen - k - 1)
-				if bmSet != bbmSet {
+				//bmSet := y.Test(k)
+				//bbmSet := bbm[k].Test(bbmLen - k - 1)
+				if y.Test(k) != bbm[k].Test(bmLen-k-1) {
 					bm[j].Set(k)
 				} else {
 					bm[j].Clear(k)
@@ -552,6 +581,7 @@ func BenchmarkSymmetricDifference(t *testing.B) {
 	}
 }
 
+/*
 func BenchmarkConcurrentSymmetricDifference(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		xor, _ := util.ConcurrentSymmetricDifference(bitsetCompare, bitsetCompare)
@@ -560,6 +590,7 @@ func BenchmarkConcurrentSymmetricDifference(t *testing.B) {
 		}
 	}
 }
+*/
 func BenchmarkNonTransposeXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := messages[0]
@@ -568,11 +599,14 @@ func BenchmarkNonTransposeXOR(t *testing.B) {
 		bbmLen := len(bbm[0])
 		for j, y := range bm {
 			for k, z := range y {
-				if z != bbm[k][bbmLen-k-1] {
-					bm[j][k] = 1
-				} else {
-					bm[j][k] = 0
-				}
+				bm[j][k] = z ^ bbm[k][bbmLen-k-1]
+				/*
+					if z != bbm[k][bbmLen-k-1] {
+						bm[j][k] = 1
+					} else {
+						bm[j][k] = 0
+					}
+				*/
 			}
 		}
 
@@ -581,6 +615,35 @@ func BenchmarkNonTransposeXOR(t *testing.B) {
 				if e != messages[0][j][k] {
 					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
 				}
+			}
+		}
+	}
+}
+
+func BenchmarkNonTransposeXORBitSetConv(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
+		//bmLen := len(bm[0])
+		bbm := util.BitSetsToBitMatrix(bitsetMessages[0])
+		bbmLen := len(bbm[0])
+		for j, y := range bm {
+			for k, z := range y {
+				bm[j][k] = z ^ bbm[k][bbmLen-k-1]
+				/*
+					if z != bbm[k][bbmLen-k-1] {
+						bm[j][k] = 1
+					} else {
+						bm[j][k] = 0
+					}
+				*/
+			}
+		}
+
+		util.BitMatrixToBitSets(bm)
+
+		for k, x := range bitsetMessages[0] {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("No transpose, so original message didn't match with itself.")
 			}
 		}
 	}
