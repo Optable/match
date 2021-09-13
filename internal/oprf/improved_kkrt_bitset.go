@@ -91,6 +91,22 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 		//q[col] = util.AndBitSet(s.Test(uint(col)), u).SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
 	}
 
+	/* omit u variable -> makes no difference in performance
+	// receive masked columns u
+	q := make([]*bitset.BitSet, ext.k)
+	for col := range q {
+		q[col] = bitset.New(uint(ext.m))
+		if _, err := q[col].ReadFrom(rw); err != nil {
+			return nil, err
+		}
+
+		util.InPlaceAndBitSet(s.Test(uint(col)), q[col])
+		//col.InPlaceSymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[c], ext.m))
+		q[col].InPlaceSymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
+		//q[col] = util.AndBitSet(s.Test(uint(col)), u).SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
+	}
+	*/
+
 	q = util.ConcurrentColumnarBitSetTranspose(q)
 	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
 
@@ -100,6 +116,15 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 		keys[j] = KeyBitSet{sk: sk, s: s, q: q[j]}
 	}
 
+	/* no transpose version
+	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
+
+	// store oprf keys
+	keys = make([]KeyBitSet, q[0].Len())
+	for j := uint(0); j < q[0].Len(); j++ {
+		keys[j] = KeyBitSet{sk: sk, s: s, q: util.GetBitSetCol(q, j)}
+	}
+	*/
 	return
 }
 

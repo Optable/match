@@ -19,12 +19,12 @@ var (
 	curve          = "P256"
 	cipherMode     = crypto.XORBlake3
 	baseCount      = 2
-	messages       = genMsg(baseCount, 10000000)
-	bitsetMessages = genBitSetMsg(baseCount, 10000000)
+	messages       = genMsg(baseCount, 100000000)
+	bitsetMessages = genBitSetMsg(baseCount, 100000000)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)
-	bitsetCompare  = util.SampleBitSetSlice(r, 10000000)
+	bitsetCompare  = util.SampleBitSetSlice(r, 100000000)
 	bitsetCompare2 = util.SampleBitSetSlice(r, 64)
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
@@ -425,6 +425,14 @@ func BenchmarkSampleBitSlice(b *testing.B) {
 	}
 }
 
+func BenchmarkGetBitSetCol(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		for j := uint(0); j < bitsetMessages[0][0].Len(); j++ {
+			util.GetBitSetCol(bitsetMessages[0], j)
+		}
+	}
+}
+
 func BenchmarkTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
@@ -474,10 +482,27 @@ func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
 			}
 		}
-
 	}
 }
 
+/*
+func BenchmarkConcurrentColumnarEncodedBitSetTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.ConcurrentColumnarEncodedBitSetTranspose(bitsetMessages[0])
+		ttm := util.ConcurrentColumnarEncodedBitSetTranspose(tm)
+		for j, y := range tm {
+			y.InPlaceSymmetricDifference(tm[j])
+			//y.InPlaceSymmetricDifference(genCompareBitSet(i))
+		}
+
+		for k, x := range ttm {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+*/
 func genCompareBitSet(i int) *bitset.BitSet {
 	return bitsetCompare
 }

@@ -123,6 +123,17 @@ func GetCol(matrix [][]uint8, index int) []uint8 {
 	return col
 }
 
+func GetBitSetCol(matrix []*bitset.BitSet, index uint) *bitset.BitSet {
+	col := bitset.New(uint(len(matrix)))
+	for i, row := range matrix {
+		if row.Test(index) {
+			col.Set(uint(i))
+		}
+	}
+
+	return col
+}
+
 // Transpose returns the transpose of a 2D slices of uint8
 // from (m x k) to (k x m)
 func Transpose(matrix [][]uint8) [][]uint8 {
@@ -962,6 +973,94 @@ func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet
 	return tr
 }
 
+// Attempt to make this cache-ideal but performance is actually worse and still has bugs
+/*
+func ConcurrentColumnarEncodedBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+	var wg sync.WaitGroup
+	m := len(matrix)
+	n := len(matrix[0].Bytes())
+	//n := int(matrix[0].Len())
+	tr := make([]*bitset.BitSet, n)
+
+	// the optimal number of goroutines will likely vary due to
+	// hardware and array size
+	// nThreads := n // one thread per column (likely only efficient for huge matrix)
+	// nThreads := runtime.NumCPU()
+	// nThreads := runtime.NumCPU()*2
+	nThreads := 12
+	// add to quick check to ensure there are not more threads than columns
+	if n < nThreads {
+		nThreads = n
+	}
+
+	// number of columns for which each goroutine is responsible
+	nColumns := n / nThreads
+
+	// create ordered channels to store values from goroutines
+	// each channel is buffered to store the number of desired rows
+	channels := make([]chan *bitset.BitSet, nThreads)
+	for i := 0; i < nThreads-1; i++ {
+		channels[i] = make(chan *bitset.BitSet, nColumns)
+	}
+	// last one may have excess columns
+	channels[nThreads-1] = make(chan *bitset.BitSet, nColumns+n%nThreads)
+
+	// goroutine
+	//wg.Add(nThreads)
+	for i := 0; i < nThreads; i++ {
+		wg.Add(1)
+		go func(i int) {
+			//	fmt.Println("goroutine", i, "created")
+			defer wg.Done()
+			// we need to handle excess columns which don't evenly divide among
+			// number of threads -> in this case, I just add to the last goroutine
+			// perhaps a more sophisticated division of labor would be more efficient
+			var extraColumns int
+			if i == nThreads-1 {
+				extraColumns = n % nThreads
+			}
+
+			for c := 0; c < (nColumns + extraColumns); c++ {
+				row := bitset.New(uint(m)*64)
+				for r := 0; r < m; r++ {
+					row.Bytes()[r] = matrix[r].Bytes()[(i*nColumns)+c]
+					//if matrix[r].Test(uint((i * nColumns) + c)) {
+					//	row.Set(uint(r))
+					//}
+				}
+
+				for y := 0; y < m; y++ {
+					for z := 0; z < 64; z++ {
+
+					}
+					tmprow := bitset.New(uint(m))
+
+
+
+
+					channels[i] <- tmprow
+				}
+			}
+
+			close(channels[i])
+		}(i)
+	}
+
+	// Wait until all goroutines have finished
+	wg.Wait()
+
+	// Reconstruct a transposed matrix from the channels
+	for i, channel := range channels {
+		var j int
+		for row := range channel {
+			tr[(i*nColumns)+j] = row
+			j++
+		}
+	}
+
+	return tr
+}
+*/
 // ConcurrentColumnarBitSetSymmetricDifference operates on a BitSet matrix.
 // An XOR is performed on each column manually against a generated BitSet.
 // The result is stored in a new matrix and happes to be transposed.
