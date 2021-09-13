@@ -19,12 +19,12 @@ var (
 	curve          = "P256"
 	cipherMode     = crypto.XORBlake3
 	baseCount      = 2
-	messages       = genMsg(baseCount, 100000000)
-	bitsetMessages = genBitSetMsg(baseCount, 100000000)
+	messages       = genMsg(baseCount, 20000000)
+	bitsetMessages = genBitSetMsg(baseCount, 20000000)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)
-	bitsetCompare  = util.SampleBitSetSlice(r, 100000000)
+	bitsetCompare  = util.SampleBitSetSlice(r, 20000000)
 	bitsetCompare2 = util.SampleBitSetSlice(r, 64)
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
@@ -47,7 +47,7 @@ func genBitSetMsg(n, t int) [][]*bitset.BitSet {
 	for i := 0; i < n; i++ {
 		data[i] = make([]*bitset.BitSet, t)
 		for j := range data[i] {
-			data[i][j] = util.SampleBitSetSlice(r, 64)
+			data[i][j] = util.SampleBitSetSlice(r, 512)
 		}
 	}
 
@@ -425,7 +425,7 @@ func BenchmarkSampleBitSlice(b *testing.B) {
 	}
 }
 
-func BenchmarkGetBitSetCol(t *testing.B) {
+func benchmarkGetBitSetCol(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		for j := uint(0); j < bitsetMessages[0][0].Len(); j++ {
 			util.GetBitSetCol(bitsetMessages[0], j)
@@ -472,6 +472,23 @@ func BenchmarkConcurrentColumnarBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ConcurrentColumnarBitSetTranspose(bitsetMessages[0])
 		ttm := util.ConcurrentColumnarBitSetTranspose(tm)
+		for j, y := range tm {
+			y.InPlaceSymmetricDifference(tm[j])
+			//y.InPlaceSymmetricDifference(genCompareBitSet(i))
+		}
+
+		for k, x := range ttm {
+			if !x.Equal(bitsetMessages[0][k]) {
+				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkColumnarBitSetTranspose(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		tm := util.ColumnarBitSetTranspose(bitsetMessages[0])
+		ttm := util.ColumnarBitSetTranspose(tm)
 		for j, y := range tm {
 			y.InPlaceSymmetricDifference(tm[j])
 			//y.InPlaceSymmetricDifference(genCompareBitSet(i))

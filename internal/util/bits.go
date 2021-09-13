@@ -899,6 +899,22 @@ func ConcurrentSymmetricDifference(b *bitset.BitSet, compare *bitset.BitSet) (*b
 }
 */
 
+func ColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+	m := uint(len(matrix))
+	n := matrix[0].Len()
+	tr := make([]*bitset.BitSet, n)
+
+	for col := uint(0); col < n; col++ {
+		tr[col] = bitset.New(m)
+		for row := uint(0); row < m; row++ {
+			if matrix[row].Test(col) {
+				tr[col].Set(row)
+			}
+		}
+	}
+	return tr
+}
+
 func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 	var wg sync.WaitGroup
 	m := len(matrix)
@@ -910,7 +926,8 @@ func ConcurrentColumnarBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet
 	// nThreads := n // one thread per column (likely only efficient for huge matrix)
 	// nThreads := runtime.NumCPU()
 	// nThreads := runtime.NumCPU()*2
-	nThreads := 12
+	// 6 threads performs better in improved kkrt oprf but 12 performs better in benchmark
+	nThreads := 6
 	// add to quick check to ensure there are not more threads than columns
 	if n < nThreads {
 		nThreads = n
