@@ -13,10 +13,10 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	"io"
-	"math/rand"
-	"sync"
-	"time"
+	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
@@ -33,7 +33,7 @@ type kkrt struct {
 	m      int   // number of message tuples
 	k      int   // width of base OT binary matrix as well as
 	// pseudorandom code output length
-	prng *rand.Rand // source of randomness
+	prng *mrand.Rand // source of randomness
 }
 
 // NewKKRT returns a KKRT OPRF
@@ -53,14 +53,17 @@ func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 		return kkrt{}, err
 	}
 
-	return kkrt{baseOT: ot, m: m, k: k, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
+	return kkrt{baseOT: ot, m: m, k: k, prng: mrand.New(mrand.NewSource(seed))}, nil
 }
 
 // Send returns the OPRF keys
 func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = o.prng.Read(sk); err != nil {
+	if _, err = crand.Read(sk); err != nil {
 		return nil, nil
 	}
 
@@ -105,54 +108,41 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		return nil, err
 	}
 
-	// Sample m x k matrix T
-	t, err = util.SampleRandomBitMatrix(o.prng, o.m, o.k)
+	var pseudorandomChan = make(chan [][]byte)
+	go func() {
+		d := make([][]byte, o.m)
+		for i := 0; i < o.m; i++ {
+			d[i] = crypto.PseudorandomCode(sk, o.k, choices[i])
+		}
+		pseudorandomChan <- util.Transpose(d)
+	}()
+
+	// Sample k x m matrix T
+	t, err = util.SampleRandomBitMatrix(o.prng, o.k, o.m)
 	if err != nil {
 		return nil, err
 	}
 
-	var wg sync.WaitGroup
-	var msg = make(chan []byte)
-	var errBus = make(chan error)
-	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
-	baseMsgs := make([][][]byte, o.m)
+	d := <-pseudorandomChan
+
+	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
+	baseMsgs := make([][][]byte, o.k)
 	for i := range baseMsgs {
-		wg.Add(1)
-		go func(i int, msg chan<- []byte) {
-			defer wg.Done()
-			msg <- t[i]
-			m, err := util.XorBytes(t[i], crypto.PseudorandomCode(sk, o.k, choices[i]))
-			if err != nil {
-				errBus <- err
-			}
-			msg <- m
-		}(i, msg)
-
-		baseMsgs[i] = make([][]byte, 2)
-		baseMsgs[i][0] = <-msg
-		baseMsgs[i][1] = <-msg
-	}
-
-	// wait for all operation to be done
-	go func() {
-		wg.Wait()
-		close(errBus)
-		close(msg)
-	}()
-
-	//errors?
-	for err := range errBus {
+		err = util.InPlaceXorBytes(t[i], d[i])
 		if err != nil {
 			return nil, err
 		}
+		baseMsgs[i] = make([][]byte, 2)
+		baseMsgs[i][0] = t[i]
+		baseMsgs[i][1] = d[i]
 	}
 
 	// act as sender in baseOT to send k columns
-	if err = o.baseOT.Send(util.Transpose3D(baseMsgs), rw); err != nil {
+	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
 
-	return
+	return util.Transpose(t), nil
 }
 
 // Encode computes and returns OPRF(k, in)

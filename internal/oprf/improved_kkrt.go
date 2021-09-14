@@ -13,10 +13,10 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	"fmt"
+	crand "crypto/rand"
+	"encoding/binary"
 	"io"
-	"math/rand"
-	"time"
+	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
@@ -29,7 +29,7 @@ type imprvKKRT struct {
 	m      int   // number of message tuples
 	k      int   // width of base OT binary matrix as well as
 	// pseudorandom code output length
-	prng *rand.Rand // source of randomness
+	prng *mrand.Rand // source of randomness
 	g    *blake3.Hasher
 }
 
@@ -51,15 +51,17 @@ func NewImprovedKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 	}
 	g := blake3.New()
 
-	return imprvKKRT{baseOT: ot, m: m, k: k, prng: rand.New(rand.NewSource(time.Now().UnixNano())), g: g}, nil
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
+	return imprvKKRT{baseOT: ot, m: m, k: k, prng: mrand.New(mrand.NewSource(seed)), g: g}, nil
 }
 
 // Send returns the OPRF keys
 func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
-	start := time.Now()
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = ext.prng.Read(sk); err != nil {
+	if _, err = crand.Read(sk); err != nil {
 		return nil, err
 	}
 
@@ -80,8 +82,6 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 		return nil, err
 	}
 
-	fmt.Println("Received ", ext.k, " base OTs in: ", time.Since(start))
-
 	// receive masked columns u
 	u := make([]byte, ext.m)
 	q := make([][]byte, ext.k)
@@ -96,7 +96,6 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	q = util.Transpose(q)
-	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
 
 	// store oprf keys
 	keys = make([]Key, len(q))
