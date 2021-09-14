@@ -10,7 +10,7 @@ var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same len
 // XorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
 func XorBytes(a, b []byte) (dst []byte, err error) {
-	n := len(b)
+	var n = len(b)
 	if n != len(a) {
 		return nil, ErrByteLengthMissMatch
 	}
@@ -27,11 +27,12 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 // Inplace XorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
 func InPlaceXorBytes(a, dst []byte) error {
-	if len(dst) != len(a) {
+	var n = len(dst)
+	if n != len(a) {
 		return ErrByteLengthMissMatch
 	}
 
-	for i := range dst {
+	for i := 0; i < n; i++ {
 		dst[i] = a[i] ^ dst[i]
 	}
 

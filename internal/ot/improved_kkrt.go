@@ -84,10 +84,10 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 
 	// encrypt messages and send them
 	var key, ciphertext, x []byte
+	aesBlock, _ := aes.NewCipher(sk)
 	for i := range messages {
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			aesBlock, _ := aes.NewCipher(sk)
 			x, _ = util.AndBytes(crypto.PseudorandomCode(aesBlock, ext.k, []byte{byte(choice)}), s)
 			key, _ = util.XorBytes(q[i], x)
 
