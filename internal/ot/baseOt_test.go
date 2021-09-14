@@ -18,14 +18,14 @@ var (
 	address        = "127.0.0.1:"
 	curve          = "P256"
 	cipherMode     = crypto.XORBlake3
-	baseCount      = 2
-	messages       = genMsg(baseCount, 100000)
-	bitsetMessages = genBitSetMsg(baseCount, 100000)
+	baseCount      = 1024
+	messages       = genMsg(baseCount, 2)
+	bitsetMessages = genBitSetMsg(baseCount, 2)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)
-	bitsetCompare  = util.SampleBitSetSlice(r, 100000)
-	bitsetCompare2 = util.SampleBitSetSlice(r, 64)
+	bitsetCompare  = util.SampleBitSetSlice(r, 2)
+	bitsetCompare2 = util.SampleBitSetSlice(r, 2)
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
@@ -556,6 +556,7 @@ func BenchmarkConcurrentColumnarCacheSafeBitSetTranspose(t *testing.B) {
 	}
 }
 */
+/*
 // This is compare speeds if we don't actually transpose but instead just process a column as a column
 func BenchmarkNonTransposeBitSetXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
@@ -581,7 +582,7 @@ func BenchmarkNonTransposeBitSetXOR(t *testing.B) {
 		}
 	}
 }
-
+*/
 func BenchmarkColumnarSymmetricDifference(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := bitsetMessages[0]
@@ -629,6 +630,7 @@ func BenchmarkConcurrentSymmetricDifference(t *testing.B) {
 	}
 }
 */
+/*
 func BenchmarkNonTransposeXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := messages[0]
@@ -638,13 +640,6 @@ func BenchmarkNonTransposeXOR(t *testing.B) {
 		for j, y := range bm {
 			for k, z := range y {
 				bm[j][k] = z ^ bbm[k][bbmLen-k-1]
-				/*
-					if z != bbm[k][bbmLen-k-1] {
-						bm[j][k] = 1
-					} else {
-						bm[j][k] = 0
-					}
-				*/
 			}
 		}
 
@@ -657,7 +652,8 @@ func BenchmarkNonTransposeXOR(t *testing.B) {
 		}
 	}
 }
-
+*/
+/*
 func BenchmarkNonTransposeXORBitSetConv(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
@@ -667,13 +663,6 @@ func BenchmarkNonTransposeXORBitSetConv(t *testing.B) {
 		for j, y := range bm {
 			for k, z := range y {
 				bm[j][k] = z ^ bbm[k][bbmLen-k-1]
-				/*
-					if z != bbm[k][bbmLen-k-1] {
-						bm[j][k] = 1
-					} else {
-						bm[j][k] = 0
-					}
-				*/
 			}
 		}
 
@@ -686,7 +675,7 @@ func BenchmarkNonTransposeXORBitSetConv(t *testing.B) {
 		}
 	}
 }
-
+*/
 func BenchmarkTransposeBitSetXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		bm := util.BitSetsToBitMatrix(bitsetMessages[0])
@@ -922,6 +911,7 @@ func BenchmarkTransposeBitSet(t *testing.B) {
 	}
 }
 
+/*
 func BenchmarkTransposeBitSet2(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.TransposeBitSets2(bitsetMessages[0])
@@ -937,7 +927,8 @@ func BenchmarkTransposeBitSet2(t *testing.B) {
 		}
 	}
 }
-
+*/
+/* not working
 func BenchmarkContiguousBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ContiguousBitSetTranspose(bitsetMessages[0])
@@ -952,7 +943,7 @@ func BenchmarkContiguousBitSetTranspose(t *testing.B) {
 		}
 	}
 }
-
+*/
 func BenchmarkContiguousBitSetTranspose2(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ContiguousBitSetTranspose2(bitsetMessages[0])
@@ -968,6 +959,7 @@ func BenchmarkContiguousBitSetTranspose2(t *testing.B) {
 	}
 }
 
+/* not working
 func BenchmarkContiguousSparseBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ContiguousSparseBitSetTranspose(bitsetMessages[0])
@@ -982,7 +974,7 @@ func BenchmarkContiguousSparseBitSetTranspose(t *testing.B) {
 		}
 	}
 }
-
+*/
 /*
 func BenchmarkExpandBitSets(t *testing.B) {
 	a := util.SampleRandomBitSetMatrix(r, 4035, 12689)
