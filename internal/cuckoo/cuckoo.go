@@ -28,8 +28,8 @@ func init() {
 // the hash function used to compute which bucket index
 // the item is inserted in.
 type value struct {
-	item []byte
 	hIdx uint8
+	item []byte
 }
 
 func (v value) Empty() bool {
@@ -143,7 +143,7 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 
 		if c.buckets[bIdx].Empty() {
 			// this is a free slot
-			c.buckets[bIdx] = value{item, uint8(hIdx)}
+			c.buckets[bIdx] = value{uint8(hIdx), item}
 			return true
 		}
 	}
@@ -160,7 +160,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 		evictedBIdx := bucketIndices[evictedHIdx]
 		evictedItem := c.buckets[evictedBIdx]
 		// insert the item in the evicted slot
-		c.buckets[evictedBIdx] = value{item, uint8(evictedHIdx)}
+		c.buckets[evictedBIdx] = value{uint8(evictedHIdx), item}
 
 		evictedBucketIndices := c.BucketIndices(evictedItem.item)
 		// try to reinsert the evicted items
@@ -238,11 +238,14 @@ func (v *value) oprfInput() []byte {
 // if the identifier is in the bucket, it appends the hash index
 // if the identifier is on stash, it returns just the id
 // if the bucket has nothing it in, it returns a dummy value: 255
-func (c *Cuckoo) OPRFInput() [][]byte {
-	r := make([][]byte, c.Len())
-	for i, b := range c.buckets {
-		r[i] = b.oprfInput()
-	}
+func (c *Cuckoo) OPRFInput() <-chan []byte {
+	r := make(chan []byte, c.Len())
+	go func() {
+		for _, b := range c.buckets {
+			r <- b.oprfInput()
+		}
+		close(r)
+	}()
 
 	return r
 }
@@ -255,14 +258,16 @@ func (v *value) GetHashIdx() uint8 {
 	return v.hIdx
 }
 
-func (c *Cuckoo) Bucket() []value {
-	if c.buckets != nil {
-		clone := make([]value, len(c.buckets))
-		copy(clone, c.buckets)
-		return clone
-	} else {
-		return nil
-	}
+func (c *Cuckoo) Bucket() <-chan value {
+	var valueChan = make(chan value, c.bucketSize)
+	go func() {
+		for _, v := range c.buckets {
+			valueChan <- v
+		}
+		close(valueChan)
+	}()
+
+	return valueChan
 }
 
 func (c *Cuckoo) BucketSize() int {

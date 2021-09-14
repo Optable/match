@@ -51,3 +51,21 @@ func BenchmarkSampleBitMatrix(b *testing.B) {
 		SampleRandomBitMatrix(prng, 10000, 424)
 	}
 }
+
+func BenchmarkXorBytes(b *testing.B) {
+	a := make([]byte, 10000)
+	SampleBitSlice(prng, a)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		XorBytes(a, a)
+	}
+}
+
+func BenchmarkInplaceXorBytes(b *testing.B) {
+	a := make([]byte, 10000)
+	SampleBitSlice(prng, a)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		InPlaceXorBytes(a, a)
+	}
+}

@@ -20,5 +20,5 @@ var test_sizes = []test_size{
 	{"sameSize", 100, 100, 100},
 	{"smallSize", 100, 10000, 1000},
 	{"mediumSize", 1000, 100000, 10000},
-	{"bigSize", 10000, 100000, 10000},
+	{"bigSize", 10000, 100000, 100000},
 }
