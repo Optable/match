@@ -13,6 +13,7 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
+	"crypto/aes"
 	crand "crypto/rand"
 	"encoding/binary"
 	"io"
@@ -112,8 +113,9 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		d := make([][]byte, o.m)
+		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < o.m; i++ {
-			d[i] = crypto.PseudorandomCode(sk, o.k, choices[i])
+			d[i] = crypto.PseudorandomCode(aesBlock, o.k, choices[i])
 		}
 		pseudorandomChan <- util.Transpose(d)
 	}()
@@ -149,7 +151,8 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 // Encode computes and returns OPRF(k, in)
 func (o kkrt) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	out, err = util.AndBytes(crypto.PseudorandomCode(k.sk, o.k, in), k.s)
+	aesBlock, _ := aes.NewCipher(k.sk)
+	out, err = util.AndBytes(crypto.PseudorandomCode(aesBlock, o.k, in), k.s)
 	if err != nil {
 		return
 	}
