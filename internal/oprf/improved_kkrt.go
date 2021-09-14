@@ -128,8 +128,6 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		pseudorandomChan <- util.Transpose(d)
 	}()
 
-	// Receive pseudorandom msg from bitSliceChan
-
 	// sample k x k bit mtrix
 	seeds, err := util.SampleRandomBitMatrix(ext.prng, 2*ext.k, ext.k)
 	if err != nil {

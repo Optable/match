@@ -190,7 +190,7 @@ func TestKKRTReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(s.commonLen)
 		// test
-		if err := testReceiver(psi.KKRTPSI, common, s, false); err != nil {
+		if err := testReceiver(psi.KKRTPSI, common, s, true); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
 	}

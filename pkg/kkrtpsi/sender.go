@@ -7,7 +7,6 @@ import (
 	"io"
 	"math/rand"
 	"sync"
-	"time"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -57,9 +56,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	// for cuckoo hashing parameters agreement.
 	// read local ids and store the potential bucket indexes for each id.
 	stage1 := func() error {
-		// seed randomness
-		rand.Seed(time.Now().UnixNano())
-
 		// sample Nhash hash seeds
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
@@ -98,7 +94,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err = oprf.NewImprovedKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
+		oSender, err = oprf.NewKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
 		if err != nil {
 			return err
 		}

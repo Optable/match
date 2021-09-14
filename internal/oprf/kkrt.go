@@ -108,6 +108,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		return nil, err
 	}
 
+	// compute code word using pseudorandom code on choice stirng r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		d := make([][]byte, o.m)
