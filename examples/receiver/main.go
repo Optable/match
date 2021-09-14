@@ -35,7 +35,7 @@ var out *string
 
 func main() {
 	var wg sync.WaitGroup
-	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (dhpsi,npsi)")
+	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (bpsi,npsi,dhpsi,kkrt)")
 	var port = flag.String("p", defaultPort, "The receiver port")
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	out = flag.String("out", defaultCommonFileName, "A list of IDs that intersect between the receiver and the sender")

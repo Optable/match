@@ -19,12 +19,12 @@ var (
 	curve          = "P256"
 	cipherMode     = crypto.XORBlake3
 	baseCount      = 2
-	messages       = genMsg(baseCount, 20000000)
-	bitsetMessages = genBitSetMsg(baseCount, 20000000)
+	messages       = genMsg(baseCount, 100000)
+	bitsetMessages = genBitSetMsg(baseCount, 100000)
 	msgLen         = make([]int, len(messages))
 	choices        = genChoiceBits(baseCount)
 	bitsetChoices  = genChoiceBitSet(baseCount)
-	bitsetCompare  = util.SampleBitSetSlice(r, 20000000)
+	bitsetCompare  = util.SampleBitSetSlice(r, 100000)
 	bitsetCompare2 = util.SampleBitSetSlice(r, 64)
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
@@ -540,6 +540,7 @@ func BenchmarkConcurrentColumnarBitSetSymmetricDifference2(t *testing.B) {
 	}
 }
 
+/*
 func BenchmarkConcurrentColumnarCacheSafeBitSetTranspose(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		tm := util.ConcurrentColumnarCacheSafeBitSetTranspose(bitsetMessages[0])
@@ -554,7 +555,7 @@ func BenchmarkConcurrentColumnarCacheSafeBitSetTranspose(t *testing.B) {
 		}
 	}
 }
-
+*/
 // This is compare speeds if we don't actually transpose but instead just process a column as a column
 func BenchmarkNonTransposeBitSetXOR(t *testing.B) {
 	for i := 0; i < t.N; i++ {

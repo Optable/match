@@ -29,7 +29,7 @@ func showUsageAndExit(exitcode int) {
 }
 
 func main() {
-	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (dhpsi,npsi)")
+	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (bpsi,npsi,dhpsi,kkrt)")
 	var addr = flag.String("a", defaultAddress, "The receiver address")
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	var showHelp = flag.Bool("h", false, "Show help message")

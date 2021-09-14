@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/optable/match/internal/cuckoo"
@@ -45,7 +44,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var oprfOutput [][]byte
 	var oprfOutputSize int
 	var cuckooHashTable *cuckoo.Cuckoo
-	var input = make(chan [][]byte)
+	var input = make(chan [][]byte, 1)
 	//var errBus = make(chan error)
 
 	// stage 1: read the hash seeds from the remote side
@@ -67,7 +66,12 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				cuckooHashTable.Insert(identifier)
 			}
 
-			input <- cuckooHashTable.OPRFInput()
+			var oprfInputs [][]byte
+			for in := range cuckooHashTable.OPRFInput() {
+				oprfInputs = append(oprfInputs, in)
+			}
+			input <- oprfInputs
+			close(input)
 		}()
 
 		// send size
@@ -92,7 +96,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oReceiver, err := oprf.NewImprovedKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
+		oReceiver, err := oprf.NewKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -116,68 +120,50 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
+		bucket := cuckooHashTable.Bucket()
+		localChan := make(chan uint64, len(oprfOutput))
+		// hash local oprf output
+		go func() {
+			hasher, _ := hash.New(hash.Highway, seeds[0])
+			for _, output := range oprfOutput {
+				localChan <- hasher.Hash64(output)
+			}
+
+			close(localChan)
+		}()
+
 		// read number of remote IDs
 		var remoteN int64
 		if err := binary.Read(r.rw, binary.BigEndian, &remoteN); err != nil {
 			return err
 		}
 
-		var wg sync.WaitGroup
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteHashtables = make([]map[uint64]bool, cuckoo.Nhash)
-		var buckets = make([]chan uint64, cuckoo.Nhash)
-
+		var remoteHashtables [cuckoo.Nhash]map[uint64]struct{}
 		for i := range remoteHashtables {
 			var u uint64
 			// read encoded id and insert
-			remoteHashtables[i] = make(map[uint64]bool)
-			buckets[i] = make(chan uint64, remoteN)
-
+			remoteHashtables[i] = make(map[uint64]struct{})
 			for j := int64(0); j < remoteN; j++ {
 				if err := npsi.HashRead(r.rw, &u); err != nil {
 					return err
 				}
-
-				buckets[i] <- u
+				remoteHashtables[i][u] = struct{}{}
 			}
-
-			close(buckets[i])
 		}
-
-		for i := range remoteHashtables {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				for encoded := range buckets[i] {
-					remoteHashtables[i][encoded] = true
-				}
-			}(i)
-		}
-
-		hasher, err := hash.New(hash.Highway, seeds[0])
-		if err != nil {
-			return err
-		}
-		// hash local oprf output
-		local := make([]uint64, len(oprfOutput))
-		for i := range oprfOutput {
-			local[i] = hasher.Hash64(oprfOutput[i])
-		}
-
-		// Wait for all encode to complete.
-		wg.Wait()
 
 		// intersect
-		localBucket := cuckooHashTable.Bucket()
-
-		for key, value := range localBucket {
+		var localOutput uint64
+		var exists bool
+		for value := range bucket {
+			localOutput = <-localChan
 			// compare oprf output to every encoded in remoteHashTable at hIdx
-			if value != nil {
+			if !value.Empty() {
 				hIdx := value.GetHashIdx()
-				if remoteHashtables[hIdx][local[key]] {
+				if _, exists = remoteHashtables[hIdx][localOutput]; exists {
 					intersected = append(intersected, value.GetItem())
 					// dedup
-					localBucket[uint64(key)] = nil
+					delete(remoteHashtables[hIdx], localOutput)
 				}
 			}
 		}

@@ -100,89 +100,6 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 		keys[j] = KeyBitSet{sk: sk, s: s, q: q[j]}
 	}
 
-	/* no transpose version
-	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
-
-	// store oprf keys
-	keys = make([]KeyBitSet, q[0].Len())
-	for j := uint(0); j < q[0].Len(); j++ {
-		keys[j] = KeyBitSet{sk: sk, s: s, q: util.GetBitSetCol(q, j)}
-	}
-	*/
-
-	/*
-		// combine transpose and oprf key storage
-		var wg sync.WaitGroup
-		m := len(q)
-		n := int(q[0].Len())
-		keys = make([]KeyBitSet, n)
-
-		// the optimal number of goroutines will likely vary due to
-		// hardware and array size
-		// nThreads := n // one thread per column (likely only efficient for huge matrix)
-		// nThreads := runtime.NumCPU()
-		// nThreads := runtime.NumCPU()*2
-		nThreads := 9
-		// add to quick check to ensure there are not more threads than columns
-		if n < nThreads {
-			nThreads = n
-		}
-
-		// number of columns for which each goroutine is responsible
-		nColumns := n / nThreads
-
-		// create ordered channels to store values from goroutines
-		// each channel is buffered to store the number of desired rows
-		channels := make([]chan KeyBitSet, nThreads)
-		for i := 0; i < nThreads-1; i++ {
-			channels[i] = make(chan KeyBitSet, nColumns)
-		}
-		// last one may have excess columns
-		channels[nThreads-1] = make(chan KeyBitSet, nColumns+n%nThreads)
-
-		// goroutine
-		//wg.Add(nThreads)
-		for i := 0; i < nThreads; i++ {
-			wg.Add(1)
-			go func(i int) {
-				//	fmt.Println("goroutine", i, "created")
-				defer wg.Done()
-				// we need to handle excess columns which don't evenly divide among
-				// number of threads -> in this case, I just add to the last goroutine
-				// perhaps a more sophisticated division of labor would be more efficient
-				var extraColumns int
-				if i == nThreads-1 {
-					extraColumns = n % nThreads
-				}
-
-				for c := 0; c < (nColumns + extraColumns); c++ {
-					row := bitset.New(uint(m))
-					for r := 0; r < m; r++ {
-						if q[r].Test(uint((i * nColumns) + c)) {
-							row.Set(uint(r))
-						}
-					}
-					key := KeyBitSet{sk: sk, s: s, q: row}
-
-					channels[i] <- key
-				}
-
-				close(channels[i])
-			}(i)
-		}
-
-		// Wait until all goroutines have finished
-		wg.Wait()
-
-		// Reconstruct keys from the channels
-		for i, channel := range channels {
-			var j int
-			for key := range channel {
-				keys[(i*nColumns)+j] = key
-				j++
-			}
-		}
-	*/
 	return
 }
 
@@ -208,8 +125,6 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		pseudorandomChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
 
-	// Receive pseudorandom msg from bitSliceChan
-
 	// sample k x k bit matrix
 	seeds := util.SampleRandomBitSetMatrix(ext.prng, 2*ext.k, ext.k)
 
@@ -225,6 +140,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		return nil, err
 	}
 
+	// Receive pseudorandom msg from bitSliceChan
 	d := <-pseudorandomChan
 
 	t = make([]*bitset.BitSet, ext.k)
@@ -241,18 +157,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 			return nil, err
 		}
 	}
-	/*
-		for col := 0; col < int(d[0].Len()); col++ {
-			t[col] = crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-			u = t[col].SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m))
-			u = u.SymmetricDifference(d[col])
 
-			// send u
-			if _, err = u.WriteTo(rw); err != nil {
-				return nil, err
-			}
-		}
-	*/
 	return util.ConcurrentColumnarBitSetTranspose(t), nil
 }
 

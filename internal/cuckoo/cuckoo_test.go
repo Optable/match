@@ -84,13 +84,6 @@ func BenchmarkCuckooInsert(b *testing.B) {
 	}
 }
 
-func BenchmarkBucketIndicesPipeline(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		bench_cuckoo.BucketIndices(benchData[i%int(bench_n)])
-	}
-}
-
 // Benchmark find hash index
 func BenchmarkCuckooGetHashIdx(b *testing.B) {
 	b.ResetTimer()

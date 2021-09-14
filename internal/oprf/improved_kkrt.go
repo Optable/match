@@ -13,10 +13,11 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	"fmt"
+	"crypto/aes"
+	crand "crypto/rand"
+	"encoding/binary"
 	"io"
-	"math/rand"
-	"time"
+	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
@@ -29,7 +30,7 @@ type imprvKKRT struct {
 	m      int   // number of message tuples
 	k      int   // width of base OT binary matrix as well as
 	// pseudorandom code output length
-	prng *rand.Rand // source of randomness
+	prng *mrand.Rand // source of randomness
 	g    *blake3.Hasher
 }
 
@@ -51,15 +52,17 @@ func NewImprovedKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 	}
 	g := blake3.New()
 
-	return imprvKKRT{baseOT: ot, m: m, k: k, prng: rand.New(rand.NewSource(time.Now().UnixNano())), g: g}, nil
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
+	return imprvKKRT{baseOT: ot, m: m, k: k, prng: mrand.New(mrand.NewSource(seed)), g: g}, nil
 }
 
 // Send returns the OPRF keys
 func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
-	start := time.Now()
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = ext.prng.Read(sk); err != nil {
+	if _, err = crand.Read(sk); err != nil {
 		return nil, err
 	}
 
@@ -80,8 +83,6 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 		return nil, err
 	}
 
-	fmt.Println("Received ", ext.k, " base OTs in: ", time.Since(start))
-
 	// receive masked columns u
 	u := make([]byte, ext.m)
 	q := make([][]byte, ext.k)
@@ -90,12 +91,13 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 			return nil, err
 		}
 
-		q[col], _ = util.XorBytes(util.AndByte(s[col], u), crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m))
+		util.InPlaceAndByte(s[col], u)
+		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
+		util.InPlaceXorBytes(u, q[col])
 	}
 
 	//q = Transpose(q)
 	q = util.ConcurrentColumnarTranspose(q)
-	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
 
 	// store oprf keys
 	keys = make([]Key, len(q))
@@ -122,14 +124,13 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		d := make([][]byte, ext.m)
+		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(sk, ext.k, choices[i])
+			d[i] = crypto.PseudorandomCode(aesBlock, ext.k, choices[i])
 		}
 		//pseudorandomChan <- util.Transpose(d)
 		pseudorandomChan <- util.ConcurrentColumnarTranspose(d)
 	}()
-
-	// Receive pseudorandom msg from bitSliceChan
 
 	// sample k x k bit mtrix
 	seeds, err := util.SampleRandomBitMatrix(ext.prng, 2*ext.k, ext.k)
@@ -157,8 +158,15 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	// t^i = d^i ^ u^i
 	for col := range d {
 		t[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-		u, _ = util.XorBytes(t[col], crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m))
-		u, _ = util.XorBytes(u, d[col])
+		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+		err = util.InPlaceXorBytes(t[col], u)
+		if err != nil {
+			return nil, err
+		}
+		err = util.InPlaceXorBytes(d[col], u)
+		if err != nil {
+			return nil, err
+		}
 
 		// send u
 		if _, err = rw.Write(u); err != nil {
@@ -173,15 +181,13 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 // Encode computes and returns OPRF(k, in)
 func (o imprvKKRT) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	x, err := util.AndBytes(crypto.PseudorandomCode(k.sk, o.k, in), k.s)
+	aesBlock, _ := aes.NewCipher(k.sk)
+	out, err = util.AndBytes(crypto.PseudorandomCode(aesBlock, o.k, in), k.s)
 	if err != nil {
 		return
 	}
 
-	t, err := util.XorBytes(k.q, x)
-	if err != nil {
-		return
-	}
+	err = util.InPlaceXorBytes(k.q, out)
 
-	return t, nil
+	return
 }

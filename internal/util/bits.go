@@ -14,7 +14,7 @@ var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same len
 // XorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
 func XorBytes(a, b []byte) (dst []byte, err error) {
-	n := len(b)
+	var n = len(b)
 	if n != len(a) {
 		return nil, ErrByteLengthMissMatch
 	}
@@ -56,6 +56,21 @@ func XorByteRowColInPlace(a []byte, b [][]byte, index int) (err error) {
 	return
 }
 
+// Inplace XorBytes xors each byte from a with b and returns dst
+// if a and b are the same length
+func InPlaceXorBytes(a, dst []byte) error {
+	var n = len(dst)
+	if n != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := 0; i < n; i++ {
+		dst[i] = a[i] ^ dst[i]
+	}
+
+	return nil
+}
+
 // XORs two BitSets if they are the same length
 func XorBitsets(a, b *bitset.BitSet) (*bitset.BitSet, error) {
 	n := b.Len()
@@ -81,6 +96,20 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	}
 
 	return
+}
+
+// InplaceAndBytes returns the binary and of each byte in a and b
+// if a and b are the same length
+func InPlaceAndBytes(a, dst []byte) error {
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := range dst {
+		dst[i] = a[i] & dst[i]
+	}
+
+	return nil
 }
 
 func AndByte(a uint8, b []byte) (dst []byte) {
@@ -132,6 +161,12 @@ func GetBitSetCol(matrix []*bitset.BitSet, index uint) *bitset.BitSet {
 	}
 
 	return col
+}
+
+func InPlaceAndByte(a uint8, dst []byte) {
+	for i := range dst {
+		dst[i] = a & dst[i]
+	}
 }
 
 // Transpose returns the transpose of a 2D slices of uint8
@@ -546,8 +581,8 @@ func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 
 // SampleBitSlice returns a slice of uint8 of pseudorandom bits
 func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
-	// read up to len(b) pseudorandom bits
-	t := make([]byte, len(b)/8)
+	// read up to len(b) + 1 pseudorandom bits
+	t := make([]byte, len(b)/8+1)
 	if _, err = prng.Read(t); err != nil {
 		return nil
 	}
@@ -561,12 +596,12 @@ func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
 // ExtractBytesToBits returns a byte array of bits from src
 // if len(dst) < len(src) * 8, nothing will be done
 func ExtractBytesToBits(src, dst []byte) {
-	if len(dst) < len(src)*8 {
+	if len(dst) > len(src)*8 {
 		return
 	}
 
 	var i int
-	for _, _byte := range src {
+	for _, _byte := range src[:len(src)-1] {
 		dst[i] = uint8(_byte & 0x01)
 		dst[i+1] = uint8((_byte >> 1) & 0x01)
 		dst[i+2] = uint8((_byte >> 2) & 0x01)
@@ -576,6 +611,11 @@ func ExtractBytesToBits(src, dst []byte) {
 		dst[i+6] = uint8((_byte >> 6) & 0x01)
 		dst[i+7] = uint8((_byte >> 7) & 0x01)
 		i += 8
+	}
+
+	// handle the last byte
+	for i = 0; i < len(dst)%8; i++ {
+		dst[(len(src)-1)*8+i] = uint8((src[len(src)-1] >> i) & 0x01)
 	}
 }
 
