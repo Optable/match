@@ -791,6 +791,48 @@ func BitSliceToBitSets(b []byte, width int) []*bitset.BitSet {
 	return bsets
 }
 
+// from: https://books.google.ca/books?id=VicPJYM0I5QC&pg=PA145&lpg=PA145&dq=recursive+bit+matrix+transpose&source=bl&ots=2p1OPRur0n&sig=ACfU3U1fTJLM78DAHQwocR2YbyRYgF9DEA&hl=en&sa=X&ved=2ahUKEwiU-oTt4v7yAhXrYt8KHVTqDWMQ6AF6BAgWEAM#v=onepage&q=recursive%20bit%20matrix%20transpose&f=false
+// modified bitset transpose for a slice of uint64 representing a 64x64 matrix of bits
+/*
+[00 01 02 . . . 63]
+is representing this:
+[
+	00
+	01
+	02
+	.
+	.
+	.
+	63
+]
+which in binary is:
+[
+	00-63 00-62 00-61 . . . 00-00
+	01-63 01-62 01-61 . . . 01-00
+	02-63 02-62 02-61 . . . 02-00
+	.
+	.
+	.
+	63-63 63-62 63-61 . . . 63-00
+]
+this is the structure we are transposing
+*/
+func Transpose64(A []uint64) {
+	var width, k int = 32, 0
+	var mask, t uint64 = 0x00000000FFFFFFFF, 0
+
+	for width != 0 {
+		for k = 0; k < 64; k = ((k | width) + 1) &^ width {
+			t = (A[k] ^ (A[k|width] >> width)) & mask
+			A[k] = A[k] ^ t
+			A[k|width] = A[k|width] ^ (t << width)
+		}
+
+		width >>= 1
+		mask ^= mask << width
+	}
+}
+
 // m x k to k x m
 func TransposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
 	m := uint(len(bmat))
