@@ -7,12 +7,12 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
+	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: samples 3 hash seeds and sends them to receiver for cuckoo hash
@@ -24,7 +24,7 @@ import (
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
-func (s *Sender) SendBitset(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
+func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
 	var seeds [cuckoo.Nhash][]byte
 	var remoteN int64       // receiver size
 	var oprfInputSize int64 // nb of OPRF keys
@@ -95,15 +95,20 @@ func (s *Sender) SendBitset(ctx context.Context, n int64, identifiers <-chan []b
 			return err
 		}
 
-		var localEncodings [cuckoo.Nhash]chan *bitset.BitSet
+		hasher, err := hash.New(hash.Highway, seeds[0])
+		if err != nil {
+			return err
+		}
+
+		var localEncodings [cuckoo.Nhash]chan uint64
 
 		for i := range localEncodings {
-			localEncodings[i] = make(chan *bitset.BitSet, n)
+			localEncodings[i] = make(chan uint64, n)
 		}
 
 		var wg sync.WaitGroup
-		var errBus = make(chan error)
 
+		var encoded []byte
 		for hash := range hashedIds {
 			wg.Add(1)
 			go func(hash hashable) {
@@ -111,29 +116,23 @@ func (s *Sender) SendBitset(ctx context.Context, n int64, identifiers <-chan []b
 				// encode identifiers that are potentially stored in receiver's cuckoo hash table
 				// in any of the cuckoo.Nhash bukcet index and store it.
 				for hIdx, bucketIdx := range hash.bucketIdx {
-					localEncodings[hIdx] <- oSender.Encode(oprfKeys[bucketIdx], util.BytesToBitSet(append(hash.identifier, uint8(hIdx))))
+					encoded, _ = oSender.Encode(oprfKeys[bucketIdx], util.BytesToBitSet(append(hash.identifier, uint8(hIdx)))).MarshalBinary()
+					localEncodings[hIdx] <- hasher.Hash64(encoded)
+
 				}
 			}(hash)
 		}
 
 		// Wait for all encode to complete.
 		wg.Wait()
-		close(errBus)
 		for i := range localEncodings {
 			close(localEncodings[i])
 		}
 
-		//errors?
-		for err := range errBus {
-			if err != nil {
-				return err
-			}
-		}
-
 		// exhaust the hashes into the receiver
 		for i := range localEncodings {
-			for encoded := range localEncodings[i] {
-				if _, err := encoded.WriteTo(s.rw); err != nil {
+			for hash := range localEncodings[i] {
+				if err := npsi.HashWrite(s.rw, hash); err != nil {
 					return fmt.Errorf("stage2: %v", err)
 				}
 			}

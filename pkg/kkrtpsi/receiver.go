@@ -36,7 +36,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
-func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// start timer:
 	start := time.Now()
 	var seeds [cuckoo.Nhash][]byte

@@ -13,6 +13,7 @@ import (
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
+	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: read the 3 hash seeds for cuckoo hash, read local IDs until exhaustion
@@ -25,7 +26,7 @@ import (
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
-func (r *Receiver) IntersectBitset(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// start timer:
 	start := time.Now()
 	var seeds [cuckoo.Nhash][]byte
@@ -113,6 +114,19 @@ func (r *Receiver) IntersectBitset(ctx context.Context, n int64, identifiers <-c
 	stage3 := func() error {
 		bucket := cuckooHashTable.Bucket()
 
+		localChan := make(chan uint64, len(oprfOutput))
+		// hash local oprf output
+		go func() {
+			hasher, _ := hash.New(hash.Highway, seeds[0])
+			var b []byte
+			for _, output := range oprfOutput {
+				b, _ = output.MarshalBinary()
+				localChan <- hasher.Hash64(b)
+			}
+
+			close(localChan)
+		}()
+
 		// read number of remote IDs
 		var remoteN int64
 		if err := binary.Read(r.rw, binary.BigEndian, &remoteN); err != nil {
@@ -120,33 +134,34 @@ func (r *Receiver) IntersectBitset(ctx context.Context, n int64, identifiers <-c
 		}
 
 		// read cuckoo.Nhash number of slice of encoded remote IDs
-		var remoteEncodings [cuckoo.Nhash]map[string]bool
-		var u = bitset.New(uint(oprfOutputSize))
+		var remoteEncodings [cuckoo.Nhash]map[uint64]struct{}
+		var u uint64
 		for i := range remoteEncodings {
 			// read encoded id and insert
-			remoteEncodings[i] = make(map[string]bool, remoteN)
+			remoteEncodings[i] = make(map[uint64]struct{}, remoteN)
 			for j := int64(0); j < remoteN; j++ {
-				if _, err := u.ReadFrom(r.rw); err != nil {
+				if err := npsi.HashRead(r.rw, &u); err != nil {
 					return err
 				}
-				remoteEncodings[i][u.String()] = true
+				remoteEncodings[i][u] = struct{}{}
 			}
 		}
 
 		// intersect
-		var idx, hIdx int
-		var encoded string
+		var hIdx uint8
+		var localOutput uint64
+		var exists bool
 		for value := range bucket {
+			localOutput = <-localChan
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			if !value.Empty() {
-				hIdx, encoded = int(value.GetHashIdx()), oprfOutput[idx].String()
-				if remoteEncodings[hIdx][encoded] {
+				hIdx = value.GetHashIdx()
+				if _, exists = remoteEncodings[hIdx][localOutput]; exists {
 					intersection = append(intersection, value.GetItem())
 					// dedup
-					delete(remoteEncodings[hIdx], encoded)
+					delete(remoteEncodings[hIdx], localOutput)
 				}
 			}
-			idx++
 		}
 
 		// end stage3

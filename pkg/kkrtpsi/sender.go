@@ -43,7 +43,7 @@ func NewSender(rw io.ReadWriter) *Sender {
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
-func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
+func (s *Sender) _Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
 	var seeds [cuckoo.Nhash][]byte
 	var remoteN int64       // receiver size
 	var oprfInputSize int64 // nb of OPRF keys
