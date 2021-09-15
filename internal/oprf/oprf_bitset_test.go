@@ -52,7 +52,7 @@ func oprfReceiveHandlerBitSet(conn net.Conn, oprf OPRFBitSet, choices []*bitset.
 	}
 }
 
-func testKKRTBitSet(t *testing.T) {
+func TestKKRTBitSet(t *testing.T) {
 	outBus := make(chan *bitset.BitSet)
 	keyBus := make(chan KeyBitSet)
 	errs := make(chan error, 5)

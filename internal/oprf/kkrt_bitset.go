@@ -13,10 +13,10 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	"io"
-	"math/rand"
-	"sync"
-	"time"
+	mrand "math/rand"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/crypto"
@@ -24,17 +24,12 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-var (
-	curveBitSet      = "P256"
-	cipherModeBitSet = crypto.XORBlake3
-)
-
 type kkrtBitSet struct {
 	baseOT ot.OTBitSet // base OT under the hood
 	m      int         // number of message tuples
 	k      int         // width of base OT binary matrix as well as
 	// pseudorandom code output length
-	prng *rand.Rand // source of randomness
+	prng *mrand.Rand // source of randomness
 }
 
 // NewKKRT returns a KKRT OPRF
@@ -55,7 +50,10 @@ func NewKKRTBitSet(m, k, baseOT int, ristretto bool) (OPRFBitSet, error) {
 		return kkrtBitSet{}, err
 	}
 
-	return kkrtBitSet{baseOT: ot, m: m, k: k, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
+	return kkrtBitSet{baseOT: ot, m: m, k: k, prng: mrand.New(mrand.NewSource(seed))}, nil
 }
 
 // Send returns the OPRF keys
@@ -78,7 +76,7 @@ func (o kkrtBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) {
 	}
 
 	// transpose q to m x k matrix for easier row operations
-	q = util.BitMatrixToBitSets(util.ContiguousTranspose(util.BitSetsToBitMatrix(q)))
+	q = util.ConcurrentColumnarBitSetTranspose(q)
 
 	// store oprf keys
 	keys = make([]KeyBitSet, len(q))
@@ -95,61 +93,50 @@ func (o kkrtBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (t []*bi
 		return nil, ot.ErrBaseCountMissMatch
 	}
 
+	var bitMatrixChan = make(chan []*bitset.BitSet)
+	go func() {
+		// Sample k x m matrix T
+		bitMatrixChan <- util.ConcurrentColumnarBitSetTranspose(util.SampleRandomBitSetMatrix(o.prng, o.m, o.k))
+	}()
+
 	// receive AES-128 secret key
 	sk := bitset.New(128)
 	if _, err = sk.ReadFrom(rw); err != nil {
 		return nil, err
 	}
 
-	// Sample m x k matrix T
-	t = util.SampleRandomBitSetMatrix(o.prng, o.m, o.k)
-	var wg sync.WaitGroup
-	var msg = make(chan *bitset.BitSet)
-	var errBus = make(chan error)
-	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
-	baseMsgs := make([][]*bitset.BitSet, o.m)
-	for i := range baseMsgs {
-		wg.Add(1)
-		go func(i int, msg chan<- *bitset.BitSet) {
-			defer wg.Done()
-			msg <- t[i]
-			//m, err := util.XorBytes(t[i], crypto.PseudorandomCode(sk, o.k, choices[i]))
-			m := t[i].SymmetricDifference(crypto.PseudorandomCodeBitSet(sk, o.k, choices[i]))
-			msg <- m
-		}(i, msg)
-
-		baseMsgs[i] = make([]*bitset.BitSet, 2)
-		baseMsgs[i][0] = <-msg
-		baseMsgs[i][1] = <-msg
-	}
-
-	// wait for all operation to be done
+	// compute code word using pseudorandom code on choice string r in a separate thread
 	go func() {
-		wg.Wait()
-		close(errBus)
-		close(msg)
+		d := make([]*bitset.BitSet, o.m)
+		for i := 0; i < o.m; i++ {
+			d[i] = crypto.PseudorandomCodeBitSet(sk, o.k, choices[i])
+		}
+		bitMatrixChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
 
-	//errors?
-	for err := range errBus {
-		if err != nil {
-			return nil, err
-		}
+	// Receive pseudorandom msg from bitMatrixChan
+	t = <-bitMatrixChan
+	d := <-bitMatrixChan
+	//fmt.Println(len(t), len(d), t[0].Len(), d[0].Len())
+
+	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
+	baseMsgs := make([][]*bitset.BitSet, o.k)
+	for i := range baseMsgs {
+		baseMsgs[i] = make([]*bitset.BitSet, 2)
+		baseMsgs[i][0] = t[i]
+		baseMsgs[i][1] = t[i].SymmetricDifference(d[i])
 	}
 
 	// act as sender in baseOT to send k columns
-	if err = o.baseOT.Send(util.BitMatrixToBitSets3D(util.ContiguousTranspose3D(util.BitSetsToBitMatrix3D(baseMsgs))), rw); err != nil {
+	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
-	return
+
+	return util.ConcurrentColumnarBitSetTranspose(t), nil
 }
 
 // Encode computes and returns OPRF(k, in)
-func (o kkrtBitSet) Encode(k KeyBitSet, in *bitset.BitSet) *bitset.BitSet {
+func (o kkrtBitSet) Encode(key KeyBitSet, in *bitset.BitSet) *bitset.BitSet {
 	// compute q_i ^ (C(r) & s)
-	x := crypto.PseudorandomCodeBitSet(k.sk, o.k, in).Intersection(k.s)
-
-	t := k.q.SymmetricDifference(x)
-
-	return t
+	return key.q.SymmetricDifference(crypto.PseudorandomCodeBitSet(key.sk, o.k, in).Intersection(key.s))
 }
