@@ -3,6 +3,7 @@ package kkrtpsi
 import (
 	"context"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: read the 3 hash seeds for cuckoo hash, read local IDs until exhaustion
@@ -135,16 +135,15 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// read cuckoo.Nhash number of slice of encoded remote IDs
 		var remoteEncodings [cuckoo.Nhash]map[uint64]struct{}
-		var u uint64
+		decoder := gob.NewDecoder(r.rw)
 		for i := range remoteEncodings {
 			// read encoded id and insert
 			remoteEncodings[i] = make(map[uint64]struct{}, remoteN)
-			for j := int64(0); j < remoteN; j++ {
-				if err := npsi.HashRead(r.rw, &u); err != nil {
-					return err
-				}
-				remoteEncodings[i][u] = struct{}{}
+			//fmt.Println("receiving map")
+			if err := decoder.Decode(&remoteEncodings[i]); err != nil {
+				return err
 			}
+			//fmt.Println(remoteEncodings[i])
 		}
 
 		// intersect

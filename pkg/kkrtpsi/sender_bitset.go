@@ -3,6 +3,7 @@ package kkrtpsi
 import (
 	"context"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -12,7 +13,6 @@ import (
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: samples 3 hash seeds and sends them to receiver for cuckoo hash
@@ -101,13 +101,11 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		var localEncodings [cuckoo.Nhash]chan uint64
-
 		for i := range localEncodings {
 			localEncodings[i] = make(chan uint64, n)
 		}
 
 		var wg sync.WaitGroup
-
 		var encoded []byte
 		for hash := range hashedIds {
 			wg.Add(1)
@@ -130,11 +128,16 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// exhaust the hashes into the receiver
+		encoder := gob.NewEncoder(s.rw)
 		for i := range localEncodings {
+			var hashMap = make(map[uint64]struct{}, n)
 			for hash := range localEncodings[i] {
-				if err := npsi.HashWrite(s.rw, hash); err != nil {
-					return fmt.Errorf("stage2: %v", err)
-				}
+				hashMap[hash] = struct{}{}
+			}
+
+			// send encoding of map
+			if err := encoder.Encode(hashMap); err != nil {
+				return fmt.Errorf("stage2: %v", err)
 			}
 		}
 
