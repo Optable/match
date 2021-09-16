@@ -3,6 +3,7 @@ package kkrtpsi
 import (
 	"context"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: read the 3 hash seeds for cuckoo hash, read local IDs until exhaustion
@@ -40,7 +40,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// start timer:
 	start := time.Now()
 	var seeds [cuckoo.Nhash][]byte
-	var intersected [][]byte
+	var intersection [][]byte
 	var oprfOutput [][]byte
 	var oprfOutputSize int
 	var cuckooHashTable *cuckoo.Cuckoo
@@ -139,31 +139,29 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteHashtables [cuckoo.Nhash]map[uint64]struct{}
-		for i := range remoteHashtables {
-			var u uint64
+		var remoteEncodings [cuckoo.Nhash]map[uint64]bool
+		decoder := gob.NewDecoder(r.rw)
+		for i := range remoteEncodings {
 			// read encoded id and insert
-			remoteHashtables[i] = make(map[uint64]struct{})
-			for j := int64(0); j < remoteN; j++ {
-				if err := npsi.HashRead(r.rw, &u); err != nil {
-					return err
-				}
-				remoteHashtables[i][u] = struct{}{}
+			remoteEncodings[i] = make(map[uint64]bool, remoteN)
+			if err := decoder.Decode(&remoteEncodings[i]); err != nil {
+				return err
 			}
 		}
 
 		// intersect
+		// intersect
+		var hIdx uint8
 		var localOutput uint64
-		var exists bool
 		for value := range bucket {
 			localOutput = <-localChan
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			if !value.Empty() {
-				hIdx := value.GetHashIdx()
-				if _, exists = remoteHashtables[hIdx][localOutput]; exists {
-					intersected = append(intersected, value.GetItem())
+				hIdx = value.GetHashIdx()
+				if remoteEncodings[hIdx][localOutput] {
+					intersection = append(intersection, value.GetItem())
 					// dedup
-					delete(remoteHashtables[hIdx], localOutput)
+					delete(remoteEncodings[hIdx], localOutput)
 				}
 			}
 		}
@@ -176,18 +174,18 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// run stage1
 	if err := util.Sel(ctx, stage1); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
 	// run stage2
 	if err := util.Sel(ctx, stage2); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
 	// run stage3
 	if err := util.Sel(ctx, stage3); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
-	return intersected, nil
+	return intersection, nil
 }

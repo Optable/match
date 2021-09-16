@@ -3,6 +3,7 @@ package kkrtpsi
 import (
 	"context"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"math/rand"
@@ -13,7 +14,6 @@ import (
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: samples 3 hash seeds and sends them to receiver for cuckoo hash
@@ -114,15 +114,15 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		var hashtable [cuckoo.Nhash]chan uint64
+		var localEncodings [cuckoo.Nhash]chan uint64
 
 		hasher, err := hash.New(hash.Highway, seeds[0])
 		if err != nil {
 			return err
 		}
 
-		for i := range hashtable {
-			hashtable[i] = make(chan uint64, n)
+		for i := range localEncodings {
+			localEncodings[i] = make(chan uint64, n)
 		}
 
 		var wg sync.WaitGroup
@@ -140,7 +140,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 						errBus <- err
 					}
 
-					hashtable[hIdx] <- hasher.Hash64(encoded)
+					localEncodings[hIdx] <- hasher.Hash64(encoded)
 				}
 			}(hash)
 		}
@@ -148,8 +148,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// Wait for all encode to complete.
 		wg.Wait()
 		close(errBus)
-		for i := range hashtable {
-			close(hashtable[i])
+		for i := range localEncodings {
+			close(localEncodings[i])
 		}
 
 		//errors?
@@ -160,11 +160,16 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// exhaust the hashes into the receiver
-		for i := range hashtable {
-			for hash := range hashtable[i] {
-				if err := npsi.HashWrite(s.rw, hash); err != nil {
-					return fmt.Errorf("stage2: %v", err)
-				}
+		encoder := gob.NewEncoder(s.rw)
+		for i := range localEncodings {
+			var hashMap = make(map[uint64]bool, n)
+			for hash := range localEncodings[i] {
+				hashMap[hash] = true
+			}
+
+			// send encoding of map
+			if err := encoder.Encode(hashMap); err != nil {
+				return fmt.Errorf("stage2: %v", err)
 			}
 		}
 
