@@ -873,6 +873,282 @@ func Transpose64(A []uint64) {
 	}
 }
 
+func swap(a, b int, array []uint64, mask uint64, width int) {
+	t := (array[a] ^ (array[b] >> width)) & mask
+	array[a] = array[a] ^ t
+	array[b] = array[b] ^ (t << width)
+}
+
+func UnrolledTranspose64(array []uint64) {
+	// 32x32 swap
+	var mask uint64 = 0x00000000FFFFFFFF
+	var width int = 32
+	swap(0, 32, array, mask, width)
+	swap(1, 33, array, mask, width)
+	swap(2, 34, array, mask, width)
+	swap(3, 35, array, mask, width)
+	swap(4, 36, array, mask, width)
+	swap(5, 37, array, mask, width)
+	swap(6, 38, array, mask, width)
+	swap(7, 39, array, mask, width)
+	swap(8, 40, array, mask, width)
+	swap(9, 41, array, mask, width)
+	swap(10, 42, array, mask, width)
+	swap(11, 43, array, mask, width)
+	swap(12, 44, array, mask, width)
+	swap(13, 45, array, mask, width)
+	swap(14, 46, array, mask, width)
+	swap(15, 47, array, mask, width)
+	swap(16, 48, array, mask, width)
+	swap(17, 49, array, mask, width)
+	swap(18, 50, array, mask, width)
+	swap(19, 51, array, mask, width)
+	swap(20, 52, array, mask, width)
+	swap(21, 53, array, mask, width)
+	swap(22, 54, array, mask, width)
+	swap(23, 55, array, mask, width)
+	swap(24, 56, array, mask, width)
+	swap(25, 57, array, mask, width)
+	swap(26, 58, array, mask, width)
+	swap(27, 59, array, mask, width)
+	swap(28, 60, array, mask, width)
+	swap(29, 61, array, mask, width)
+	swap(30, 62, array, mask, width)
+	swap(31, 63, array, mask, width)
+	// 16x16 swap
+	mask = 0x0000FFFF0000FFFF
+	width = 16
+	swap(0, 16, array, mask, width)
+	swap(1, 17, array, mask, width)
+	swap(2, 18, array, mask, width)
+	swap(3, 19, array, mask, width)
+	swap(4, 20, array, mask, width)
+	swap(5, 21, array, mask, width)
+	swap(6, 22, array, mask, width)
+	swap(7, 23, array, mask, width)
+	swap(8, 24, array, mask, width)
+	swap(9, 25, array, mask, width)
+	swap(10, 26, array, mask, width)
+	swap(11, 27, array, mask, width)
+	swap(12, 28, array, mask, width)
+	swap(13, 29, array, mask, width)
+	swap(14, 30, array, mask, width)
+	swap(15, 31, array, mask, width)
+
+	swap(32, 48, array, mask, width)
+	swap(33, 49, array, mask, width)
+	swap(34, 50, array, mask, width)
+	swap(35, 51, array, mask, width)
+	swap(36, 52, array, mask, width)
+	swap(37, 53, array, mask, width)
+	swap(38, 54, array, mask, width)
+	swap(39, 55, array, mask, width)
+	swap(40, 56, array, mask, width)
+	swap(41, 57, array, mask, width)
+	swap(42, 58, array, mask, width)
+	swap(43, 59, array, mask, width)
+	swap(44, 60, array, mask, width)
+	swap(45, 61, array, mask, width)
+	swap(46, 62, array, mask, width)
+	swap(47, 63, array, mask, width)
+	// 8x8 swap
+	mask = 0x00FF00FF00FF00FF
+	width = 8
+	swap(0, 8, array, mask, width)
+	swap(1, 9, array, mask, width)
+	swap(2, 10, array, mask, width)
+	swap(3, 11, array, mask, width)
+	swap(4, 12, array, mask, width)
+	swap(5, 13, array, mask, width)
+	swap(6, 14, array, mask, width)
+	swap(7, 15, array, mask, width)
+
+	swap(16, 24, array, mask, width)
+	swap(17, 25, array, mask, width)
+	swap(18, 26, array, mask, width)
+	swap(19, 27, array, mask, width)
+	swap(20, 28, array, mask, width)
+	swap(21, 29, array, mask, width)
+	swap(22, 30, array, mask, width)
+	swap(23, 31, array, mask, width)
+
+	swap(32, 40, array, mask, width)
+	swap(33, 41, array, mask, width)
+	swap(34, 42, array, mask, width)
+	swap(35, 43, array, mask, width)
+	swap(36, 44, array, mask, width)
+	swap(37, 45, array, mask, width)
+	swap(38, 46, array, mask, width)
+	swap(39, 47, array, mask, width)
+
+	swap(48, 56, array, mask, width)
+	swap(49, 57, array, mask, width)
+	swap(50, 58, array, mask, width)
+	swap(51, 59, array, mask, width)
+	swap(52, 60, array, mask, width)
+	swap(53, 61, array, mask, width)
+	swap(54, 62, array, mask, width)
+	swap(55, 63, array, mask, width)
+	// 4x4 swap
+	mask = 0x0F0F0F0F0F0F0F0F
+	width = 4
+	swap(0, 4, array, mask, width)
+	swap(1, 5, array, mask, width)
+	swap(2, 6, array, mask, width)
+	swap(3, 7, array, mask, width)
+
+	swap(8, 12, array, mask, width)
+	swap(9, 13, array, mask, width)
+	swap(10, 14, array, mask, width)
+	swap(11, 15, array, mask, width)
+
+	swap(16, 20, array, mask, width)
+	swap(17, 21, array, mask, width)
+	swap(18, 22, array, mask, width)
+	swap(19, 23, array, mask, width)
+
+	swap(24, 28, array, mask, width)
+	swap(25, 29, array, mask, width)
+	swap(26, 30, array, mask, width)
+	swap(27, 31, array, mask, width)
+
+	swap(32, 36, array, mask, width)
+	swap(33, 37, array, mask, width)
+	swap(34, 38, array, mask, width)
+	swap(35, 39, array, mask, width)
+
+	swap(40, 44, array, mask, width)
+	swap(41, 45, array, mask, width)
+	swap(42, 46, array, mask, width)
+	swap(43, 47, array, mask, width)
+
+	swap(48, 52, array, mask, width)
+	swap(49, 53, array, mask, width)
+	swap(50, 54, array, mask, width)
+	swap(51, 55, array, mask, width)
+
+	swap(56, 60, array, mask, width)
+	swap(57, 61, array, mask, width)
+	swap(58, 62, array, mask, width)
+	swap(59, 63, array, mask, width)
+	// 2x2 swap
+	mask = 0x3333333333333333
+	width = 2
+	swap(0, 2, array, mask, width)
+	swap(1, 3, array, mask, width)
+
+	swap(4, 6, array, mask, width)
+	swap(5, 7, array, mask, width)
+
+	swap(8, 10, array, mask, width)
+	swap(9, 11, array, mask, width)
+
+	swap(12, 14, array, mask, width)
+	swap(13, 15, array, mask, width)
+
+	swap(16, 18, array, mask, width)
+	swap(17, 19, array, mask, width)
+
+	swap(20, 22, array, mask, width)
+	swap(21, 23, array, mask, width)
+
+	swap(24, 26, array, mask, width)
+	swap(25, 27, array, mask, width)
+
+	swap(28, 30, array, mask, width)
+	swap(29, 31, array, mask, width)
+
+	swap(32, 34, array, mask, width)
+	swap(33, 35, array, mask, width)
+
+	swap(36, 38, array, mask, width)
+	swap(37, 39, array, mask, width)
+
+	swap(40, 42, array, mask, width)
+	swap(41, 43, array, mask, width)
+
+	swap(44, 46, array, mask, width)
+	swap(45, 47, array, mask, width)
+
+	swap(48, 50, array, mask, width)
+	swap(49, 51, array, mask, width)
+
+	swap(52, 54, array, mask, width)
+	swap(53, 55, array, mask, width)
+
+	swap(56, 58, array, mask, width)
+	swap(57, 59, array, mask, width)
+
+	swap(60, 62, array, mask, width)
+	swap(61, 63, array, mask, width)
+	// 1x1 swap
+	mask = 0x5555555555555555
+	width = 1
+	swap(0, 1, array, mask, width)
+
+	swap(2, 3, array, mask, width)
+
+	swap(4, 5, array, mask, width)
+
+	swap(6, 7, array, mask, width)
+
+	swap(8, 9, array, mask, width)
+
+	swap(10, 11, array, mask, width)
+
+	swap(12, 13, array, mask, width)
+
+	swap(14, 15, array, mask, width)
+
+	swap(16, 17, array, mask, width)
+
+	swap(18, 19, array, mask, width)
+
+	swap(20, 21, array, mask, width)
+
+	swap(22, 23, array, mask, width)
+
+	swap(24, 25, array, mask, width)
+
+	swap(26, 27, array, mask, width)
+
+	swap(28, 29, array, mask, width)
+
+	swap(30, 31, array, mask, width)
+
+	swap(32, 33, array, mask, width)
+
+	swap(34, 35, array, mask, width)
+
+	swap(36, 37, array, mask, width)
+
+	swap(38, 39, array, mask, width)
+
+	swap(40, 41, array, mask, width)
+
+	swap(42, 43, array, mask, width)
+
+	swap(44, 45, array, mask, width)
+
+	swap(46, 47, array, mask, width)
+
+	swap(48, 49, array, mask, width)
+
+	swap(50, 51, array, mask, width)
+
+	swap(52, 53, array, mask, width)
+
+	swap(54, 55, array, mask, width)
+
+	swap(56, 57, array, mask, width)
+
+	swap(58, 59, array, mask, width)
+
+	swap(60, 61, array, mask, width)
+
+	swap(62, 63, array, mask, width)
+}
+
 // m x k to k x m
 func TransposeBitSets(bmat []*bitset.BitSet) []*bitset.BitSet {
 	m := uint(len(bmat))
