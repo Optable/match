@@ -64,6 +64,21 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	}
 }
 
+// Dummy cuckoo that does not allocate buckets.
+func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
+	bSize := max(1, uint64(Factor*float64(size)))
+	//bSize := max(1, uint64(FindBucketSize(size)*float64(size)))
+	var hashers [Nhash]hash.Hasher
+	for i, s := range seeds {
+		hashers[i], _ = hash.New(hash.Highway, s)
+	}
+
+	return &Cuckoo{
+		bucketSize: bSize,
+		hashers:    hashers,
+	}
+}
+
 // libPSI method, added for comparison
 func FindBucketSize(size uint64) float64 {
 	if size == 0 {
