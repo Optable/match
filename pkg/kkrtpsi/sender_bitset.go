@@ -130,9 +130,9 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// exhaust the hashes into the receiver
 		encoder := gob.NewEncoder(s.rw)
 		for i := range localEncodings {
-			var hashMap = make(map[uint64]struct{}, n)
+			var hashMap = make(map[uint64]bool, n)
 			for hash := range localEncodings[i] {
-				hashMap[hash] = struct{}{}
+				hashMap[hash] = true
 			}
 
 			// send encoding of map

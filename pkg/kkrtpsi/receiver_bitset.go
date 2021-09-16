@@ -98,7 +98,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// sanity check
-		//fmt.Println(len(oprfOutput), oprfOutput[0].Len(), oprfInputSize)
 		if len(oprfOutput) != int(oprfInputSize) {
 			return fmt.Errorf("received number of OPRF outputs should be the same as cuckoohash bucket size")
 		}
@@ -134,28 +133,26 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// read cuckoo.Nhash number of slice of encoded remote IDs
-		var remoteEncodings [cuckoo.Nhash]map[uint64]struct{}
+		var remoteEncodings [cuckoo.Nhash]map[uint64]bool
 		decoder := gob.NewDecoder(r.rw)
 		for i := range remoteEncodings {
 			// read encoded id and insert
-			remoteEncodings[i] = make(map[uint64]struct{}, remoteN)
+			remoteEncodings[i] = make(map[uint64]bool, remoteN)
 			//fmt.Println("receiving map")
 			if err := decoder.Decode(&remoteEncodings[i]); err != nil {
 				return err
 			}
-			//fmt.Println(remoteEncodings[i])
 		}
 
 		// intersect
 		var hIdx uint8
 		var localOutput uint64
-		var exists bool
 		for value := range bucket {
 			localOutput = <-localChan
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			if !value.Empty() {
 				hIdx = value.GetHashIdx()
-				if _, exists = remoteEncodings[hIdx][localOutput]; exists {
+				if remoteEncodings[hIdx][localOutput] {
 					intersection = append(intersection, value.GetItem())
 					// dedup
 					delete(remoteEncodings[hIdx], localOutput)
