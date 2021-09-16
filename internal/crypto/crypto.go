@@ -73,7 +73,7 @@ func PseudorandomCodeBitSet(secretKey *bitset.BitSet, k int, src *bitset.BitSet)
 	//util.ExtractBytesToBits(tmp, dst)
 	// return desired number of bytes
 	//return dst[:k]
-	return util.BytesToBitSet(tmp)
+	return util.BytesToBitSet(tmp[:k/8])
 }
 
 // pad aes block, no need for unpad since we only need to encrypt

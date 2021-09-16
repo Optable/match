@@ -3,16 +3,17 @@ package kkrtpsi
 import (
 	"context"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"time"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/npsi"
 )
 
 // stage 1: read the 3 hash seeds for cuckoo hash, read local IDs until exhaustion
@@ -20,31 +21,20 @@ import (
 // stage 2: OPRF Receive
 // stage 3: receive remote OPRF outputs and intersect
 
-// Receiver side of the KKRTPSI protocol
-type Receiver struct {
-	rw io.ReadWriter
-}
-
-// NewReceiver returns a KKRT receiver initialized to
-// use rw as the communication layer
-func NewReceiver(rw io.ReadWriter) *Receiver {
-	return &Receiver{rw: rw}
-}
-
 // Intersect on matchables read from the identifiers channel,
 // returning the matching intersection, using the KKRTPSI protocol.
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
-func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// start timer:
 	start := time.Now()
 	var seeds [cuckoo.Nhash][]byte
-	var intersected [][]byte
-	var oprfOutput [][]byte
+	var intersection [][]byte
+	var oprfOutput []*bitset.BitSet
 	var oprfOutputSize int
 	var cuckooHashTable *cuckoo.Cuckoo
-	var input = make(chan [][]byte, 1)
+	var input = make(chan []*bitset.BitSet, 1)
 	//var errBus = make(chan error)
 
 	// stage 1: read the hash seeds from the remote side
@@ -66,10 +56,11 @@ func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan [
 				cuckooHashTable.Insert(identifier)
 			}
 
-			var oprfInputs [][]byte
+			var oprfInputs []*bitset.BitSet
 			for in := range cuckooHashTable.OPRFInput() {
-				oprfInputs = append(oprfInputs, in)
+				oprfInputs = append(oprfInputs, util.BytesToBitSet(in))
 			}
+
 			input <- oprfInputs
 			close(input)
 		}()
@@ -88,7 +79,7 @@ func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan [
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
 		oprfInputSize := int64(cuckooHashTable.Len())
-		oprfOutputSize = findK(oprfInputSize)
+		oprfOutputSize = findBitsetK(oprfInputSize)
 
 		// inform the sender of the size
 		// its about to receive
@@ -96,7 +87,7 @@ func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan [
 			return err
 		}
 
-		oReceiver, err := oprf.NewKKRT(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
+		oReceiver, err := oprf.NewKKRTBitSet(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -121,12 +112,15 @@ func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan [
 	//          to produce intersections
 	stage3 := func() error {
 		bucket := cuckooHashTable.Bucket()
+
 		localChan := make(chan uint64, len(oprfOutput))
 		// hash local oprf output
 		go func() {
 			hasher, _ := hash.New(hash.Highway, seeds[0])
+			var b []byte
 			for _, output := range oprfOutput {
-				localChan <- hasher.Hash64(output)
+				b, _ = output.MarshalBinary()
+				localChan <- hasher.Hash64(b)
 			}
 
 			close(localChan)
@@ -138,32 +132,30 @@ func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan [
 			return err
 		}
 
-		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteHashtables [cuckoo.Nhash]map[uint64]struct{}
-		for i := range remoteHashtables {
-			var u uint64
+		// read cuckoo.Nhash number of slice of encoded remote IDs
+		var remoteEncodings [cuckoo.Nhash]map[uint64]bool
+		decoder := gob.NewDecoder(r.rw)
+		for i := range remoteEncodings {
 			// read encoded id and insert
-			remoteHashtables[i] = make(map[uint64]struct{})
-			for j := int64(0); j < remoteN; j++ {
-				if err := npsi.HashRead(r.rw, &u); err != nil {
-					return err
-				}
-				remoteHashtables[i][u] = struct{}{}
+			remoteEncodings[i] = make(map[uint64]bool, remoteN)
+			//fmt.Println("receiving map")
+			if err := decoder.Decode(&remoteEncodings[i]); err != nil {
+				return err
 			}
 		}
 
 		// intersect
+		var hIdx uint8
 		var localOutput uint64
-		var exists bool
 		for value := range bucket {
 			localOutput = <-localChan
 			// compare oprf output to every encoded in remoteHashTable at hIdx
 			if !value.Empty() {
-				hIdx := value.GetHashIdx()
-				if _, exists = remoteHashtables[hIdx][localOutput]; exists {
-					intersected = append(intersected, value.GetItem())
+				hIdx = value.GetHashIdx()
+				if remoteEncodings[hIdx][localOutput] {
+					intersection = append(intersection, value.GetItem())
 					// dedup
-					delete(remoteHashtables[hIdx], localOutput)
+					delete(remoteEncodings[hIdx], localOutput)
 				}
 			}
 		}
@@ -176,18 +168,18 @@ func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan [
 
 	// run stage1
 	if err := util.Sel(ctx, stage1); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
 	// run stage2
 	if err := util.Sel(ctx, stage2); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
 	// run stage3
 	if err := util.Sel(ctx, stage3); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
-	return intersected, nil
+	return intersection, nil
 }

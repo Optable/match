@@ -13,10 +13,10 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	"fmt"
+	crand "crypto/rand"
+	"encoding/binary"
 	"io"
-	"math/rand"
-	"time"
+	mrand "math/rand"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/optable/match/internal/crypto"
@@ -30,7 +30,7 @@ type imprvKKRTBitSet struct {
 	m      int         // number of message tuples
 	k      int         // width of base OT binary matrix as well as
 	// pseudorandom code output length
-	prng *rand.Rand // source of randomness
+	prng *mrand.Rand // source of randomness
 	g    *blake3.Hasher
 }
 
@@ -52,12 +52,15 @@ func NewImprovedKKRTBitSet(m, k, baseOT int, ristretto bool) (OPRFBitSet, error)
 	}
 	g := blake3.New()
 
-	return imprvKKRTBitSet{baseOT: ot, m: m, k: k, prng: rand.New(rand.NewSource(time.Now().UnixNano())), g: g}, nil
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
+
+	return imprvKKRTBitSet{baseOT: ot, m: m, k: k, prng: mrand.New(mrand.NewSource(seed)), g: g}, nil
 }
 
 // Send returns the OPRF keys
 func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) {
-	start := time.Now()
 	// sample random 16 byte (128 bit) secret key for AES-128
 	sk := util.SampleBitSetSlice(ext.prng, 128)
 
@@ -75,8 +78,6 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 		return nil, err
 	}
 
-	fmt.Println("Received ", ext.k, " base OTs in: ", time.Since(start))
-
 	// receive masked columns u
 	u := bitset.New(uint(ext.m))
 	q := make([]*bitset.BitSet, ext.k)
@@ -92,7 +93,6 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 	}
 
 	q = util.ConcurrentColumnarBitSetTranspose(q)
-	fmt.Println("Received ", ext.m, " encrypted rows in: ", time.Since(start))
 
 	// store oprf keys
 	keys = make([]KeyBitSet, len(q))

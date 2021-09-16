@@ -57,7 +57,7 @@ func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices [][]uint8, outBus chan
 	}
 }
 
-func testKKRT(t *testing.T) {
+func TestKKRT(t *testing.T) {
 	outBus := make(chan []byte)
 	keyBus := make(chan Key)
 	errs := make(chan error, 5)

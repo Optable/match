@@ -86,7 +86,7 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	// transpose q to m x k matrix for easier row operations
-	q = util.ContiguousTranspose(q)
+	q = util.ConcurrentColumnarTranspose(q)
 
 	// store oprf keys
 	keys = make([]Key, len(q))
@@ -117,7 +117,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		for i := 0; i < o.m; i++ {
 			d[i] = crypto.PseudorandomCode(aesBlock, o.k, choices[i])
 		}
-		pseudorandomChan <- util.Transpose(d)
+		pseudorandomChan <- util.ConcurrentColumnarTranspose(d)
 	}()
 
 	// Sample k x m matrix T
@@ -145,7 +145,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		return nil, err
 	}
 
-	return util.Transpose(t), nil
+	return util.ConcurrentColumnarTranspose(t), nil
 }
 
 // Encode computes and returns OPRF(k, in)
