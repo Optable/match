@@ -76,10 +76,12 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
 		go func() {
-			cuckooHashTable := cuckoo.NewCuckoo(uint64(remoteN), seeds)
+			cuckooHashTable := cuckoo.NewDummyCuckoo(uint64(remoteN), seeds)
 			for id := range identifiers {
 				hashedIds <- hashable{identifier: id, bucketIdx: cuckooHashTable.BucketIndices(id)}
 			}
+			// no longer need it.
+			cuckooHashTable = nil
 			close(hashedIds)
 		}()
 
