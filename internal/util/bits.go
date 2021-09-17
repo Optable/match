@@ -831,7 +831,309 @@ func BitSliceToBitSets(b []byte, width int) []*bitset.BitSet {
 	return bsets
 }
 
-// from: https://books.google.ca/books?id=VicPJYM0I5QC&pg=PA145&lpg=PA145&dq=recursive+bit+matrix+transpose&source=bl&ots=2p1OPRur0n&sig=ACfU3U1fTJLM78DAHQwocR2YbyRYgF9DEA&hl=en&sa=X&ved=2ahUKEwiU-oTt4v7yAhXrYt8KHVTqDWMQ6AF6BAgWEAM#v=onepage&q=recursive%20bit%20matrix%20transpose&f=false
+/*
+// Rather than working as BitSet, we operate on the underlying uint64's
+// iteratively subdivide the matrix until a block size of 64x1 is reached which
+// represents 64x64 bits. Then we call the bit transpose on those blocks.
+// If the number of rows is not a multiple of 64, we have to prepend empty rows
+// until it is a multiple of 64. Prepending is necessary because appended rows of 0's
+// will become the start of BitSets after transposition rather than the end.
+// We may able be able to use the bitset Compact or Shrink methods to remove leading 0's.
+// Assume message width of 512
+func CacheObliviousBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
+	m := len(matrix)
+
+	// front-pad messages
+	rem := m % 512
+	// check that number of rows is multiple of 512
+	if rem != 0 {
+		// append empty bitsets at the end
+		for i := 0; i < rem; i++ {
+			matrix = append(matrix, bitset.New(0))
+		}
+		// shift the entire matrix to the end
+		copy(matrix[rem:], matrix)
+		// then repopulate the front
+		for j := 0; j < rem; j++ {
+			matrix[j] = bitset.New(512)
+		}
+	}
+
+	// new number of messages
+	m += rem
+	nblocks := m / 512
+
+	// new bitset to hold output
+	tr := make([]*bitset.BitSet, 512)
+	for r := range tr {
+		tr[r] = bitset.New(uint(m))
+	}
+
+	// bottom up transposition
+	for b := 0; b < nblocks; b++ {
+		for c := 0; c < 512; c++ {
+			tr[c].Bytes()[b*64:b*64+64] = Transpose64([])
+		}
+	}
+
+}
+*/
+func BitSetTranspose512(matrix []*bitset.BitSet) []*bitset.BitSet {
+	// assume matrix is 512 rows and 8 cols (of BitSet so 512 bits per row)
+
+	// Transpose 256x4 blocks, row by row
+	tmp4 := bitset.New(4)
+	for i := 0; i < 256; i++ {
+		copy(tmp4.Bytes(), matrix[i].Bytes()[4:])
+		copy(matrix[i].Bytes()[4:], matrix[256+i].Bytes()[:4])
+		copy(matrix[256+i].Bytes()[:4], tmp4.Bytes())
+	}
+
+	// Transpose 128 x 2 blocks, row by row
+	tmp2 := bitset.New(2)
+	for j := 0; j < 128; j++ {
+		copy(tmp2.Bytes(), matrix[j].Bytes()[2:4])
+		copy(matrix[j].Bytes()[2:4], matrix[128+j].Bytes()[:2])
+		copy(matrix[128+j].Bytes()[:2], tmp2.Bytes())
+
+		copy(tmp2.Bytes(), matrix[j].Bytes()[6:])
+		copy(matrix[j].Bytes()[6:], matrix[128+j].Bytes()[4:6])
+		copy(matrix[128+j].Bytes()[4:6], tmp2.Bytes())
+
+		copy(tmp2.Bytes(), matrix[256+j].Bytes()[2:4])
+		copy(matrix[256+j].Bytes()[2:4], matrix[384+j].Bytes()[:2])
+		copy(matrix[384+j].Bytes()[:2], tmp2.Bytes())
+
+		copy(tmp2.Bytes(), matrix[256+j].Bytes()[6:])
+		copy(matrix[256+j].Bytes()[6:], matrix[384+j].Bytes()[4:6])
+		copy(matrix[384+j].Bytes()[4:6], tmp2.Bytes())
+	}
+
+	// Transpose 64 x 1 blocks, row by row
+	tmp := bitset.New(1)
+	for k := 0; k < 64; k++ {
+		copy(tmp.Bytes(), matrix[k].Bytes()[1:2])
+		copy(matrix[k].Bytes()[1:2], matrix[64+k].Bytes()[:1])
+		copy(matrix[64+k].Bytes()[:1], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[k].Bytes()[3:4])
+		copy(matrix[k].Bytes()[3:4], matrix[64+k].Bytes()[2:3])
+		copy(matrix[64+k].Bytes()[2:3], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[k].Bytes()[5:6])
+		copy(matrix[k].Bytes()[5:6], matrix[64+k].Bytes()[4:5])
+		copy(matrix[64+k].Bytes()[4:5], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[k].Bytes()[7:])
+		copy(matrix[k].Bytes()[7:], matrix[64+k].Bytes()[6:7])
+		copy(matrix[64+k].Bytes()[6:7], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[128+k].Bytes()[1:2])
+		copy(matrix[128+k].Bytes()[1:2], matrix[192+k].Bytes()[:1])
+		copy(matrix[192+k].Bytes()[:1], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[128+k].Bytes()[3:4])
+		copy(matrix[128+k].Bytes()[3:4], matrix[192+k].Bytes()[2:3])
+		copy(matrix[192+k].Bytes()[2:3], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[128+k].Bytes()[5:6])
+		copy(matrix[128+k].Bytes()[5:6], matrix[192+k].Bytes()[4:5])
+		copy(matrix[192+k].Bytes()[4:5], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[128+k].Bytes()[7:])
+		copy(matrix[128+k].Bytes()[7:], matrix[192+k].Bytes()[6:7])
+		copy(matrix[192+k].Bytes()[6:7], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[256+k].Bytes()[1:2])
+		copy(matrix[256+k].Bytes()[1:2], matrix[320+k].Bytes()[:1])
+		copy(matrix[320+k].Bytes()[:1], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[256+k].Bytes()[3:4])
+		copy(matrix[256+k].Bytes()[3:4], matrix[320+k].Bytes()[2:3])
+		copy(matrix[320+k].Bytes()[2:3], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[256+k].Bytes()[5:6])
+		copy(matrix[256+k].Bytes()[5:6], matrix[320+k].Bytes()[4:5])
+		copy(matrix[320+k].Bytes()[4:5], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[256+k].Bytes()[7:])
+		copy(matrix[256+k].Bytes()[7:], matrix[320+k].Bytes()[6:7])
+		copy(matrix[320+k].Bytes()[6:7], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[384+k].Bytes()[1:2])
+		copy(matrix[384+k].Bytes()[1:2], matrix[448+k].Bytes()[:1])
+		copy(matrix[448+k].Bytes()[:1], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[384+k].Bytes()[3:4])
+		copy(matrix[384+k].Bytes()[3:4], matrix[448+k].Bytes()[2:3])
+		copy(matrix[448+k].Bytes()[2:3], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[384+k].Bytes()[5:6])
+		copy(matrix[384+k].Bytes()[5:6], matrix[448+k].Bytes()[4:5])
+		copy(matrix[448+k].Bytes()[4:5], tmp.Bytes())
+
+		copy(tmp.Bytes(), matrix[386+k].Bytes()[7:])
+		copy(matrix[384+k].Bytes()[7:], matrix[448+k].Bytes()[6:7])
+		copy(matrix[448+k].Bytes()[6:7], tmp.Bytes())
+	}
+
+	// make transposed matrix
+	tr := make([]*bitset.BitSet, 8)
+	for r := range tr {
+		tr[r] = bitset.New(512)
+	}
+
+	// Rotate 1 x 64 blocks into 64 x 1 rows in transposed matrix
+	for r := 0; r < 8; r++ {
+		for c := 0; c < 512; c++ {
+			if c == 8 {
+				copy(tr[r].Bytes()[c:c+1], matrix[(r*64)+(c/64)].Bytes()[c%8:])
+			} else {
+				copy(tr[r].Bytes()[c:c+1], matrix[(r*64)+(c/64)].Bytes()[c%8:(c%8)+1])
+			}
+		}
+	}
+
+	// now do a bitwise transpose of 1 x 64 blocks  (64 x 64 bits)
+	for n := 0; n < 8; n++ {
+		for p := 0; p < 512; p += 64 {
+			//Transpose64(tr[n][p:p+64])
+			UnrolledTranspose64(tr[n].Bytes()[p : p+64])
+		}
+	}
+
+	return tr
+}
+
+func Transpose512(matrix [][]uint64) [][]uint64 {
+	// matrix is 512 rows and 8 cols (of uint64 so 512 bits per row)
+
+	// Transpose 4 x 256 blocks, row by row
+	tmp4 := make([]uint64, 4)
+	for i := 0; i < 256; i++ {
+		copy(tmp4, matrix[i][4:])
+		copy(matrix[i][4:], matrix[256+i][:4])
+		copy(matrix[256+i][:4], tmp4)
+	}
+
+	// Transpose 2 x 128 blocks, row by row
+	tmp2 := make([]uint64, 2)
+	for j := 0; j < 128; j++ {
+		copy(tmp2, matrix[j][2:4])
+		copy(matrix[j][2:4], matrix[128+j][:2])
+		copy(matrix[128+j][:2], tmp2)
+
+		copy(tmp2, matrix[j][6:])
+		copy(matrix[j][6:], matrix[128+j][4:6])
+		copy(matrix[128+j][4:6], tmp2)
+
+		copy(tmp2, matrix[256+j][2:4])
+		copy(matrix[256+j][2:4], matrix[384+j][:2])
+		copy(matrix[384+j][:2], tmp2)
+
+		copy(tmp2, matrix[256+j][6:])
+		copy(matrix[256+j][6:], matrix[384+j][4:6])
+		copy(matrix[384+j][4:6], tmp2)
+	}
+
+	// Transpose 1 x 64 blocks, row by row
+	tmp := make([]uint64, 1)
+	for k := 0; k < 64; k++ {
+		copy(tmp, matrix[k][1:2])
+		copy(matrix[k][1:2], matrix[64+k][:1])
+		copy(matrix[64+k][:1], tmp)
+
+		copy(tmp, matrix[k][3:4])
+		copy(matrix[k][3:4], matrix[64+k][2:3])
+		copy(matrix[64+k][2:3], tmp)
+
+		copy(tmp, matrix[k][5:6])
+		copy(matrix[k][5:6], matrix[64+k][4:5])
+		copy(matrix[64+k][4:5], tmp)
+
+		copy(tmp, matrix[k][7:])
+		copy(matrix[k][7:], matrix[64+k][6:7])
+		copy(matrix[64+k][6:7], tmp)
+
+		copy(tmp, matrix[128+k][1:2])
+		copy(matrix[128+k][1:2], matrix[192+k][:1])
+		copy(matrix[192+k][:1], tmp)
+
+		copy(tmp, matrix[128+k][3:4])
+		copy(matrix[128+k][3:4], matrix[192+k][2:3])
+		copy(matrix[192+k][2:3], tmp)
+
+		copy(tmp, matrix[128+k][5:6])
+		copy(matrix[128+k][5:6], matrix[192+k][4:5])
+		copy(matrix[192+k][4:5], tmp)
+
+		copy(tmp, matrix[128+k][7:])
+		copy(matrix[128+k][7:], matrix[192+k][6:7])
+		copy(matrix[192+k][6:7], tmp)
+
+		copy(tmp, matrix[256+k][1:2])
+		copy(matrix[256+k][1:2], matrix[320+k][:1])
+		copy(matrix[320+k][:1], tmp)
+
+		copy(tmp, matrix[256+k][3:4])
+		copy(matrix[256+k][3:4], matrix[320+k][2:3])
+		copy(matrix[320+k][2:3], tmp)
+
+		copy(tmp, matrix[256+k][5:6])
+		copy(matrix[256+k][5:6], matrix[320+k][4:5])
+		copy(matrix[320+k][4:5], tmp)
+
+		copy(tmp, matrix[256+k][7:])
+		copy(matrix[256+k][7:], matrix[320+k][6:7])
+		copy(matrix[320+k][6:7], tmp)
+
+		copy(tmp, matrix[384+k][1:2])
+		copy(matrix[384+k][1:2], matrix[448+k][:1])
+		copy(matrix[448+k][:1], tmp)
+
+		copy(tmp, matrix[384+k][3:4])
+		copy(matrix[384+k][3:4], matrix[448+k][2:3])
+		copy(matrix[448+k][2:3], tmp)
+
+		copy(tmp, matrix[384+k][5:6])
+		copy(matrix[384+k][5:6], matrix[448+k][4:5])
+		copy(matrix[448+k][4:5], tmp)
+
+		copy(tmp, matrix[386+k][7:])
+		copy(matrix[384+k][7:], matrix[448+k][6:7])
+		copy(matrix[448+k][6:7], tmp)
+	}
+
+	// make transposed matrix
+	tr := make([][]uint64, 8)
+	for r := range tr {
+		tr[r] = make([]uint64, 512)
+	}
+
+	// Rotate 1 x 64 blocks into 64 x 1 rows in transposed matrix
+	for r := 0; r < 8; r++ {
+		for c := 0; c < 512; c++ {
+			if c == 8 {
+				copy(tr[r][c:c+1], matrix[(r*64)+(c/64)][c%8:])
+			} else {
+				copy(tr[r][c:c+1], matrix[(r*64)+(c/64)][c%8:(c%8)+1])
+			}
+		}
+	}
+
+	// now do a bitwise transpose of 1 x 64 blocks  (64 x 64 bits)
+	for n := 0; n < 8; n++ {
+		for p := 0; p < 512; p += 64 {
+			//Transpose64(tr[n][p:p+64])
+			UnrolledTranspose64(tr[n][p : p+64])
+		}
+	}
+
+	return tr
+}
+
+// From Hacker's Delight v.2
+// https://books.google.ca/books?id=VicPJYM0I5QC&pg=PA145&lpg=PA145&dq=recursive+bit+matrix+transpose&source=bl&ots=2p1OPRur0n&sig=ACfU3U1fTJLM78DAHQwocR2YbyRYgF9DEA&hl=en&sa=X&ved=2ahUKEwiU-oTt4v7yAhXrYt8KHVTqDWMQ6AF6BAgWEAM#v=onepage&q=recursive%20bit%20matrix%20transpose&f=false
 // modified bitset transpose for a slice of uint64 representing a 64x64 matrix of bits
 /*
 [00 01 02 . . . 63]
@@ -879,6 +1181,7 @@ func swap(a, b int, array []uint64, mask uint64, width int) {
 	array[b] = array[b] ^ (t << width)
 }
 
+// in principle this does the same as Transpose64 but should be slightly faster
 func UnrolledTranspose64(array []uint64) {
 	// 32x32 swap
 	var mask uint64 = 0x00000000FFFFFFFF
