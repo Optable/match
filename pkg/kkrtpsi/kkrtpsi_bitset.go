@@ -1,5 +1,10 @@
 package kkrtpsi
 
+// number of base OT for OPRF
+// which correspond to the number of columns in the m x k bit matrix
+// as well as the output length of PseudorandomCode
+const K = 512
+
 // findK returns the number of base OT for OPRF
 // these numbers are from the paper: Efficient Batched Oblivious PRF with Applications to Private Set Intersection
 // by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016.

@@ -56,7 +56,6 @@ func PseudorandomCode(aesBlock cipher.Block, k int, src []byte) []byte {
 func PseudorandomCodeBitSet(secretKey *bitset.BitSet, k int, src *bitset.BitSet) *bitset.BitSet {
 	block, _ := aes.NewCipher(util.BitSetToBytes(secretKey))
 	tmp := make([]byte, aes.BlockSize*4)
-	//dst := make([]byte, aes.BlockSize*4*8)
 
 	// pad src
 	//src = pad(src)
@@ -70,10 +69,7 @@ func PseudorandomCodeBitSet(secretKey *bitset.BitSet, k int, src *bitset.BitSet)
 	block.Encrypt(tmp[aes.BlockSize*3:], append([]byte{4}, bitsrc...))
 
 	// extract pseudorandom bytes to bits
-	//util.ExtractBytesToBits(tmp, dst)
-	// return desired number of bytes
-	//return dst[:k]
-	return util.BytesToBitSet(tmp[:k/8])
+	return util.BytesToBitSet(tmp)
 }
 
 // pad aes block, no need for unpad since we only need to encrypt

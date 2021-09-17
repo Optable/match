@@ -32,7 +32,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var seeds [cuckoo.Nhash][]byte
 	var intersection [][]byte
 	var oprfOutput []*bitset.BitSet
-	var oprfOutputSize int
 	var cuckooHashTable *cuckoo.Cuckoo
 	var input = make(chan []*bitset.BitSet, 1)
 	//var errBus = make(chan error)
@@ -79,7 +78,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
 		oprfInputSize := int64(cuckooHashTable.Len())
-		oprfOutputSize = findBitsetK(oprfInputSize)
 
 		// inform the sender of the size
 		// its about to receive
@@ -87,7 +85,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oReceiver, err := oprf.NewKKRTBitSet(int(oprfInputSize), oprfOutputSize, ot.Simplest, false)
+		oReceiver, err := oprf.NewKKRTBitSet(int(oprfInputSize), K, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
