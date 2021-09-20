@@ -26,6 +26,7 @@ var (
 	bitsetChoices  = genChoiceBitSet(baseCount)
 	bitsetCompare  = util.SampleBitSetSlice(r, 2)
 	bitsetCompare2 = util.SampleBitSetSlice(r, 2)
+	sample512      = gen512()
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
@@ -62,6 +63,18 @@ func genChoiceBits(n int) []uint8 {
 	choices := make([]uint8, n)
 	util.SampleBitSlice(r, choices)
 	return choices
+}
+
+func gen512() [][]uint64 {
+	out := make([][]uint64, 512)
+	for w := 0; w < 512; w++ {
+		out[w] = make([]uint64, 8)
+		for c := 0; c < 8; c++ {
+			out[w][c] = r.Uint64()
+		}
+	}
+
+	return out
 }
 
 func initReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
@@ -445,6 +458,21 @@ func BenchmarkTranspose(t *testing.B) {
 		for j, x := range bbm {
 			if !x.Equal(bitsetMessages[0][j]) {
 				t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+			}
+		}
+	}
+}
+
+func BenchmarkTranspose512(t *testing.B) {
+	for i := 0; i < t.N; i++ {
+		bm := sample512
+		util.InPlaceTranspose512(bm)
+		util.InPlaceTranspose512(bm)
+		for j, row := range bm {
+			for k, e := range row {
+				if e != sample512[j][k] {
+					t.Fatalf("Transpose failed. Doubly transposed message did not match original.")
+				}
 			}
 		}
 	}
