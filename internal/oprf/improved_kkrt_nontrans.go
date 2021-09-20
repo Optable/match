@@ -124,7 +124,7 @@ func (ext imprvKKRTNonTrans) Receive(choices [][]byte, rw io.ReadWriter) (t [][]
 		d := make([][]byte, ext.m)
 		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(aesBlock, ext.k, choices[i])
+			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
 		}
 		pseudorandomChan <- d
 	}()
@@ -174,7 +174,7 @@ func (ext imprvKKRTNonTrans) Receive(choices [][]byte, rw io.ReadWriter) (t [][]
 func (o imprvKKRTNonTrans) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
 	aesBlock, _ := aes.NewCipher(k.sk)
-	x, err := util.AndBytes(crypto.PseudorandomCode(aesBlock, o.k, in), k.s)
+	x, err := util.AndBytes(crypto.PseudorandomCode(aesBlock, in), k.s)
 	if err != nil {
 		return
 	}

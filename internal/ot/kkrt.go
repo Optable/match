@@ -86,7 +86,7 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// proof of concept, suppose we have n messages, and the choice string is an integer in [1, ..., n]
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			x, _ = util.AndBytes(crypto.PseudorandomCode(aesBlock, ext.k, []byte{byte(choice)}), s)
+			x, _ = util.AndBytes(crypto.PseudorandomCode(aesBlock, []byte{byte(choice)}), s)
 			key, _ = util.XorBytes(q[i], x)
 
 			ciphertext, err = crypto.Encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
@@ -183,7 +183,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 			defer wg.Done()
 			msg <- t[i]
 
-			m2, err := util.XorBytes(t[i], crypto.PseudorandomCode(aesBlock, ext.k, []byte{choices[i]}))
+			m2, err := util.XorBytes(t[i], crypto.PseudorandomCode(aesBlock, []byte{choices[i]}))
 			msg <- m2
 			if err != nil {
 				errBus <- err

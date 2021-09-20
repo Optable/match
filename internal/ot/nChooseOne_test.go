@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const k = 512
+
 func initKKRTReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
@@ -59,7 +61,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
+	ot, err := NewKKRT(baseCount, k, tuple, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func TestKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		ot, err := NewKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
+		ot, err := NewKKRT(baseCount, k, tuple, Simplest, false, msgLen)
 		if err != nil {
 			errs <- err
 		}
@@ -141,7 +143,7 @@ func TestImprovedIKNPNCO(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedIKNPNCO(baseCount, 128, tuple, Simplest, false, msgLen)
+	ot, err := NewImprovedIKNPNCO(baseCount, k, tuple, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +162,7 @@ func TestImprovedIKNPNCO(t *testing.T) {
 			errs <- fmt.Errorf("Error creating improved IKNP NchooseOne OT extension: %s", err)
 		}
 
-		ot, err := NewImprovedIKNPNCO(baseCount, 128, tuple, Simplest, false, msgLen)
+		ot, err := NewImprovedIKNPNCO(baseCount, k, tuple, Simplest, false, msgLen)
 		if err != nil {
 			errs <- err
 		}
@@ -223,7 +225,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
+	ot, err := NewImprovedKKRT(baseCount, k, tuple, Simplest, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +244,7 @@ func TestImprovedKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating improved KKRT OT extension: %s", err)
 		}
 
-		ot, err := NewImprovedKKRT(baseCount, 128, tuple, Simplest, false, msgLen)
+		ot, err := NewImprovedKKRT(baseCount, k, tuple, Simplest, false, msgLen)
 		if err != nil {
 			errs <- err
 		}

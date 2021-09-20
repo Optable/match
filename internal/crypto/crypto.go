@@ -34,39 +34,49 @@ const (
 // secretKey is a 16 byte slice for AES-128
 // k is the desired number of bytes
 // on success, pseudorandomCode returns a byte slice of length k.
-func PseudorandomCode(aesBlock cipher.Block, k int, src []byte) []byte {
+func PseudorandomCode(aesBlock cipher.Block, src []byte) []byte {
 	tmp := make([]byte, aes.BlockSize*4)
 	dst := make([]byte, aes.BlockSize*4*8)
 
 	// pad src
 	src = pad(src)
+	input := make([]byte, len(src)+1)
+	copy(input[1:], src)
+	input[0] = 1
 
 	// encrypt
-	aesBlock.Encrypt(tmp[:aes.BlockSize], append([]byte{1}, src...))
-	aesBlock.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], append([]byte{2}, src...))
-	aesBlock.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], append([]byte{3}, src...))
-	aesBlock.Encrypt(tmp[aes.BlockSize*3:], append([]byte{4}, src...))
+	aesBlock.Encrypt(tmp[:aes.BlockSize], input)
+	input[0] = 2
+	aesBlock.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], input)
+	input[0] = 3
+	aesBlock.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], input)
+	input[0] = 4
+	aesBlock.Encrypt(tmp[aes.BlockSize*3:], input)
 
 	// extract pseudorandom bytes to bits
 	util.ExtractBytesToBits(tmp, dst)
 	// return desired number of bytes
-	return dst[:k]
+	return dst
 }
 
-func PseudorandomCodeBitSet(secretKey *bitset.BitSet, k int, src *bitset.BitSet) *bitset.BitSet {
-	block, _ := aes.NewCipher(util.BitSetToBytes(secretKey))
+func PseudorandomCodeBitSet(aesBlock cipher.Block, src *bitset.BitSet) *bitset.BitSet {
 	tmp := make([]byte, aes.BlockSize*4)
 
 	// pad src
-	//src = pad(src)
 	bitsrc := util.BitSetToBytes(src)
 	bitsrc = pad(bitsrc)
+	input := make([]byte, len(bitsrc)+1)
+	copy(input[1:], bitsrc)
+	input[0] = 1
 
 	// encrypt
-	block.Encrypt(tmp[:aes.BlockSize], append([]byte{1}, bitsrc...))
-	block.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], append([]byte{2}, bitsrc...))
-	block.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], append([]byte{3}, bitsrc...))
-	block.Encrypt(tmp[aes.BlockSize*3:], append([]byte{4}, bitsrc...))
+	aesBlock.Encrypt(tmp[:aes.BlockSize], input)
+	input[0] = 2
+	aesBlock.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], input)
+	input[0] = 3
+	aesBlock.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], input)
+	input[0] = 4
+	aesBlock.Encrypt(tmp[aes.BlockSize*3:], input)
 
 	// extract pseudorandom bytes to bits
 	return util.BytesToBitSet(tmp)
@@ -75,7 +85,7 @@ func PseudorandomCodeBitSet(secretKey *bitset.BitSet, k int, src *bitset.BitSet)
 // pad aes block, no need for unpad since we only need to encrypt
 // and not decrypt the aes blocks.
 func pad(src []byte) []byte {
-	padding := aes.BlockSize - len(src)%aes.BlockSize
+	padding := aes.BlockSize - len(src)%aes.BlockSize - 1
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(src, padtext...)
 }

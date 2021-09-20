@@ -17,6 +17,7 @@ var (
 	baseCount = 1000000
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	choices   = genChoiceString()
+	k         = 512
 )
 
 func genChoiceString() [][]byte {
@@ -64,7 +65,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,7 @@ func TestKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, 512, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +160,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, 512, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +235,7 @@ func testImprovedKKRTBitSetSend(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRTBitSetSend(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRTBitSetSend(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +245,7 @@ func testImprovedKKRTBitSetSend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRTBitSetSend(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRTBitSetSend(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +320,7 @@ func testImprovedKKRTNonTrans(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRTNonTrans(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRTNonTrans(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +330,7 @@ func testImprovedKKRTNonTrans(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRTNonTrans(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRTNonTrans(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}

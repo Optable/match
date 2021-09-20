@@ -13,6 +13,8 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	crand "crypto/rand"
 	"encoding/binary"
 	"io"
@@ -108,8 +110,9 @@ func (o kkrtBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (t []*bi
 	// compute code word using pseudorandom code on choice string r in a separate thread
 	go func() {
 		d := make([]*bitset.BitSet, o.m)
+		block, _ := aes.NewCipher(util.BitSetToBytes(sk))
 		for i := 0; i < o.m; i++ {
-			d[i] = crypto.PseudorandomCodeBitSet(sk, o.k, choices[i])
+			d[i] = crypto.PseudorandomCodeBitSet(block, choices[i])
 		}
 		bitMatrixChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
@@ -136,7 +139,7 @@ func (o kkrtBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (t []*bi
 }
 
 // Encode computes and returns OPRF(k, in)
-func (o kkrtBitSet) Encode(key KeyBitSet, in *bitset.BitSet) *bitset.BitSet {
+func (o kkrtBitSet) Encode(key KeyBitSet, block cipher.Block, in *bitset.BitSet) *bitset.BitSet {
 	// compute q_i ^ (C(r) & s)
-	return key.q.SymmetricDifference(crypto.PseudorandomCodeBitSet(key.sk, o.k, in).Intersection(key.s))
+	return key.q.SymmetricDifference(crypto.PseudorandomCodeBitSet(block, in).Intersection(key.s))
 }

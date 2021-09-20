@@ -126,7 +126,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		d := make([][]byte, ext.m)
 		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(aesBlock, ext.k, choices[i])
+			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
 		}
 		//pseudorandomChan <- util.Transpose(d)
 		pseudorandomChan <- util.ConcurrentColumnarTranspose(d)
@@ -182,7 +182,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 func (o imprvKKRT) Encode(k Key, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
 	aesBlock, _ := aes.NewCipher(k.sk)
-	out, err = util.AndBytes(crypto.PseudorandomCode(aesBlock, o.k, in), k.s)
+	out, err = util.AndBytes(crypto.PseudorandomCode(aesBlock, in), k.s)
 	if err != nil {
 		return
 	}

@@ -1,9 +1,13 @@
 package oprf
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"io"
 
 	"github.com/bits-and-blooms/bitset"
+	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -23,7 +27,6 @@ type OPRF interface {
 type OPRFBitSet interface {
 	Send(rw io.ReadWriter) ([]KeyBitSet, error)
 	Receive(choices []*bitset.BitSet, rw io.ReadWriter) ([]*bitset.BitSet, error)
-	Encode(k KeyBitSet, in *bitset.BitSet) *bitset.BitSet
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)
@@ -39,4 +42,15 @@ type KeyBitSet struct {
 	sk *bitset.BitSet // secret key for pseudorandom code
 	s  *bitset.BitSet // secret choice bits
 	q  *bitset.BitSet // m x k bit matrice
+}
+
+func GetAESBlock(key KeyBitSet) cipher.Block {
+	block, _ := aes.NewCipher(util.BitSetToBytes(key.sk))
+	return block
+}
+
+// Encode a bitset using oprf key
+func Encode(block cipher.Block, key KeyBitSet, in *bitset.BitSet) *bitset.BitSet {
+	// compute q_i ^ (C(r) & s)
+	return key.q.SymmetricDifference(crypto.PseudorandomCodeBitSet(block, in).Intersection(key.s))
 }

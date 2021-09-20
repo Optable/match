@@ -168,13 +168,18 @@ func TestXORBytes(t *testing.T) {
 	}
 }
 
-func TestPseudorandomGeneratorWithBlake3(t *testing.T) {
-	seed := make([]byte, 424)
-	r.Read(seed)
-	n := 212
-	p := PseudorandomGeneratorWithBlake3(blake3.New(), seed, n)
-	if bytes.Equal(make([]byte, n), p) {
-		t.Fatalf("pseudorandom should not be 0")
+func BenchmarkPseudorandomCode(b *testing.B) {
+	aesBlock, _ := aes.NewCipher(aesKey)
+	for i := 0; i < b.N; i++ {
+		PseudorandomCode(aesBlock, p)
+	}
+}
+
+func BenchmarkPseudorandomCodeBitSet(b *testing.B) {
+	aesBlock, _ := aes.NewCipher(aesKey)
+	bset := util.BytesToBitSet(p)
+	for i := 0; i < b.N; i++ {
+		PseudorandomCodeBitSet(aesBlock, bset)
 	}
 }
 

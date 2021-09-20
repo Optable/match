@@ -59,7 +59,7 @@ func TestKKRTBitSet(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewKKRTBitSet(baseCount, 448, ot.Simplest, false)
+	receiverOPRF, err := NewKKRTBitSet(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestKKRTBitSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewKKRTBitSet(baseCount, 448, ot.Simplest, false)
+	senderOPRF, err := NewKKRTBitSet(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,9 +123,10 @@ func TestKKRTBitSet(t *testing.T) {
 		t.Fatal("KKRT OT failed, did not receive any messages")
 	}
 
+	aesBlock := GetAESBlock(keys[0])
 	for i, o := range out {
 		// encode choice with key
-		enc := senderOPRF.Encode(keys[i], choicesBitSet[i])
+		enc := Encode(aesBlock, keys[i], choicesBitSet[i])
 
 		if !o.Equal(enc) {
 			t.Logf("choice[%d]=%v\n", i, choicesBitSet[i])
@@ -141,7 +142,7 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRTBitSet(baseCount, 512, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRTBitSet(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +152,7 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRTBitSet(baseCount, 512, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRTBitSet(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,9 +206,10 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 		t.Fatal("Improved KKRT OT failed, did not receive any messages")
 	}
 
+	aesBlock := GetAESBlock(keys[0])
 	for i, o := range out[:baseCount] {
 		// encode choice with key
-		enc := senderOPRF.Encode(keys[i], choicesBitSet[i])
+		enc := Encode(aesBlock, keys[i], choicesBitSet[i])
 
 		if !o.Equal(enc) {
 			t.Logf("choice[%d]=%v\n", i, choicesBitSet[i])
@@ -217,8 +219,9 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 }
 
 func BenchmarkImprvKKRTEncode(t *testing.B) {
+	aesBlock := GetAESBlock(key)
 	for i := 0; i < t.N; i++ {
 		fmt.Println(i)
-		encoderOPRF.Encode(key, in)
+		Encode(aesBlock, key, in)
 	}
 }
