@@ -879,6 +879,7 @@ func CacheObliviousBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 }
 */
 
+/* wrong method of doing this
 func BitSetTranspose512(matrix []*bitset.BitSet) []*bitset.BitSet {
 	// assume matrix is 512 rows and 8 cols (of BitSet so 512 bits per row)
 
@@ -1005,7 +1006,8 @@ func BitSetTranspose512(matrix []*bitset.BitSet) []*bitset.BitSet {
 
 	return tr
 }
-
+*/
+/* wrong method of doing this
 func Transpose512(matrix [][]uint64) [][]uint64 {
 	// matrix is 512 rows and 8 cols (of uint64 so 512 bits per row)
 
@@ -1131,6 +1133,121 @@ func Transpose512(matrix [][]uint64) [][]uint64 {
 	}
 
 	return tr
+}
+*/
+// InPlaceTranspose512 takes an input matrix of uint64 which contains 512 rows
+// and 8 columns. This is a 512 by 512 bit matrix. Transposition occurs block-
+// wise beginning with blocks of 4 columns by 256 rows (256 x 256 bits) swapped
+// about the primary diagonal. The block size decreases until it is 1 column by
+// 64 rows (64 x 64 bits). Then the remaining tranposition is performed using
+// bit masks and shift. The actual operation is similar to that described above
+// with uint64s. Operations are performed on blocks of size 32, 16, 8, 4, 2, and
+// 1 square bit arrays. Since the input array is square (bitwise), we can perform
+// the transposition in place.
+func InPlaceTranspose512(matrix [][]uint64) {
+	// matrix is 512 rows and 8 cols (of uint64 so 512 bits per row)
+
+	// Transpose 4 x 256 blocks, row by row
+	tmp4 := make([]uint64, 4)
+	for i := 0; i < 256; i++ {
+		copy(tmp4, matrix[i][4:])
+		copy(matrix[i][4:], matrix[256+i][:4])
+		copy(matrix[256+i][:4], tmp4)
+	}
+
+	// Transpose 2 x 128 blocks, row by row
+	tmp2 := make([]uint64, 2)
+	for j := 0; j < 128; j++ {
+		copy(tmp2, matrix[j][2:4])
+		copy(matrix[j][2:4], matrix[128+j][:2])
+		copy(matrix[128+j][:2], tmp2)
+
+		copy(tmp2, matrix[j][6:])
+		copy(matrix[j][6:], matrix[128+j][4:6])
+		copy(matrix[128+j][4:6], tmp2)
+
+		copy(tmp2, matrix[256+j][2:4])
+		copy(matrix[256+j][2:4], matrix[384+j][:2])
+		copy(matrix[384+j][:2], tmp2)
+
+		copy(tmp2, matrix[256+j][6:])
+		copy(matrix[256+j][6:], matrix[384+j][4:6])
+		copy(matrix[384+j][4:6], tmp2)
+	}
+
+	// Transpose 1 x 64 blocks, row by row
+	tmp := make([]uint64, 1)
+	for k := 0; k < 64; k++ {
+		copy(tmp, matrix[k][1:2])
+		copy(matrix[k][1:2], matrix[64+k][:1])
+		copy(matrix[64+k][:1], tmp)
+
+		copy(tmp, matrix[k][3:4])
+		copy(matrix[k][3:4], matrix[64+k][2:3])
+		copy(matrix[64+k][2:3], tmp)
+
+		copy(tmp, matrix[k][5:6])
+		copy(matrix[k][5:6], matrix[64+k][4:5])
+		copy(matrix[64+k][4:5], tmp)
+
+		copy(tmp, matrix[k][7:])
+		copy(matrix[k][7:], matrix[64+k][6:7])
+		copy(matrix[64+k][6:7], tmp)
+
+		copy(tmp, matrix[128+k][1:2])
+		copy(matrix[128+k][1:2], matrix[192+k][:1])
+		copy(matrix[192+k][:1], tmp)
+
+		copy(tmp, matrix[128+k][3:4])
+		copy(matrix[128+k][3:4], matrix[192+k][2:3])
+		copy(matrix[192+k][2:3], tmp)
+
+		copy(tmp, matrix[128+k][5:6])
+		copy(matrix[128+k][5:6], matrix[192+k][4:5])
+		copy(matrix[192+k][4:5], tmp)
+
+		copy(tmp, matrix[128+k][7:])
+		copy(matrix[128+k][7:], matrix[192+k][6:7])
+		copy(matrix[192+k][6:7], tmp)
+
+		copy(tmp, matrix[256+k][1:2])
+		copy(matrix[256+k][1:2], matrix[320+k][:1])
+		copy(matrix[320+k][:1], tmp)
+
+		copy(tmp, matrix[256+k][3:4])
+		copy(matrix[256+k][3:4], matrix[320+k][2:3])
+		copy(matrix[320+k][2:3], tmp)
+
+		copy(tmp, matrix[256+k][5:6])
+		copy(matrix[256+k][5:6], matrix[320+k][4:5])
+		copy(matrix[320+k][4:5], tmp)
+
+		copy(tmp, matrix[256+k][7:])
+		copy(matrix[256+k][7:], matrix[320+k][6:7])
+		copy(matrix[320+k][6:7], tmp)
+
+		copy(tmp, matrix[384+k][1:2])
+		copy(matrix[384+k][1:2], matrix[448+k][:1])
+		copy(matrix[448+k][:1], tmp)
+
+		copy(tmp, matrix[384+k][3:4])
+		copy(matrix[384+k][3:4], matrix[448+k][2:3])
+		copy(matrix[448+k][2:3], tmp)
+
+		copy(tmp, matrix[384+k][5:6])
+		copy(matrix[384+k][5:6], matrix[448+k][4:5])
+		copy(matrix[448+k][4:5], tmp)
+
+		copy(tmp, matrix[386+k][7:])
+		copy(matrix[384+k][7:], matrix[448+k][6:7])
+		copy(matrix[448+k][6:7], tmp)
+	}
+
+	// now do a bitwise transpose of 1 x 64 blocks  (64 x 64 bits)
+	for n := 0; n < 8; n++ {
+		VertTranspose64(matrix, n)
+		VertUnrolledTranspose64(matrix, n)
+	}
 }
 
 // From Hacker's Delight v.2
