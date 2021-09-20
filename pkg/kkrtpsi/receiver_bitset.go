@@ -115,10 +115,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// hash local oprf output
 		go func() {
 			hasher, _ := hash.New(hash.Highway, seeds[0])
-			var b []byte
 			for _, output := range oprfOutput {
-				b, _ = output.MarshalBinary()
-				localChan <- hasher.Hash64(b)
+				localChan <- hasher.Hash64(util.BitSetToBytes(output))
 			}
 
 			close(localChan)

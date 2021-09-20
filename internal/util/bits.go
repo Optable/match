@@ -620,10 +620,14 @@ func ExtractBytesToBits(src, dst []byte) {
 }
 
 // Extract a slice of bytes from a BitSet
+// each byte holds 8 bits of information
+// this equivalent to transform the underlying uint64 slice
+// of a bitset to a slice of uint8.
 func BitSetToBytes(bset *bitset.BitSet) []byte {
-	b := make([]byte, len(bset.Bytes())*8)
+	bytes := bset.Bytes()
+	b := make([]byte, len(bytes)*8)
 
-	for i, x := range bset.Bytes() {
+	for i, x := range bytes {
 		binary.LittleEndian.PutUint64(b[i*8:], x)
 	}
 
