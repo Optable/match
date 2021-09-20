@@ -878,6 +878,7 @@ func CacheObliviousBitSetTranspose(matrix []*bitset.BitSet) []*bitset.BitSet {
 
 }
 */
+
 func BitSetTranspose512(matrix []*bitset.BitSet) []*bitset.BitSet {
 	// assume matrix is 512 rows and 8 cols (of BitSet so 512 bits per row)
 
@@ -1175,10 +1176,32 @@ func Transpose64(A []uint64) {
 	}
 }
 
+func VertTranspose64(A [][]uint64, col int) {
+	var width, k int = 32, 0
+	var mask, t uint64 = 0x00000000FFFFFFFF, 0
+
+	for width != 0 {
+		for k = 0; k < 64; k = ((k | width) + 1) &^ width {
+			t = (A[k][col] ^ (A[k|width][col] >> width)) & mask
+			A[k][col] = A[k][col] ^ t
+			A[k|width][col] = A[k|width][col] ^ (t << width)
+		}
+
+		width >>= 1
+		mask ^= mask << width
+	}
+}
+
 func swap(a, b int, array []uint64, mask uint64, width int) {
 	t := (array[a] ^ (array[b] >> width)) & mask
 	array[a] = array[a] ^ t
 	array[b] = array[b] ^ (t << width)
+}
+
+func vertswap(a, b, col int, array [][]uint64, mask uint64, width int) {
+	t := (array[a][col] ^ (array[b][col] >> width)) & mask
+	array[a][col] = array[a][col] ^ t
+	array[b][col] = array[b][col] ^ (t << width)
 }
 
 // in principle this does the same as Transpose64 but should be slightly faster
@@ -1450,6 +1473,276 @@ func UnrolledTranspose64(array []uint64) {
 	swap(60, 61, array, mask, width)
 
 	swap(62, 63, array, mask, width)
+}
+
+func VertUnrolledTranspose64(array [][]uint64, col int) {
+	// 32x32 swap
+	var mask uint64 = 0x00000000FFFFFFFF
+	var width int = 32
+	vertswap(0, 32, col, array, mask, width)
+	vertswap(1, 33, col, array, mask, width)
+	vertswap(2, 34, col, array, mask, width)
+	vertswap(3, 35, col, array, mask, width)
+	vertswap(4, 36, col, array, mask, width)
+	vertswap(5, 37, col, array, mask, width)
+	vertswap(6, 38, col, array, mask, width)
+	vertswap(7, 39, col, array, mask, width)
+	vertswap(8, 40, col, array, mask, width)
+	vertswap(9, 41, col, array, mask, width)
+	vertswap(10, 42, col, array, mask, width)
+	vertswap(11, 43, col, array, mask, width)
+	vertswap(12, 44, col, array, mask, width)
+	vertswap(13, 45, col, array, mask, width)
+	vertswap(14, 46, col, array, mask, width)
+	vertswap(15, 47, col, array, mask, width)
+	vertswap(16, 48, col, array, mask, width)
+	vertswap(17, 49, col, array, mask, width)
+	vertswap(18, 50, col, array, mask, width)
+	vertswap(19, 51, col, array, mask, width)
+	vertswap(20, 52, col, array, mask, width)
+	vertswap(21, 53, col, array, mask, width)
+	vertswap(22, 54, col, array, mask, width)
+	vertswap(23, 55, col, array, mask, width)
+	vertswap(24, 56, col, array, mask, width)
+	vertswap(25, 57, col, array, mask, width)
+	vertswap(26, 58, col, array, mask, width)
+	vertswap(27, 59, col, array, mask, width)
+	vertswap(28, 60, col, array, mask, width)
+	vertswap(29, 61, col, array, mask, width)
+	vertswap(30, 62, col, array, mask, width)
+	vertswap(31, 63, col, array, mask, width)
+	// 16x16 swap
+	mask = 0x0000FFFF0000FFFF
+	width = 16
+	vertswap(0, 16, col, array, mask, width)
+	vertswap(1, 17, col, array, mask, width)
+	vertswap(2, 18, col, array, mask, width)
+	vertswap(3, 19, col, array, mask, width)
+	vertswap(4, 20, col, array, mask, width)
+	vertswap(5, 21, col, array, mask, width)
+	vertswap(6, 22, col, array, mask, width)
+	vertswap(7, 23, col, array, mask, width)
+	vertswap(8, 24, col, array, mask, width)
+	vertswap(9, 25, col, array, mask, width)
+	vertswap(10, 26, col, array, mask, width)
+	vertswap(11, 27, col, array, mask, width)
+	vertswap(12, 28, col, array, mask, width)
+	vertswap(13, 29, col, array, mask, width)
+	vertswap(14, 30, col, array, mask, width)
+	vertswap(15, 31, col, array, mask, width)
+
+	vertswap(32, 48, col, array, mask, width)
+	vertswap(33, 49, col, array, mask, width)
+	vertswap(34, 50, col, array, mask, width)
+	vertswap(35, 51, col, array, mask, width)
+	vertswap(36, 52, col, array, mask, width)
+	vertswap(37, 53, col, array, mask, width)
+	vertswap(38, 54, col, array, mask, width)
+	vertswap(39, 55, col, array, mask, width)
+	vertswap(40, 56, col, array, mask, width)
+	vertswap(41, 57, col, array, mask, width)
+	vertswap(42, 58, col, array, mask, width)
+	vertswap(43, 59, col, array, mask, width)
+	vertswap(44, 60, col, array, mask, width)
+	vertswap(45, 61, col, array, mask, width)
+	vertswap(46, 62, col, array, mask, width)
+	vertswap(47, 63, col, array, mask, width)
+	// 8x8 swap
+	mask = 0x00FF00FF00FF00FF
+	width = 8
+	vertswap(0, 8, col, array, mask, width)
+	vertswap(1, 9, col, array, mask, width)
+	vertswap(2, 10, col, array, mask, width)
+	vertswap(3, 11, col, array, mask, width)
+	vertswap(4, 12, col, array, mask, width)
+	vertswap(5, 13, col, array, mask, width)
+	vertswap(6, 14, col, array, mask, width)
+	vertswap(7, 15, col, array, mask, width)
+
+	vertswap(16, 24, col, array, mask, width)
+	vertswap(17, 25, col, array, mask, width)
+	vertswap(18, 26, col, array, mask, width)
+	vertswap(19, 27, col, array, mask, width)
+	vertswap(20, 28, col, array, mask, width)
+	vertswap(21, 29, col, array, mask, width)
+	vertswap(22, 30, col, array, mask, width)
+	vertswap(23, 31, col, array, mask, width)
+
+	vertswap(32, 40, col, array, mask, width)
+	vertswap(33, 41, col, array, mask, width)
+	vertswap(34, 42, col, array, mask, width)
+	vertswap(35, 43, col, array, mask, width)
+	vertswap(36, 44, col, array, mask, width)
+	vertswap(37, 45, col, array, mask, width)
+	vertswap(38, 46, col, array, mask, width)
+	vertswap(39, 47, col, array, mask, width)
+
+	vertswap(48, 56, col, array, mask, width)
+	vertswap(49, 57, col, array, mask, width)
+	vertswap(50, 58, col, array, mask, width)
+	vertswap(51, 59, col, array, mask, width)
+	vertswap(52, 60, col, array, mask, width)
+	vertswap(53, 61, col, array, mask, width)
+	vertswap(54, 62, col, array, mask, width)
+	vertswap(55, 63, col, array, mask, width)
+	// 4x4 swap
+	mask = 0x0F0F0F0F0F0F0F0F
+	width = 4
+	vertswap(0, 4, col, array, mask, width)
+	vertswap(1, 5, col, array, mask, width)
+	vertswap(2, 6, col, array, mask, width)
+	vertswap(3, 7, col, array, mask, width)
+
+	vertswap(8, 12, col, array, mask, width)
+	vertswap(9, 13, col, array, mask, width)
+	vertswap(10, 14, col, array, mask, width)
+	vertswap(11, 15, col, array, mask, width)
+
+	vertswap(16, 20, col, array, mask, width)
+	vertswap(17, 21, col, array, mask, width)
+	vertswap(18, 22, col, array, mask, width)
+	vertswap(19, 23, col, array, mask, width)
+
+	vertswap(24, 28, col, array, mask, width)
+	vertswap(25, 29, col, array, mask, width)
+	vertswap(26, 30, col, array, mask, width)
+	vertswap(27, 31, col, array, mask, width)
+
+	vertswap(32, 36, col, array, mask, width)
+	vertswap(33, 37, col, array, mask, width)
+	vertswap(34, 38, col, array, mask, width)
+	vertswap(35, 39, col, array, mask, width)
+
+	vertswap(40, 44, col, array, mask, width)
+	vertswap(41, 45, col, array, mask, width)
+	vertswap(42, 46, col, array, mask, width)
+	vertswap(43, 47, col, array, mask, width)
+
+	vertswap(48, 52, col, array, mask, width)
+	vertswap(49, 53, col, array, mask, width)
+	vertswap(50, 54, col, array, mask, width)
+	vertswap(51, 55, col, array, mask, width)
+
+	vertswap(56, 60, col, array, mask, width)
+	vertswap(57, 61, col, array, mask, width)
+	vertswap(58, 62, col, array, mask, width)
+	vertswap(59, 63, col, array, mask, width)
+	// 2x2 swap
+	mask = 0x3333333333333333
+	width = 2
+	vertswap(0, 2, col, array, mask, width)
+	vertswap(1, 3, col, array, mask, width)
+
+	vertswap(4, 6, col, array, mask, width)
+	vertswap(5, 7, col, array, mask, width)
+
+	vertswap(8, 10, col, array, mask, width)
+	vertswap(9, 11, col, array, mask, width)
+
+	vertswap(12, 14, col, array, mask, width)
+	vertswap(13, 15, col, array, mask, width)
+
+	vertswap(16, 18, col, array, mask, width)
+	vertswap(17, 19, col, array, mask, width)
+
+	vertswap(20, 22, col, array, mask, width)
+	vertswap(21, 23, col, array, mask, width)
+
+	vertswap(24, 26, col, array, mask, width)
+	vertswap(25, 27, col, array, mask, width)
+
+	vertswap(28, 30, col, array, mask, width)
+	vertswap(29, 31, col, array, mask, width)
+
+	vertswap(32, 34, col, array, mask, width)
+	vertswap(33, 35, col, array, mask, width)
+
+	vertswap(36, 38, col, array, mask, width)
+	vertswap(37, 39, col, array, mask, width)
+
+	vertswap(40, 42, col, array, mask, width)
+	vertswap(41, 43, col, array, mask, width)
+
+	vertswap(44, 46, col, array, mask, width)
+	vertswap(45, 47, col, array, mask, width)
+
+	vertswap(48, 50, col, array, mask, width)
+	vertswap(49, 51, col, array, mask, width)
+
+	vertswap(52, 54, col, array, mask, width)
+	vertswap(53, 55, col, array, mask, width)
+
+	vertswap(56, 58, col, array, mask, width)
+	vertswap(57, 59, col, array, mask, width)
+
+	vertswap(60, 62, col, array, mask, width)
+	vertswap(61, 63, col, array, mask, width)
+	// 1x1 swap
+	mask = 0x5555555555555555
+	width = 1
+	vertswap(0, 1, col, array, mask, width)
+
+	vertswap(2, 3, col, array, mask, width)
+
+	vertswap(4, 5, col, array, mask, width)
+
+	vertswap(6, 7, col, array, mask, width)
+
+	vertswap(8, 9, col, array, mask, width)
+
+	vertswap(10, 11, col, array, mask, width)
+
+	vertswap(12, 13, col, array, mask, width)
+
+	vertswap(14, 15, col, array, mask, width)
+
+	vertswap(16, 17, col, array, mask, width)
+
+	vertswap(18, 19, col, array, mask, width)
+
+	vertswap(20, 21, col, array, mask, width)
+
+	vertswap(22, 23, col, array, mask, width)
+
+	vertswap(24, 25, col, array, mask, width)
+
+	vertswap(26, 27, col, array, mask, width)
+
+	vertswap(28, 29, col, array, mask, width)
+
+	vertswap(30, 31, col, array, mask, width)
+
+	vertswap(32, 33, col, array, mask, width)
+
+	vertswap(34, 35, col, array, mask, width)
+
+	vertswap(36, 37, col, array, mask, width)
+
+	vertswap(38, 39, col, array, mask, width)
+
+	vertswap(40, 41, col, array, mask, width)
+
+	vertswap(42, 43, col, array, mask, width)
+
+	vertswap(44, 45, col, array, mask, width)
+
+	vertswap(46, 47, col, array, mask, width)
+
+	vertswap(48, 49, col, array, mask, width)
+
+	vertswap(50, 51, col, array, mask, width)
+
+	vertswap(52, 53, col, array, mask, width)
+
+	vertswap(54, 55, col, array, mask, width)
+
+	vertswap(56, 57, col, array, mask, width)
+
+	vertswap(58, 59, col, array, mask, width)
+
+	vertswap(60, 61, col, array, mask, width)
+
+	vertswap(62, 63, col, array, mask, width)
 }
 
 // m x k to k x m
