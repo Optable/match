@@ -1245,7 +1245,7 @@ func InPlaceTranspose512(matrix [][]uint64) {
 
 	// now do a bitwise transpose of 1 x 64 blocks  (64 x 64 bits)
 	for n := 0; n < 8; n++ {
-		VertTranspose64(matrix, n)
+		//VertTranspose64(matrix, n)
 		VertUnrolledTranspose64(matrix, n)
 	}
 }
