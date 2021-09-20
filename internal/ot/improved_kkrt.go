@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/aes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -84,11 +83,10 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 
 	// encrypt messages and send them
 	var key, ciphertext, x []byte
-	aesBlock, _ := aes.NewCipher(sk)
 	for i := range messages {
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			x, _ = util.AndBytes(crypto.PseudorandomCode(aesBlock, []byte{byte(choice)}), s)
+			x, _ = util.AndBytes(crypto.PseudorandomCode(sk, []byte{byte(choice)}), s)
 			key, _ = util.XorBytes(q[i], x)
 
 			ciphertext, err = crypto.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
@@ -119,9 +117,8 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 
 	// compute code word using pseudorandom code on choice stirng r
 	d := make([][]byte, ext.m)
-	aesBlock, _ := aes.NewCipher(sk)
 	for row := range d {
-		d[row] = crypto.PseudorandomCode(aesBlock, []byte{choices[row]})
+		d[row] = crypto.PseudorandomCode(sk, []byte{choices[row]})
 	}
 
 	d = util.Transpose(d)

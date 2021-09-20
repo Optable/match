@@ -12,7 +12,6 @@ Reference:	https://eprint.iacr.org/2013/491.pdf (Improved IKNP)
 */
 
 import (
-	"crypto/aes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -81,12 +80,11 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 
 	var key, x, ciphertext []byte
 	// encrypt messages and send them
-	aesBlock, _ := aes.NewCipher(sk)
 	for i := range messages {
 		// proof of concept, suppose we have n messages, and the choice string is an integer in [1, ..., n]
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			x, _ = util.AndBytes(crypto.PseudorandomCode(aesBlock, []byte{byte(choice)}), s)
+			x, _ = util.AndBytes(crypto.PseudorandomCode(sk, []byte{byte(choice)}), s)
 			key, _ = util.XorBytes(q[i], x)
 
 			ciphertext, err = crypto.Encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
@@ -176,14 +174,13 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	var wg sync.WaitGroup
 	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, ext.m)
-	aesBlock, _ := aes.NewCipher(sk)
 	for i := range baseMsgs {
 		wg.Add(1)
 		go func(i int, msg chan<- []byte) {
 			defer wg.Done()
 			msg <- t[i]
 
-			m2, err := util.XorBytes(t[i], crypto.PseudorandomCode(aesBlock, []byte{choices[i]}))
+			m2, err := util.XorBytes(t[i], crypto.PseudorandomCode(sk, []byte{choices[i]}))
 			msg <- m2
 			if err != nil {
 				errBus <- err

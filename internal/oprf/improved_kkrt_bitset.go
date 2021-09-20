@@ -13,7 +13,6 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	"crypto/aes"
 	crand "crypto/rand"
 	"encoding/binary"
 	"io"
@@ -125,9 +124,8 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 
 	go func() {
 		d := make([]*bitset.BitSet, ext.m)
-		block, _ := aes.NewCipher(util.BitSetToBytes(sk))
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCodeBitSet(block, choices[i])
+			d[i] = crypto.PseudorandomCodeBitSet(util.BitSetToBytes(sk), choices[i])
 		}
 		bitsetMatrixChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()

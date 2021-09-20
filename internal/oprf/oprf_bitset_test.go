@@ -122,10 +122,9 @@ func TestKKRTBitSet(t *testing.T) {
 		t.Fatal("KKRT OT failed, did not receive any messages")
 	}
 
-	aesBlock, _ := GetAESBlock(keys[0])
 	for i, o := range out {
 		// encode choice with key
-		enc := Encode(aesBlock, keys[i], choicesBitSet[i])
+		enc := Encode(keys[i], choicesBitSet[i])
 
 		if !o.Equal(enc) {
 			t.Logf("choice[%d]=%v\n", i, choicesBitSet[i])
@@ -205,10 +204,9 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 		t.Fatal("Improved KKRT OT failed, did not receive any messages")
 	}
 
-	aesBlock, _ := GetAESBlock(keys[0])
 	for i, o := range out[:baseCount] {
 		// encode choice with key
-		enc := Encode(aesBlock, keys[i], choicesBitSet[i])
+		enc := Encode(keys[i], choicesBitSet[i])
 
 		if !o.Equal(enc) {
 			t.Logf("choice[%d]=%v\n", i, choicesBitSet[i])
@@ -218,12 +216,7 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 }
 
 func BenchmarkEncode(b *testing.B) {
-	aesBlock, err := GetAESBlock(key)
-	if err != nil {
-		b.Fatal(err)
-	}
-
 	for i := 0; i < b.N; i++ {
-		Encode(aesBlock, key, in)
+		Encode(key, in)
 	}
 }

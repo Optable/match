@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/aes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -135,9 +134,8 @@ func (ext imprvIKNPNCO) Receive(choices []uint8, messages [][]byte, rw io.ReadWr
 
 	// compute code word using pseudorandom code on choice stirng r
 	c := make([][]byte, ext.k)
-	aesBlock, _ := aes.NewCipher(sk)
 	for row := range c {
-		c[row] = crypto.PseudorandomCode(aesBlock, []byte{byte(row)})
+		c[row] = crypto.PseudorandomCode(sk, []byte{byte(row)})
 		if _, err := rw.Write(c[row]); err != nil {
 			return err
 		}

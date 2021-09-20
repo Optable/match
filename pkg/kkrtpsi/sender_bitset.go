@@ -109,7 +109,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 		var wg sync.WaitGroup
 		// allocate one aes block for all encoding
-		aesBlock, err := oprf.GetAESBlock(oprfKeys[0])
 		if err != nil {
 			return err
 		}
@@ -121,7 +120,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				// encode identifiers that are potentially stored in receiver's cuckoo hash table
 				// in any of the cuckoo.Nhash bukcet index and store it.
 				for hIdx, bucketIdx := range hash.bucketIdx {
-					localEncodings[hIdx] <- hasher.Hash64(util.BitSetToBytes(oprf.Encode(aesBlock, oprfKeys[bucketIdx], util.BytesToBitSet(append(hash.identifier, uint8(hIdx))))))
+					localEncodings[hIdx] <- hasher.Hash64(util.BitSetToBytes(oprf.Encode(oprfKeys[bucketIdx], util.BytesToBitSet(append(hash.identifier, uint8(hIdx))))))
 
 				}
 			}(hash)

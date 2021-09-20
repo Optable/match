@@ -169,17 +169,15 @@ func TestXORBytes(t *testing.T) {
 }
 
 func BenchmarkPseudorandomCode(b *testing.B) {
-	aesBlock, _ := aes.NewCipher(aesKey)
 	for i := 0; i < b.N; i++ {
-		PseudorandomCode(aesBlock, p)
+		PseudorandomCode(aesKey, p)
 	}
 }
 
 func BenchmarkPseudorandomCodeBitSet(b *testing.B) {
-	aesBlock, _ := aes.NewCipher(aesKey)
 	bset := util.SampleBitSetSlice(prng, 576)
 	for i := 0; i < b.N; i++ {
-		PseudorandomCodeBitSet(aesBlock, bset)
+		PseudorandomCodeBitSet(aesKey, bset)
 	}
 }
 

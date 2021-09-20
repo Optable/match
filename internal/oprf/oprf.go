@@ -1,8 +1,6 @@
 package oprf
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"io"
 
 	"github.com/bits-and-blooms/bitset"
@@ -44,14 +42,10 @@ type KeyBitSet struct {
 	q  *bitset.BitSet // m x k bit matrice
 }
 
-func GetAESBlock(key KeyBitSet) (cipher.Block, error) {
-	return aes.NewCipher(util.BitSetToBytes(key.sk))
-}
-
 // Encode a bitset using oprf key
-func Encode(block cipher.Block, key KeyBitSet, in *bitset.BitSet) (c *bitset.BitSet) {
+func Encode(key KeyBitSet, in *bitset.BitSet) (c *bitset.BitSet) {
 	// compute q_i ^ (C(r) & s)
-	c = crypto.PseudorandomCodeBitSet(block, in)
+	c = crypto.PseudorandomCodeBitSet(util.BitSetToBytes(key.sk), in)
 	c.InPlaceIntersection(key.s)
 	c.InPlaceSymmetricDifference(key.q)
 	return
