@@ -14,12 +14,11 @@ import (
 var (
 	choicesBitSet = util.SampleRandomBitSetMatrix(prng, baseCount, 64)
 	// the following are for encode benchmark
-	encoderOPRF, _ = NewImprovedKKRTBitSet(baseCount, 512, ot.Simplest, false)
-	sk             = util.SampleBitSetSlice(prng, baseCount)
-	s              = util.SampleBitSetSlice(prng, baseCount)
-	q              = util.SampleBitSetSlice(prng, baseCount)
-	key            = KeyBitSet{sk: sk, s: s, q: q}
-	in             = util.SampleBitSetSlice(prng, baseCount)
+	sk  = util.SampleBitSetSlice(prng, 128)
+	s   = util.SampleBitSetSlice(prng, k)
+	q   = util.SampleBitSetSlice(prng, k)
+	key = KeyBitSet{sk: sk, s: s, q: q}
+	in  = util.SampleBitSetSlice(prng, baseCount)
 )
 
 func initOPRFReceiverBitSet(oprf OPRFBitSet, choices []*bitset.BitSet, msgBus chan<- *bitset.BitSet, errs chan<- error) (string, error) {
@@ -123,7 +122,7 @@ func TestKKRTBitSet(t *testing.T) {
 		t.Fatal("KKRT OT failed, did not receive any messages")
 	}
 
-	aesBlock := GetAESBlock(keys[0])
+	aesBlock, _ := GetAESBlock(keys[0])
 	for i, o := range out {
 		// encode choice with key
 		enc := Encode(aesBlock, keys[i], choicesBitSet[i])
@@ -206,7 +205,7 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 		t.Fatal("Improved KKRT OT failed, did not receive any messages")
 	}
 
-	aesBlock := GetAESBlock(keys[0])
+	aesBlock, _ := GetAESBlock(keys[0])
 	for i, o := range out[:baseCount] {
 		// encode choice with key
 		enc := Encode(aesBlock, keys[i], choicesBitSet[i])
@@ -218,10 +217,13 @@ func TestImprovedKKRTBitSet(t *testing.T) {
 	}
 }
 
-func BenchmarkImprvKKRTEncode(t *testing.B) {
-	aesBlock := GetAESBlock(key)
-	for i := 0; i < t.N; i++ {
-		fmt.Println(i)
+func BenchmarkEncode(b *testing.B) {
+	aesBlock, err := GetAESBlock(key)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
 		Encode(aesBlock, key, in)
 	}
 }

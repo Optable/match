@@ -39,9 +39,7 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) []byte {
 	dst := make([]byte, aes.BlockSize*4*8)
 
 	// pad src
-	src = pad(src)
-	input := make([]byte, len(src)+1)
-	copy(input[1:], src)
+	input := pad(src)
 	input[0] = 1
 
 	// encrypt
@@ -61,12 +59,8 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) []byte {
 
 func PseudorandomCodeBitSet(aesBlock cipher.Block, src *bitset.BitSet) *bitset.BitSet {
 	tmp := make([]byte, aes.BlockSize*4)
-
 	// pad src
-	bitsrc := util.BitSetToBytes(src)
-	bitsrc = pad(bitsrc)
-	input := make([]byte, len(bitsrc)+1)
-	copy(input[1:], bitsrc)
+	input := pad(util.BitSetToBytes(src))
 	input[0] = 1
 
 	// encrypt
@@ -82,12 +76,14 @@ func PseudorandomCodeBitSet(aesBlock cipher.Block, src *bitset.BitSet) *bitset.B
 	return util.BytesToBitSet(tmp)
 }
 
-// pad aes block, no need for unpad since we only need to encrypt
-// and not decrypt the aes blocks.
+// pad aes block, with the first byte reserved for PseudorandomCode
+// allocate a new byte slice that has
 func pad(src []byte) []byte {
-	padding := aes.BlockSize - len(src)%aes.BlockSize - 1
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(src, padtext...)
+	tmp := make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
+	// padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	copy(tmp[1:], src)
+	//return append(src, padtext...)
+	return tmp
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.

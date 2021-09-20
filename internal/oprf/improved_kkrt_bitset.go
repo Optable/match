@@ -83,14 +83,13 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 	u := bitset.New(uint(ext.m))
 	q := make([]*bitset.BitSet, ext.k)
 	for col := range q {
-		q[col] = bitset.New(uint(ext.m))
+		q[col] = crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m)
 		if _, err := u.ReadFrom(rw); err != nil {
 			return nil, err
 		}
 
 		util.InPlaceAndBitSet(s.Test(uint(col)), u)
-		q[col] = u.SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
-		//q[col] = util.AndBitSet(s.Test(uint(col)), u).SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, seeds[col], ext.m))
+		q[col].InPlaceSymmetricDifference(u)
 	}
 
 	q = util.ConcurrentColumnarBitSetTranspose(q)
@@ -110,6 +109,12 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		return nil, ot.ErrBaseCountMissMatch
 	}
 
+	var bitsetMatrixChan = make(chan []*bitset.BitSet)
+	go func() {
+		seeds := util.SampleRandomBitSetMatrix(ext.prng, 2*ext.k, ext.k)
+		bitsetMatrixChan <- seeds
+	}()
+
 	// receive AES-128 secret key
 	sk := bitset.New(128)
 	if _, err = sk.ReadFrom(rw); err != nil {
@@ -117,19 +122,18 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 	}
 
 	// compute code word using pseudorandom code on choice string r in a separate thread
-	var pseudorandomChan = make(chan []*bitset.BitSet)
+
 	go func() {
 		d := make([]*bitset.BitSet, ext.m)
 		block, _ := aes.NewCipher(util.BitSetToBytes(sk))
 		for i := 0; i < ext.m; i++ {
 			d[i] = crypto.PseudorandomCodeBitSet(block, choices[i])
 		}
-		pseudorandomChan <- util.ConcurrentColumnarBitSetTranspose(d)
+		bitsetMatrixChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
 
 	// sample k x k bit matrix
-	seeds := util.SampleRandomBitSetMatrix(ext.prng, 2*ext.k, ext.k)
-
+	seeds := <-bitsetMatrixChan
 	baseMsgs := make([][]*bitset.BitSet, ext.k)
 	for j := range baseMsgs {
 		baseMsgs[j] = make([]*bitset.BitSet, 2)
@@ -143,7 +147,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 	}
 
 	// Receive pseudorandom msg from bitSliceChan
-	d := <-pseudorandomChan
+	d := <-bitsetMatrixChan
 
 	t = make([]*bitset.BitSet, ext.k)
 	var u = bitset.New(uint(ext.m))
@@ -151,8 +155,9 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 	// t^i = d^i ^ u^i
 	for col := range d {
 		t[col] = crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-		u = t[col].SymmetricDifference(crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m))
-		u = u.SymmetricDifference(d[col])
+		u = crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+		u.InPlaceSymmetricDifference(t[col])
+		u.InPlaceSymmetricDifference(d[col])
 
 		// send u
 		if _, err = u.WriteTo(rw); err != nil {

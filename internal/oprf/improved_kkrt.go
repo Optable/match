@@ -128,7 +128,6 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		for i := 0; i < ext.m; i++ {
 			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
 		}
-		//pseudorandomChan <- util.Transpose(d)
 		pseudorandomChan <- util.ConcurrentColumnarTranspose(d)
 	}()
 

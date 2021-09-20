@@ -14,7 +14,6 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 
 import (
 	"crypto/aes"
-	"crypto/cipher"
 	crand "crypto/rand"
 	"encoding/binary"
 	"io"
@@ -136,10 +135,4 @@ func (o kkrtBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (t []*bi
 	}
 
 	return util.ConcurrentColumnarBitSetTranspose(t), nil
-}
-
-// Encode computes and returns OPRF(k, in)
-func (o kkrtBitSet) Encode(key KeyBitSet, block cipher.Block, in *bitset.BitSet) *bitset.BitSet {
-	// compute q_i ^ (C(r) & s)
-	return key.q.SymmetricDifference(crypto.PseudorandomCodeBitSet(block, in).Intersection(key.s))
 }
