@@ -106,17 +106,18 @@ func (o kkrtBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (t []*bi
 	}
 
 	// compute code word using pseudorandom code on choice string r in a separate thread
+	var pseudorandomChan = make(chan []*bitset.BitSet)
 	go func() {
 		d := make([]*bitset.BitSet, o.m)
 		for i := 0; i < o.m; i++ {
 			d[i] = crypto.PseudorandomCodeBitSet(util.BitSetToBytes(sk), choices[i])
 		}
-		bitMatrixChan <- util.ConcurrentColumnarBitSetTranspose(d)
+		pseudorandomChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
 
 	// Receive pseudorandom msg from bitMatrixChan
 	t = <-bitMatrixChan
-	d := <-bitMatrixChan
+	d := <-pseudorandomChan
 
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][]*bitset.BitSet, o.k)
