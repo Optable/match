@@ -77,17 +77,14 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err = oprf.NewKKRTBitSet(int(oprfInputSize), K, ot.Simplest, false)
+		oSender, err = oprf.NewImprovedKKRTBitSet(int(oprfInputSize), K, ot.Simplest, false)
+		// oSender, err = oprf.NewKKRTBitSet(int(oprfInputSize), K, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
 
 		oprfKeys, err = oSender.Send(s.rw)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	}
 
 	// stage 3: compute all possible OPRF output using keys obtained from stage2

@@ -4,6 +4,8 @@ import (
 	"github.com/optable/match/internal/hash"
 )
 
+const K = 512
+
 // findK returns the number of base OT for OPRF
 // these numbers are from the paper: Efficient Batched Oblivious PRF with Applications to Private Set Intersection
 // by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016.

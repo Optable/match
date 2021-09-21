@@ -102,11 +102,7 @@ func (s *Sender) _Send(ctx context.Context, n int64, identifiers <-chan []byte) 
 		}
 
 		oprfKeys, err = oSender.Send(s.rw)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	}
 
 	// stage 3: compute all possible OPRF output using keys obtained from stage2

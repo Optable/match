@@ -117,7 +117,6 @@ func (o kkrtBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (t []*bi
 	// Receive pseudorandom msg from bitMatrixChan
 	t = <-bitMatrixChan
 	d := <-bitMatrixChan
-	//fmt.Println(len(t), len(d), t[0].Len(), d[0].Len())
 
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][]*bitset.BitSet, o.k)

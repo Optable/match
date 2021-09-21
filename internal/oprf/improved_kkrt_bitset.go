@@ -91,9 +91,9 @@ func (ext imprvKKRTBitSet) Send(rw io.ReadWriter) (keys []KeyBitSet, err error) 
 		q[col].InPlaceSymmetricDifference(u)
 	}
 
-	q = util.ConcurrentColumnarBitSetTranspose(q)
+	// store only the first m oprf keys
+	q = util.ConcurrentColumnarBitSetTranspose(q)[:ext.m]
 
-	// store oprf keys
 	keys = make([]KeyBitSet, len(q))
 	for j := range q {
 		keys[j] = KeyBitSet{sk: sk, s: s, q: q[j]}
@@ -108,6 +108,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		return nil, ot.ErrBaseCountMissMatch
 	}
 
+	// sample seed matrix in the background
 	var bitsetMatrixChan = make(chan []*bitset.BitSet)
 	go func() {
 		seeds := util.SampleRandomBitSetMatrix(ext.prng, 2*ext.k, ext.k)
@@ -120,8 +121,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		return nil, err
 	}
 
-	// compute code word using pseudorandom code on choice string r in a separate thread
-
+	// compute code word using pseudorandom code on choice string r in the background
 	go func() {
 		d := make([]*bitset.BitSet, ext.m)
 		for i := 0; i < ext.m; i++ {
@@ -130,7 +130,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		bitsetMatrixChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
 
-	// sample k x k bit matrix
+	// reconstruct seed matrix for baseOT
 	seeds := <-bitsetMatrixChan
 	baseMsgs := make([][]*bitset.BitSet, ext.k)
 	for j := range baseMsgs {
@@ -139,7 +139,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		baseMsgs[j][1] = seeds[2*j+1]
 	}
 
-	// act as sender in baseOT to send k columns
+	// act as sender in baseOT to send k seeds
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
@@ -147,10 +147,9 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 	// Receive pseudorandom msg from bitSliceChan
 	d := <-bitsetMatrixChan
 
+	// extend k bits to m bits and send
 	t = make([]*bitset.BitSet, ext.k)
 	var u = bitset.New(uint(ext.m))
-	// u^i = G(seeds[1])
-	// t^i = d^i ^ u^i
 	for col := range d {
 		t[col] = crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
 		u = crypto.PseudorandomBitSetGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
@@ -163,5 +162,6 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 		}
 	}
 
-	return util.ConcurrentColumnarBitSetTranspose(t), nil
+	// take only the first m rows
+	return util.ConcurrentColumnarBitSetTranspose(t)[:ext.m], nil
 }
