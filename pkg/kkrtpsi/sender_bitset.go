@@ -77,8 +77,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err = oprf.NewImprovedKKRTBitSet(int(oprfInputSize), K, ot.Simplest, false)
-		// oSender, err = oprf.NewKKRTBitSet(int(oprfInputSize), K, ot.Simplest, false)
+		oSender, err = oprf.NewKKRTBitSet(int(oprfInputSize), K, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
