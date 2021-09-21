@@ -66,9 +66,11 @@ func (r *Receiver) _Intersect(ctx context.Context, n int64, identifiers <-chan [
 				cuckooHashTable.Insert(identifier)
 			}
 
-			var oprfInputs [][]byte
+			var oprfInputs = make([][]byte, cuckooHashTable.BucketSize())
+			var i = 0
 			for in := range cuckooHashTable.OPRFInput() {
-				oprfInputs = append(oprfInputs, in)
+				oprfInputs[i] = in
+				i++
 			}
 			input <- oprfInputs
 			close(input)

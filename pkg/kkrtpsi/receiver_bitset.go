@@ -55,9 +55,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				cuckooHashTable.Insert(identifier)
 			}
 
-			var oprfInputs []*bitset.BitSet
+			var oprfInputs = make([]*bitset.BitSet, cuckooHashTable.BucketSize())
+			var i = 0
 			for in := range cuckooHashTable.OPRFInput() {
-				oprfInputs = append(oprfInputs, util.BytesToBitSet(in))
+				oprfInputs[i] = util.BytesToBitSet(in)
+				i++
 			}
 
 			input <- oprfInputs
@@ -133,7 +135,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		var remoteEncodings [cuckoo.Nhash]map[uint64]bool
 		decoder := gob.NewDecoder(r.rw)
 		for i := range remoteEncodings {
-			// read encoded id and insert
 			remoteEncodings[i] = make(map[uint64]bool, remoteN)
 			if err := decoder.Decode(&remoteEncodings[i]); err != nil {
 				return err

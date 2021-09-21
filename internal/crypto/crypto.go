@@ -79,12 +79,9 @@ func PseudorandomCodeBitSet(secretKey []byte, src *bitset.BitSet) *bitset.BitSet
 }
 
 // pad aes block, with the first byte reserved for PseudorandomCode
-// allocate a new byte slice that has
-func pad(src []byte) []byte {
-	tmp := make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
-	// padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+func pad(src []byte) (tmp []byte) {
+	tmp = make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
 	copy(tmp[1:], src)
-	//return append(src, padtext...)
 	return tmp
 }
 

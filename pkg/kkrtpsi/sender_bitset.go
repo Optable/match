@@ -105,11 +105,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		var wg sync.WaitGroup
-		// allocate one aes block for all encoding
-		if err != nil {
-			return err
-		}
-
 		for hash := range hashedIds {
 			wg.Add(1)
 			go func(hash hashable) {
