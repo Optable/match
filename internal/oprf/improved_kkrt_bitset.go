@@ -122,12 +122,13 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 	}
 
 	// compute code word using pseudorandom code on choice string r in the background
+	var pseudorandomChan = make(chan []*bitset.BitSet)
 	go func() {
 		d := make([]*bitset.BitSet, ext.m)
 		for i := 0; i < ext.m; i++ {
 			d[i] = crypto.PseudorandomCodeBitSet(util.BitSetToBytes(sk), choices[i])
 		}
-		bitsetMatrixChan <- util.ConcurrentColumnarBitSetTranspose(d)
+		pseudorandomChan <- util.ConcurrentColumnarBitSetTranspose(d)
 	}()
 
 	// reconstruct seed matrix for baseOT
@@ -145,7 +146,7 @@ func (ext imprvKKRTBitSet) Receive(choices []*bitset.BitSet, rw io.ReadWriter) (
 	}
 
 	// Receive pseudorandom msg from bitSliceChan
-	d := <-bitsetMatrixChan
+	d := <-pseudorandomChan
 
 	// extend k bits to m bits and send
 	t = make([]*bitset.BitSet, ext.k)
