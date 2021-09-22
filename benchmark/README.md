@@ -10,7 +10,7 @@
 
 ![n2-standard-80](n2-standard-80.png)
 
-2) Further, we provide the running times of performing match attempts using different PSI algorithms on n2-standard-64 VMs between a variety of receiver datasets [50m, 100m, 200m, 300m, 400m and 500m records] and a variety of senders datasets [50m, 100m, 200m, 300m, 400m and 500m records].
+2) Further, we provide a matrix of the running times of performing match attempts using different PSI algorithms on n2-standard-64 VMs between a receiver and a sender with datasets containing 50m, 100m, 200m, 300m, 400m and 500m records. The sizes of the receiver's datasets are represented row wise in each of the matrix, and the sizes of the sender's datasets are represented column wise in each of the matrix.
 
 ![BPSI](BPSI.png)
 
