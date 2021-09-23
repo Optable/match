@@ -28,7 +28,7 @@ A complete test suite for all PSIs is present [here](test/psi). Don't hesitate t
 
 # benchmarks
 
-A benchmark on the running times of different PSI protocols of this library is provided [here](benchmark/README.md).
+See runtime benchmarks of the different PSI protocols [here](benchmark/README.md).
 
 # examples
 
