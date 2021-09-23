@@ -35,25 +35,24 @@ const (
 // on success, pseudorandomCode returns a byte slice of length k.
 func PseudorandomCode(secretKey, src []byte) (dst []byte) {
 	aesBlock, _ := aes.NewCipher(secretKey)
-	tmp := make([]byte, aes.BlockSize*4)
-	dst = make([]byte, aes.BlockSize*4*8)
+	dst = make([]byte, aes.BlockSize*4*9)
 
 	// pad src
 	input := pad(src)
 	input[0] = 1
 
 	// encrypt
-	aesBlock.Encrypt(tmp[:aes.BlockSize], input)
+	aesBlock.Encrypt(dst[aes.BlockSize*32:aes.BlockSize*33], input)
 	input[0] = 2
-	aesBlock.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], input)
+	aesBlock.Encrypt(dst[aes.BlockSize*33:aes.BlockSize*34], input)
 	input[0] = 3
-	aesBlock.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], input)
+	aesBlock.Encrypt(dst[aes.BlockSize*34:aes.BlockSize*35], input)
 	input[0] = 4
-	aesBlock.Encrypt(tmp[aes.BlockSize*3:], input)
+	aesBlock.Encrypt(dst[aes.BlockSize*35:], input)
 
 	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(tmp, dst)
-	return dst
+	util.ExtractBytesToBits(dst[aes.BlockSize*32:], dst[:aes.BlockSize*32])
+	return dst[:aes.BlockSize*32]
 }
 
 // pad aes block, with the first byte reserved for PseudorandomCode
