@@ -3,7 +3,6 @@ package kkrtpsi
 import (
 	"context"
 	"encoding/binary"
-	"encoding/gob"
 	"fmt"
 	"io"
 	"time"
@@ -120,17 +119,24 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
-		bucket := cuckooHashTable.Bucket()
-		localChan := make(chan uint64, len(oprfOutput))
-		// hash local oprf output
-		go func() {
-			hasher, _ := hash.New(hash.Highway, seeds[0])
-			for _, output := range oprfOutput {
-				localChan <- hasher.Hash64(output)
-			}
 
-			close(localChan)
-		}()
+		// Hash and index all local encodings
+		// the hash value of the oprf encoding is the key
+		// the corresponding ID is the value
+		var localEncodings [cuckoo.Nhash]map[uint64][]byte
+		for i := range localEncodings {
+			localEncodings[i] = make(map[uint64][]byte)
+		}
+		// hash local oprf output
+		hasher, _ := hash.New(hash.Highway, seeds[0])
+		var i = 0
+		for value := range cuckooHashTable.Bucket() {
+			if !value.Empty() {
+				// insert into proper map
+				localEncodings[value.GetHashIdx()][hasher.Hash64(oprfOutput[i])] = value.GetItem()
+			}
+			i++
+		}
 
 		// read number of remote IDs
 		var remoteN int64
@@ -138,30 +144,20 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		// read cuckoo.Nhash number of hastable table of encoded remote IDs
-		var remoteEncodings [cuckoo.Nhash]map[uint64]bool
-		decoder := gob.NewDecoder(r.rw)
-		for i := range remoteEncodings {
-			// read encoded id and insert
-			remoteEncodings[i] = make(map[uint64]bool, remoteN)
-			if err := decoder.Decode(&remoteEncodings[i]); err != nil {
+		// read remote encodings and intersect
+		var remoteEncodings [cuckoo.Nhash]uint64
+		for i := int64(0); i < remoteN; i++ {
+			// read 3 possible encodings
+			if err := EncodesRead(r.rw, &remoteEncodings); err != nil {
 				return err
 			}
-		}
 
-		// intersect
-		// intersect
-		var hIdx uint8
-		var localOutput uint64
-		for value := range bucket {
-			localOutput = <-localChan
-			// compare oprf output to every encoded in remoteHashTable at hIdx
-			if !value.Empty() {
-				hIdx = value.GetHashIdx()
-				if remoteEncodings[hIdx][localOutput] {
-					intersection = append(intersection, value.GetItem())
+			// intersect
+			for hashIdx, remoteHash := range remoteEncodings {
+				if id, ok := localEncodings[hashIdx][remoteHash]; ok {
+					intersection = append(intersection, id)
 					// dedup
-					delete(remoteEncodings[hIdx], localOutput)
+					delete(localEncodings[hashIdx], remoteHash)
 				}
 			}
 		}

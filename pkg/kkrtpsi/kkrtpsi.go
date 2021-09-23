@@ -1,8 +1,14 @@
 package kkrtpsi
 
 import (
+	"encoding/binary"
+	"io"
+
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 )
+
+const K = 512
 
 // findK returns the number of base OT for OPRF
 // these numbers are from the paper: Efficient Batched Oblivious PRF with Applications to Private Set Intersection
@@ -40,4 +46,15 @@ func HashAll(h hash.Hasher, input <-chan []byte) <-chan uint64 {
 		}
 	}()
 	return hashes
+}
+
+// HashRead reads one hash
+func EncodesRead(r io.Reader, u *[cuckoo.Nhash]uint64) (err error) {
+	err = binary.Read(r, binary.BigEndian, u)
+	return
+}
+
+// HashWrite writes one hash out
+func EncodesWrite(w io.Writer, u [cuckoo.Nhash]uint64) error {
+	return binary.Write(w, binary.BigEndian, u)
 }

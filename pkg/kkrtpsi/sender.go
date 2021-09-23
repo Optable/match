@@ -3,7 +3,6 @@ package kkrtpsi
 import (
 	"context"
 	"encoding/binary"
-	"encoding/gob"
 	"fmt"
 	"io"
 	"math/rand"
@@ -116,33 +115,32 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		var localEncodings [cuckoo.Nhash]chan uint64
-
 		hasher, err := hash.New(hash.Highway, seeds[0])
 		if err != nil {
 			return err
 		}
 
-		for i := range localEncodings {
-			localEncodings[i] = make(chan uint64, n)
-		}
-
 		var wg sync.WaitGroup
 		var errBus = make(chan error)
-
 		for hash := range hashedIds {
 			wg.Add(1)
 			go func(hash hashable) {
 				defer wg.Done()
 				// encode identifiers that are potentially stored in receiver's cuckoo hash table
 				// in any of the cuckoo.Nhash bukcet index and store it.
+				var encodeHashes [cuckoo.Nhash]uint64
 				for hIdx, bucketIdx := range hash.bucketIdx {
 					encoded, err := oSender.Encode(oprfKeys[bucketIdx], append(hash.identifier, uint8(hIdx)))
 					if err != nil {
 						errBus <- err
 					}
 
-					localEncodings[hIdx] <- hasher.Hash64(encoded)
+					encodeHashes[hIdx] = hasher.Hash64(encoded)
+				}
+
+				// send all 3 encoding at once
+				if err := EncodesWrite(s.rw, encodeHashes); err != nil {
+					errBus <- fmt.Errorf("stage3: %v", err)
 				}
 			}(hash)
 		}
@@ -150,28 +148,11 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// Wait for all encode to complete.
 		wg.Wait()
 		close(errBus)
-		for i := range localEncodings {
-			close(localEncodings[i])
-		}
 
 		//errors?
 		for err := range errBus {
 			if err != nil {
 				return err
-			}
-		}
-
-		// exhaust the hashes into the receiver
-		encoder := gob.NewEncoder(s.rw)
-		for i := range localEncodings {
-			var hashMap = make(map[uint64]bool, n)
-			for hash := range localEncodings[i] {
-				hashMap[hash] = true
-			}
-
-			// send encoding of map
-			if err := encoder.Encode(hashMap); err != nil {
-				return fmt.Errorf("stage2: %v", err)
 			}
 		}
 
