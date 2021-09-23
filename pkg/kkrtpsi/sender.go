@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"sync"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -120,39 +119,11 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		var wg sync.WaitGroup
-		var errBus = make(chan error)
-		for hash := range hashedIds {
-			wg.Add(1)
-			go func(hash hashable) {
-				defer wg.Done()
-				// encode identifiers that are potentially stored in receiver's cuckoo hash table
-				// in any of the cuckoo.Nhash bukcet index and store it.
-				var encodeHashes [cuckoo.Nhash]uint64
-				for hIdx, bucketIdx := range hash.bucketIdx {
-					encoded, err := oSender.Encode(oprfKeys[bucketIdx], append(hash.identifier, uint8(hIdx)))
-					if err != nil {
-						errBus <- err
-					}
-
-					encodeHashes[hIdx] = hasher.Hash64(encoded)
-				}
-
-				// send all 3 encoding at once
-				if err := EncodesWrite(s.rw, encodeHashes); err != nil {
-					errBus <- fmt.Errorf("stage3: %v", err)
-				}
-			}(hash)
-		}
-
-		// Wait for all encode to complete.
-		wg.Wait()
-		close(errBus)
-
-		//errors?
-		for err := range errBus {
-			if err != nil {
-				return err
+		localEncodings := EncodeAndHashAllParallel(oSender, oprfKeys, hasher, hashedIds)
+		for hashedEncodings := range localEncodings {
+			// send all 3 encoding at once
+			if err := EncodesWrite(s.rw, hashedEncodings); err != nil {
+				return fmt.Errorf("stage3: %v", err)
 			}
 		}
 
