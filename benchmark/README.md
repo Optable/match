@@ -10,7 +10,7 @@ The following graphs show the results of benchmarking match attempts using diffe
 
 ![n2-standard-80](n2-standard-80.png)
 
-2) Further, we provide a matrix of the running times of performing match attempts using different PSI algorithms on n2-standard-64 VMs between a receiver and a sender with datasets containing 50m, 100m, 200m, 300m, 400m and 500m records. The sizes of the receiver's datasets are represented row wise in each of the matrix, and the sizes of the sender's datasets are represented column wise in each of the matrix.
+The results for match attempts using different PSI algorithms are tabulated below. Both sender and receiver used n2-standard-64 VMS with datasets containing 50m, 100m, 200m, 300m, 400m and 500m records. The receiver's datasets are represented row-wise while the sender's datasets are represented column-wise.
 
 ![BPSI](BPSI.png)
 
