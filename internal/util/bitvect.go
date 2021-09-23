@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"math/rand"
 )
 
@@ -46,6 +47,52 @@ func SampleRandomBlock(r *rand.Rand, m int) [][]uint64 {
 	return matrix
 }
 
+// PrintBits prints a subset of the overall bit array. The limit is in bits but
+// since we are really printing uint64, everything is rounded down to the nearest
+// multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
+func (b BitVect) PrintBits(lim int) {
+	//lim = lim/64
+	if lim > 512 {
+		lim = 512
+	}
+
+	for i := 0; i < lim; i++ {
+		fmt.Printf("%064b\n", b.set[i*8:(i*8)+(lim/64)])
+	}
+}
+
+// PrintUints prints all of the 512x8 uints in the bit array. Nobody want this.
+func (b BitVect) PrintUints() {
+	for i := 0; i < 512; i++ {
+		fmt.Println(b.set[i*8 : (i+1)*8])
+	}
+}
+
+// checkBit checks if a single bit in a uint64 is set
+func checkBit(u uint64, i uint) bool {
+	return u&(1<<i) > 0 // AND with mask with single set bit at testing location
+}
+
+// CheckTranspose compares BitVect to second BitVect to determined if they are
+// the transposed matrix of each other.
+/* TODO: Fix this
+func (b BitVect) CheckTranspose(t BitVect) bool {
+	for r := uint(0); r < 512; r++ {
+		for c := uint(0); c < 8; c++ {
+			for i := uint(0); i < 64; i++ {
+				if !checkBit(b.set[(r*8)+c], i) && !checkBit(t.set[(((64*c)+(64-i))*8)+(r/64)], r%64) {
+					fmt.Println("row", r, "col", c, "bit", i, "not in proper transposed position!")
+					return false
+				}
+				fmt.Println("row", r, "col", c, "bit", i, "transposed properly")
+			}
+		}
+	}
+
+	return true
+}
+*/
+
 /* not necessary
 // WriteTo writes a BitVect to a stream
 func (b BitVect) WriteTo(stream io.Writer) error {
@@ -57,45 +104,49 @@ func (b BitVect) ReadFrom(stream io.Reader) error {
 	return binary.Read(stream, binary.BigEndian, b.set)
 }
 */
+
 // Transpose performs a cache-oblivious, in-place, contiguous transpose.
 // Since a BitVect represents a 512 by 512 square bit matrix, transposition will
 // be performed blockwise starting with blocks of 256 x 4, swapped about the
 // principle diagonal. Then blocks size will decrease by half until it is only
 // 64 x 1. The remaining transposition steps are performed using bit masks and
-// shfits. Operations are performed on blocks of bits of size 32, 16, 8, 4, 2,
+// shifts. Operations are performed on blocks of bits of size 32, 16, 8, 4, 2,
 // and 1. Since the input is square, the transposition can be performed in place.
-func (b BitVect) Transpose() {
+func (b *BitVect) Transpose() {
 	// Transpose 4 x 256 blocks
-	tmp4 := make([]uint64, 4)
+	/*
+		tmp4 := make([]uint64, 4)
+		var jmp int
+		for i := 0; i < 256; i++ {
+			jmp = i * 8
+			copy(tmp4, b.set[jmp+4:jmp+8])
+			copy(b.set[jmp+4:jmp+8], b.set[256+jmp:256+jmp+4])
+			copy(b.set[256+jmp:256+jmp+4], tmp4)
+		}
+	*/
+	/*
+		// Transpose 2 x 128 blocks
+		tmp2 := make([]uint64, 2)
+		for j := 0; j < 128; j++ {
+			jmp = j * 8
+			copy(tmp2, b.set[jmp+2:jmp+4])
+			copy(b.set[jmp+2:jmp+4], b.set[128+jmp:128+jmp+2])
+			copy(b.set[128+jmp:128+jmp+2], tmp2)
+
+			copy(tmp2, b.set[jmp+6:jmp+8])
+			copy(b.set[jmp+6:jmp+8], b.set[128+jmp+4:128+jmp+6])
+			copy(b.set[128+jmp+4:128+jmp+6], tmp2)
+
+			copy(tmp2, b.set[256+jmp+2:256+jmp+4])
+			copy(b.set[256+jmp+2:256+jmp+4], b.set[384+jmp:384+jmp+2])
+			copy(b.set[384+jmp:384+jmp+2], tmp2)
+
+			copy(tmp2, b.set[256+jmp+6:256+jmp+8])
+			copy(b.set[256+jmp+6:256+jmp+8], b.set[384+jmp+4:384+jmp+6])
+			copy(b.set[384+jmp+4:384+jmp+6], tmp2)
+		}
+	*/
 	var jmp int
-	for i := 0; i < 256; i++ {
-		jmp = i * 8
-		copy(tmp4, b.set[jmp+4:jmp+8])
-		copy(b.set[jmp+4:jmp+8], b.set[256+jmp:256+jmp+4])
-		copy(b.set[256+jmp:256+jmp+4], tmp4)
-	}
-
-	// Transpose 2 x 128 blocks
-	tmp2 := make([]uint64, 2)
-	for j := 0; j < 128; j++ {
-		jmp = j * 8
-		copy(tmp2, b.set[jmp+2:jmp+4])
-		copy(b.set[jmp+2:jmp+4], b.set[128+jmp:128+jmp+2])
-		copy(b.set[128+jmp:128+jmp+2], tmp2)
-
-		copy(tmp2, b.set[jmp+6:jmp+8])
-		copy(b.set[jmp+6:jmp+8], b.set[128+jmp+4:128+jmp+6])
-		copy(b.set[128+jmp+4:128+jmp+6], tmp2)
-
-		copy(tmp2, b.set[256+jmp+2:256+jmp+4])
-		copy(b.set[256+jmp+2:256+jmp+4], b.set[384+jmp:384+jmp+2])
-		copy(b.set[384+jmp:384+jmp+2], tmp2)
-
-		copy(tmp2, b.set[256+jmp+6:256+jmp+8])
-		copy(b.set[256+jmp+6:256+jmp+8], b.set[384+jmp+4:384+jmp+6])
-		copy(b.set[384+jmp+4:384+jmp+6], tmp2)
-	}
-
 	// Transpose 1 x 64 blocks
 	tmp := make([]uint64, 1)
 	for k := 0; k < 64; k++ {
@@ -131,7 +182,7 @@ func (b BitVect) Transpose() {
 		copy(tmp, b.set[128+jmp+7:128+jmp+8])
 		copy(b.set[128+jmp+7:128+jmp+8], b.set[192+jmp+6:192+jmp+7])
 		copy(b.set[192+jmp+6:192+jmp+7], tmp)
-
+		//
 		copy(tmp, b.set[256+jmp+1:256+jmp+2])
 		copy(b.set[256+jmp+1:256+jmp+2], b.set[320+jmp:320+jmp+1])
 		copy(b.set[320+jmp:320+jmp+1], tmp)
@@ -160,24 +211,27 @@ func (b BitVect) Transpose() {
 		copy(b.set[384+jmp+5:384+jmp+6], b.set[448+jmp+4:448+jmp+5])
 		copy(b.set[448+jmp+4:448+jmp+5], tmp)
 
-		copy(tmp, b.set[386+jmp+7:386+jmp+8])
-		copy(b.set[384+jmp+7:386+jmp+8], b.set[448+jmp+6:448+jmp+7])
+		copy(tmp, b.set[384+jmp+7:384+jmp+8])
+		copy(b.set[384+jmp+7:384+jmp+8], b.set[448+jmp+6:448+jmp+7])
 		copy(b.set[448+jmp+6:448+jmp+7], tmp)
+
 	}
 
-	// Bitwise transposition
-	for blk := 0; blk < 8; blk++ {
-		for col := 0; col < 8; col++ {
-			//transpose64(b, blk, col)
-			unrolledTranspose64(b, blk, col)
+	/*
+		// Bitwise transposition
+		for blk := 0; blk < 8; blk++ {
+			for col := 0; col < 8; col++ {
+				//transpose64(b, blk, col)
+				unrolledTranspose64(b, blk, col)
+			}
 		}
-	}
+	*/
 }
 
 // transpose64 performs a bitwise transpose on a 64x64 bit matrix which is
 // held as a contiguous uint64 array in a BitVect. We want to access a column
 // of 64 uints ()
-func transpose64(vect BitVect, vblock, col int) {
+func transpose64(vect *BitVect, vblock, col int) {
 	var width, k int = 32, 0
 	var mask, t uint64 = 0x00000000FFFFFFFF, 0
 	// each vertical block really jumps 64*8 elements (512)
@@ -197,7 +251,7 @@ func transpose64(vect BitVect, vblock, col int) {
 
 // swap swaps two binary elements in a 64x64 bit matrix which is held as a
 // contiguous uint64 array in a BitVect.
-func swap(a, b int, vect BitVect, mask uint64, width int) {
+func swap(a, b int, vect *BitVect, mask uint64, width int) {
 	t := (vect.set[a] ^ (vect.set[b] >> width)) & mask
 	vect.set[a] = vect.set[a] ^ t
 	vect.set[b] = vect.set[b] ^ (t << width)
@@ -207,7 +261,7 @@ func swap(a, b int, vect BitVect, mask uint64, width int) {
 // is held as a contiguous uint64 array in a BitVect. Instead of looping and
 // generating the mask with each loop, the unrolled version is fully declared
 // which boosts performance at the expense of verbosity.
-func unrolledTranspose64(vect BitVect, vblock, col int) {
+func unrolledTranspose64(vect *BitVect, vblock, col int) {
 	jmp := vblock*(64*8) + col
 	// 32x32 swap
 	var mask uint64 = 0x00000000FFFFFFFF
