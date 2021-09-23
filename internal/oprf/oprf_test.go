@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/optable/match/internal/ot"
+	"github.com/optable/match/internal/util"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 	baseCount = 100000
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	choices   = genChoiceString()
+	k         = 512
 )
 
 func genChoiceString() [][]byte {
@@ -64,7 +66,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +76,7 @@ func TestKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewKKRT(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +132,7 @@ func TestKKRT(t *testing.T) {
 
 	for i, o := range out {
 		// encode choice with key
-		enc, err := senderOPRF.Encode(keys[i], choices[i])
+		enc, err := keys[i].Encode(choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -149,7 +151,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, 424, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +161,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, 424, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.Simplest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +217,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	for i, o := range out {
 		// encode choice with key
-		enc, err := senderOPRF.Encode(keys[i], choices[i])
+		enc, err := keys[i].Encode(choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -224,5 +226,20 @@ func TestImprovedKKRT(t *testing.T) {
 			t.Logf("choice[%d]=%v\n", i, choices[i])
 			t.Fatalf("Improved KKRT OPRF failed, got: %v, want %v", enc, o)
 		}
+	}
+}
+
+func BenchmarkEncode(b *testing.B) {
+	sk := make([]byte, 16)
+	s := make([]byte, 64)
+	q := make([]byte, 64)
+	util.SampleBitSlice(prng, sk)
+	util.SampleBitSlice(prng, s)
+	util.SampleBitSlice(prng, q)
+	key := Key{sk: sk, s: s, q: q}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		key.Encode(q)
 	}
 }

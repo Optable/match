@@ -1,11 +1,12 @@
 package ot
 
 import (
-	"crypto/aes"
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math/rand"
-	"time"
+	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -47,8 +48,11 @@ func NewImprovedIKNPNCO(m, k, n, baseOt int, ristretto bool, msgLen []int) (impr
 	}
 	g := blake3.New()
 
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
 	return imprvIKNPNCO{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen,
-		prng: rand.New(rand.NewSource(time.Now().UnixNano())), g: g}, nil
+		prng: mrand.New(mrand.NewSource(seed)), g: g}, nil
 }
 
 func (ext imprvIKNPNCO) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -63,7 +67,7 @@ func (ext imprvIKNPNCO) Send(messages [][][]byte, rw io.ReadWriter) (err error) 
 
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(ext.prng, s); err != nil {
+	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
 		return err
 	}
 
@@ -126,18 +130,16 @@ func (ext imprvIKNPNCO) Receive(choices []uint8, messages [][]byte, rw io.ReadWr
 		return ErrBaseCountMissMatch
 	}
 
-	// receive AES-128 secret key
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = ext.prng.Read(sk); err != nil {
+	if _, err = crand.Read(sk); err != nil {
 		return nil
 	}
 
 	// compute code word using pseudorandom code on choice stirng r
 	c := make([][]byte, ext.k)
-	aesBlock, _ := aes.NewCipher(sk)
 	for row := range c {
-		c[row] = crypto.PseudorandomCode(aesBlock, ext.k, []byte{byte(row)})
+		c[row] = crypto.PseudorandomCode(sk, []byte{byte(row)})
 		if _, err := rw.Write(c[row]); err != nil {
 			return err
 		}

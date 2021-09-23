@@ -2,7 +2,7 @@ package util
 
 import (
 	"fmt"
-	"math/rand"
+	"io"
 )
 
 var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations")
@@ -33,7 +33,7 @@ func InPlaceXorBytes(a, dst []byte) error {
 	}
 
 	for i := 0; i < n; i++ {
-		dst[i] = a[i] ^ dst[i]
+		dst[i] ^= a[i]
 	}
 
 	return nil
@@ -64,26 +64,18 @@ func InPlaceAndBytes(a, dst []byte) error {
 	}
 
 	for i := range dst {
-		dst[i] = a[i] & dst[i]
+		dst[i] &= a[i]
 	}
 
 	return nil
 }
 
-func AndByte(a uint8, b []byte) (dst []byte) {
-	dst = make([]byte, len(b))
-
-	for i := range b {
-		dst[i] = a & b[i]
+func AndByte(a uint8, b []byte) []byte {
+	if a == 1 {
+		return b
 	}
 
-	return
-}
-
-func InPlaceAndByte(a uint8, dst []byte) {
-	for i := range dst {
-		dst[i] = a & dst[i]
-	}
+	return make([]byte, len(b))
 }
 
 // Transpose returns the transpose of a 2D slices of uint8
@@ -121,7 +113,7 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 
 // SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
 // with pseudorandom bit values
-func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
+func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, m)
 	for row := range matrix {
@@ -129,7 +121,7 @@ func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 	}
 
 	for row := range matrix {
-		if err := SampleBitSlice(r, matrix[row]); err != nil {
+		if err := SampleBitSlice(prng, matrix[row]); err != nil {
 			return nil, err
 		}
 	}
@@ -138,7 +130,9 @@ func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 }
 
 // SampleBitSlice returns a slice of uint8 of pseudorandom bits
-func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
+// prng is a reader from either crypto/rand.Reader
+// or math/rand.Rand
+func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
 	// read up to len(b) + 1 pseudorandom bits
 	t := make([]byte, len(b)/8+1)
 	if _, err = prng.Read(t); err != nil {

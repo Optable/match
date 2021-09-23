@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	K         = 512
-	batchSize = 512
+	k         = 512
+	batchSize = 2048
 )
 
 // findK returns the number of base OT for OPRF
@@ -64,9 +64,10 @@ func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEnc
 		execute:     f}
 }
 
-func (id hashable) encodeAndHash(oprfSender oprf.OPRF, oprfKeys []oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
+func (id hashable) encodeAndHash(oprfKeys []oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
+	var encoded = make([]byte, k)
 	for hIdx, bucketIdx := range id.bucketIdx {
-		encoded, _ := oprfSender.Encode(oprfKeys[bucketIdx], append(id.identifier, uint8(hIdx)))
+		encoded, _ = oprfKeys[bucketIdx].Encode(append(id.identifier, uint8(hIdx)))
 		hashes[hIdx] = hasher.Hash64(encoded)
 	}
 
@@ -75,7 +76,7 @@ func (id hashable) encodeAndHash(oprfSender oprf.OPRF, oprfKeys []oprf.Key, hash
 
 // HashAllParallel reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
-func EncodeAndHashAllParallel(oprfSender oprf.OPRF, oprfKeys []oprf.Key, hasher hash.Hasher, identifiers <-chan hashable) <-chan [cuckoo.Nhash]uint64 {
+func EncodeAndHashAllParallel(oprfKeys []oprf.Key, hasher hash.Hasher, identifiers <-chan hashable) <-chan [cuckoo.Nhash]uint64 {
 	// one wg.Add() per batch + one for the batcher go routine
 	var jobPool = make(chan hashEncodingJob)
 	var wg sync.WaitGroup
@@ -86,7 +87,7 @@ func EncodeAndHashAllParallel(oprfSender oprf.OPRF, oprfKeys []oprf.Key, hasher 
 			for job := range jobPool {
 				var hashed = make([][cuckoo.Nhash]uint64, job.batchSize)
 				for i := 0; i < job.batchSize; i++ {
-					hashed[i] = job.identifiers[i].encodeAndHash(oprfSender, oprfKeys, hasher)
+					hashed[i] = job.identifiers[i].encodeAndHash(oprfKeys, hasher)
 				}
 				job.hashed = hashed
 				job.execute(job)

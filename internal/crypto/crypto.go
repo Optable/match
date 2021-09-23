@@ -33,31 +33,34 @@ const (
 // secretKey is a 16 byte slice for AES-128
 // k is the desired number of bytes
 // on success, pseudorandomCode returns a byte slice of length k.
-func PseudorandomCode(aesBlock cipher.Block, k int, src []byte) []byte {
+func PseudorandomCode(secretKey, src []byte) (dst []byte) {
+	aesBlock, _ := aes.NewCipher(secretKey)
 	tmp := make([]byte, aes.BlockSize*4)
-	dst := make([]byte, aes.BlockSize*4*8)
+	dst = make([]byte, aes.BlockSize*4*8)
 
 	// pad src
-	src = pad(src)
+	input := pad(src)
+	input[0] = 1
 
 	// encrypt
-	aesBlock.Encrypt(tmp[:aes.BlockSize], append([]byte{1}, src...))
-	aesBlock.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], append([]byte{2}, src...))
-	aesBlock.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], append([]byte{3}, src...))
-	aesBlock.Encrypt(tmp[aes.BlockSize*3:], append([]byte{4}, src...))
+	aesBlock.Encrypt(tmp[:aes.BlockSize], input)
+	input[0] = 2
+	aesBlock.Encrypt(tmp[aes.BlockSize:aes.BlockSize*2], input)
+	input[0] = 3
+	aesBlock.Encrypt(tmp[aes.BlockSize*2:aes.BlockSize*3], input)
+	input[0] = 4
+	aesBlock.Encrypt(tmp[aes.BlockSize*3:], input)
 
 	// extract pseudorandom bytes to bits
 	util.ExtractBytesToBits(tmp, dst)
-	// return desired number of bytes
-	return dst[:k]
+	return dst
 }
 
-// pad aes block, no need for unpad since we only need to encrypt
-// and not decrypt the aes blocks.
-func pad(src []byte) []byte {
-	padding := aes.BlockSize - len(src)%aes.BlockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(src, padtext...)
+// pad aes block, with the first byte reserved for PseudorandomCode
+func pad(src []byte) (tmp []byte) {
+	tmp = make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
+	copy(tmp[1:], src)
+	return tmp
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.

@@ -2,10 +2,10 @@ package kkrtpsi
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/rand"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -46,7 +46,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var remoteN int64       // receiver size
 	var oprfInputSize int64 // nb of OPRF keys
 
-	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
 	var hashedIds = make(chan hashable, n)
 
@@ -94,7 +93,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err = oprf.NewKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
+		oSender, err := oprf.NewKKRT(int(oprfInputSize), k, ot.Simplest, false)
 		if err != nil {
 			return err
 		}
@@ -119,7 +118,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		localEncodings := EncodeAndHashAllParallel(oSender, oprfKeys, hasher, hashedIds)
+		localEncodings := EncodeAndHashAllParallel(oprfKeys, hasher, hashedIds)
 		for hashedEncodings := range localEncodings {
 			// send all 3 encoding at once
 			if err := EncodesWrite(s.rw, hashedEncodings); err != nil {

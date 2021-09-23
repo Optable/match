@@ -17,12 +17,12 @@ var (
 	p      = []byte("example testing plaintext that holds important secrets: %QWEQW$##%Y^&%^*(*)&, []m")
 	aesKey = make([]byte, 16)
 	xorKey = make([]byte, len(p))
-	r      = rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng   = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func init() {
-	r.Read(aesKey)
-	r.Read(xorKey)
+	prng.Read(aesKey)
+	prng.Read(xorKey)
 }
 
 func BenchmarkSha(b *testing.B) {
@@ -146,10 +146,10 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 
 func TestXORBytes(t *testing.T) {
 	a := make([]byte, 32)
-	r.Read(a)
+	prng.Read(a)
 
 	b := make([]byte, 32)
-	r.Read(b)
+	prng.Read(b)
 	c, err := util.XorBytes(a, b)
 	if err != nil {
 		t.Fatal(err)
@@ -170,11 +170,20 @@ func TestXORBytes(t *testing.T) {
 
 func TestPseudorandomGeneratorWithBlake3(t *testing.T) {
 	seed := make([]byte, 424)
-	r.Read(seed)
+	prng.Read(seed)
 	n := 212
 	p := PseudorandomGeneratorWithBlake3(blake3.New(), seed, n)
 	if bytes.Equal(make([]byte, n), p) {
 		t.Fatalf("pseudorandom should not be 0")
+	}
+}
+
+func BenchmarkPseudorandomCode(b *testing.B) {
+	in := make([]byte, 64)
+	util.SampleBitSlice(prng, in)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PseudorandomCode(aesKey, in)
 	}
 }
 
