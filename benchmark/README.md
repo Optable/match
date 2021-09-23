@@ -34,4 +34,13 @@ The results for match attempts using different PSI algorithms are tabulated belo
 | 400m | 14m25s | 13m55s | 14m37s | 16m17s | 19m44s | 22m59s |
 | 500m | 19m43s | 20m14s | 20m45s | 21m17s | 21m13s | 22m57s |
 
-![DHPSI](DHPSI.png)
+## DHPSI
+
+| Time | 50m       | 100m     | 200m     | 300m     | 400m      | 500m     |
+|------|---------:|--------:|---------:|---------:|---------:|---------:|
+| 50m  | 10m50s | 14m38s | 22m08s  | 32m36s | 39m42s | 51m53s |
+| 100m | 16m15s | 20m17s | 28m43s | 39m33s | 46m12s | 55m47s |
+| 200m | 25m46s | 30m06s  | 37m52s | 46m58s | 57m03s  | 66m41s |
+| 300m | 36m37s | 40m16s | 49m13s | 57m31s | 70m09s  | 75m52s |
+| 400m | 46m05s  | 53m01s  | 59m14s | 73m02s  | 79m54s | 87m30s |
+| 500m | 56m09s  | 61m46s | 68m59s | 79m02s  | 86m29s | 98m10s  |
