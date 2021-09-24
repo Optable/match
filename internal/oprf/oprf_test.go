@@ -66,7 +66,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewKKRT(baseCount, k, ot.Simplest, false)
+	receiverOPRF, err := NewKKRT(baseCount, k, ot.NaorPinkas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewKKRT(baseCount, k, ot.Simplest, false)
+	senderOPRF, err := NewKKRT(baseCount, k, ot.NaorPinkas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.Simplest, false)
+	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.Simplest, false)
+	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -10,7 +9,6 @@ import (
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/sha3"
 )
 
 /*
@@ -18,11 +16,9 @@ Various cipher suite implementation in golang
 */
 
 const (
-	CTR = iota
-	GCM
+	GCM = iota
 	XORBlake2
 	XORBlake3
-	XORShake
 
 	nonceSize = 12 //aesgcm NonceSize
 )
@@ -59,7 +55,7 @@ func PseudorandomCode(secretKey, src []byte) (dst []byte) {
 func pad(src []byte) (tmp []byte) {
 	tmp = make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
 	copy(tmp[1:], src)
-	return tmp
+	return
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.
@@ -87,37 +83,10 @@ func PseudorandomGeneratorWithBlake3(s *blake3.Hasher, seed []byte, length int) 
 	return dst[:length]
 }
 
-// aes gcm(seed, src)
-func pseudorandomGeneratorWithAESGCM(gcm cipher.AEAD, seed []byte, length int) (dst []byte, err error) {
-	seed = append(seed, bytes.Repeat(seed, (length+7)/8/len(seed)+1)...)
-	tmp := gcm.Seal(nil, seed[:nonceSize], seed, nil)
-	dst = make([]byte, length)
-	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(tmp, dst)
-	return
-}
-
-func xorCipherWithAESCTR(block cipher.Block, seed []byte, src []byte) (dst []byte, err error) {
-	dst = make([]byte, len(src))
-	iv := seed[:aes.BlockSize]
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(dst, src)
-	return
-}
-
-func xorCipherWithAESCTR2(block cipher.Block, seed []byte, src []byte) (dst []byte, err error) {
-	dst = make([]byte, len(src))
-	h := blake3.Sum256(seed)
-	iv, _ := util.XorBytes(h[:16], h[16:])
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(dst, src)
-	return
-}
-
 // Blake3 has XOF which is perfect for doing xor cipher.
-func xorCipherWithBlake3(key []byte, ind uint8, src []byte) (dst []byte, err error) {
+func xorCipherWithBlake3(key []byte, ind uint8, src []byte) ([]byte, error) {
 	hash := make([]byte, len(src))
-	err = getBlake3Hash(key, ind, hash)
+	err := getBlake3Hash(key, ind, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -132,32 +101,14 @@ func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 	// convert to *digest to take a snapshot of the hashstate for XOF
 	d := h.Digest()
 	_, err := d.Read(dst)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Shake from the Sha3 family has XOF which is perfect for doing xor cipher.
-func xorCipherWithShake(key []byte, ind uint8, src []byte) (dst []byte, err error) {
-	hash := make([]byte, len(src))
-	getShakeHash(key, ind, hash)
-	return util.XorBytes(hash, src)
-}
-
-func getShakeHash(key []byte, ind uint8, dst []byte) {
-	h := sha3.NewShake256()
-	h.Write(key)
-	h.Write([]byte{ind})
-	h.Read(dst)
+	return err
 }
 
 // xorCipher returns the result of H(ind, key) XOR src
 // note that encrypt and decrypt in XOR cipher are the same.
-func xorCipherWithBlake2(key []byte, ind uint8, src []byte) (dst []byte, err error) {
+func xorCipherWithBlake2(key []byte, ind uint8, src []byte) ([]byte, error) {
 	hash := make([]byte, len(src))
-	err = getBlake2Hash(key, ind, hash)
+	err := getBlake2Hash(key, ind, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -176,52 +127,6 @@ func getBlake2Hash(key []byte, ind uint8, dst []byte) (err error) {
 	d.Write([]byte{ind})
 	d.Read(dst)
 
-	return
-}
-
-// aes CTR + HMAC encrypt decrypt
-func ctrEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	l := aes.BlockSize + len(plaintext)
-	ciphertext = make([]byte, l+32)
-	if _, err := rand.Read(ciphertext[:aes.BlockSize]); err != nil {
-		return nil, err
-	}
-
-	stream := cipher.NewCTR(block, ciphertext[:aes.BlockSize])
-	stream.XORKeyStream(ciphertext[aes.BlockSize:l], plaintext)
-
-	h := sha3.NewShake256()
-	// reuse IV as key for mac
-	h.Write(ciphertext[:aes.BlockSize])
-	h.Write(ciphertext[aes.BlockSize:l])
-	h.Read(ciphertext[l:])
-	return
-}
-
-func ctrDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	iv, c, mac := ciphertext[:aes.BlockSize], ciphertext[aes.BlockSize:len(ciphertext)-32], ciphertext[len(ciphertext)-32:]
-	plaintext = make([]byte, len(c))
-	stream := cipher.NewCTR(block, iv)
-
-	// verify mac
-	mac2 := make([]byte, 32)
-	h := sha3.NewShake256()
-	h.Write(iv)
-	h.Write(c)
-	h.Read(mac2)
-	if !bytes.Equal(mac, mac2) {
-		return nil, fmt.Errorf("cipher text is not authenticated")
-	}
-	stream.XORKeyStream(plaintext, c)
 	return
 }
 
@@ -269,16 +174,12 @@ func gcmDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
 
 func Encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
 	switch mode {
-	case CTR:
-		return ctrEncrypt(key, plaintext)
 	case GCM:
 		return gcmEncrypt(key, plaintext)
 	case XORBlake2:
 		return xorCipherWithBlake2(key, ind, plaintext)
 	case XORBlake3:
 		return xorCipherWithBlake3(key, ind, plaintext)
-	case XORShake:
-		return xorCipherWithShake(key, ind, plaintext)
 	}
 
 	return nil, fmt.Errorf("wrong encrypt mode")
@@ -286,16 +187,12 @@ func Encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 
 func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
 	switch mode {
-	case CTR:
-		return ctrDecrypt(key, ciphertext)
 	case GCM:
 		return gcmDecrypt(key, ciphertext)
 	case XORBlake2:
 		return xorCipherWithBlake2(key, ind, ciphertext)
 	case XORBlake3:
 		return xorCipherWithBlake3(key, ind, ciphertext)
-	case XORShake:
-		return xorCipherWithShake(key, ind, ciphertext)
 	}
 
 	return nil, fmt.Errorf("wrong decrypt mode")
@@ -304,11 +201,9 @@ func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 // compute ciphertext length in bytes
 func EncryptLen(mode int, msgLen int) int {
 	switch mode {
-	case CTR:
-		return aes.BlockSize + msgLen
 	case GCM:
 		return nonceSize + aes.BlockSize + msgLen
-	case XORBlake2, XORBlake3, XORShake:
+	case XORBlake2, XORBlake3:
 		fallthrough
 	default:
 		return msgLen

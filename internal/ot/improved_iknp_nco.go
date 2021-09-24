@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/rand"
 	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
@@ -31,7 +30,7 @@ type imprvIKNPNCO struct {
 	k      int
 	n      int
 	msgLen []int
-	prng   *rand.Rand
+	prng   *mrand.Rand
 	g      *blake3.Hasher
 }
 

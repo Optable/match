@@ -15,8 +15,10 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 import (
 	crand "crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 	mrand "math/rand"
+	"time"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
@@ -85,6 +87,7 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	// transpose q to m x k matrix for easier row operations
+	//q = util.ConcurrentColumnarTranspose(q)
 	q = util.Transpose(q)
 
 	// store oprf keys
@@ -111,11 +114,16 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	// compute code word using pseudorandom code on choice stirng r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
+		start := time.Now()
 		d := make([][]byte, o.m)
 		for i := 0; i < o.m; i++ {
 			d[i] = crypto.PseudorandomCode(sk, choices[i])
 		}
+		fmt.Printf("Compute pseudorandom code on %d messages of %d bits each took: %v\n", o.m, o.k, time.Since(start))
+		tran := time.Now()
+		//pseudorandomChan <- util.ConcurrentColumnarTranspose(d)
 		pseudorandomChan <- util.Transpose(d)
+		fmt.Printf("Compute transpose took: %v\n", time.Since(tran))
 	}()
 
 	// Sample k x m matrix T
@@ -138,10 +146,13 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		baseMsgs[i][1] = d[i]
 	}
 
+	start := time.Now()
 	// act as sender in baseOT to send k columns
 	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
+	fmt.Printf("base OT of %d messages of %d bits each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 
+	//return util.ConcurrentColumnarTranspose(t), nil
 	return util.Transpose(t), nil
 }
