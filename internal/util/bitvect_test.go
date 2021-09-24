@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -76,11 +77,13 @@ func TestCheckTransposed(t *testing.T) {
 }
 */
 
-func TestUnravelMatrix(t *testing.T) {
-	trange := []int{200, 511, 513, 710, 5120, 5320}
+func TestUnReRaveling(t *testing.T) {
+	trange := []int{200, 511, 512, 513, 710, 5120, 5320}
+	//trange := []int{5120}
 	// TALL m x 512
 	for _, r := range trange {
-		m, mp := UnravelMatrix(SampleRandomTall(prng, r))
+		orig := SampleRandomTall(prng, r)
+		m, mp := UnravelMatrix(orig)
 		if mp != r%512 && mp != 512-r {
 			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", r%512, "or", 512-r, "rows of padding.")
 		}
@@ -91,8 +94,41 @@ func TestUnravelMatrix(t *testing.T) {
 		if len(m) != (r/512 + pb) {
 			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", r/512+pb, "blocks of 512x512.")
 		}
+		fmt.Println("orig", orig[0])
+		fmt.Println("unra", m[0].set)
+
+		// now reconstruct
+		rerav := make([][]uint64, r)
+		for row := range rerav {
+			rerav[row] = make([]uint64, 8)
+		}
+		//fmt.Println("unraveled", m[0].set)
+		//fmt.Println("orig", orig[0])
+		// padded block first
+		if mp == 0 {
+			m[0].Ravel(rerav, 0, 0)
+		} else {
+			m[0].Ravel(rerav, 512-mp, 0)
+		}
+		// rest
+		fmt.Println("pb", pb)
+		for b := 1; b < (r/512)+pb; b++ {
+			fmt.Println("b", b)
+			m[b].Ravel(rerav, 0, mp+(b-1)*512)
+			fmt.Println(mp + (b-1)*512)
+		}
+
+		for k := range rerav {
+			for l := range rerav[k] {
+				//fmt.Println("k", k, "l", l)
+				if rerav[k][l] != orig[k][l] {
+					t.Fatal("Unraveled and reraveled tall (", r, ") matrix did not match with original at row", k, ".")
+				}
+			}
+		}
+
 	}
-	trange = []int{3, 7, 9, 14, 80, 83}
+	trange = []int{3, 7, 8, 9, 14, 80, 83}
 	// WIDE 512 x n
 	for _, r := range trange {
 		m, mp := UnravelMatrix(SampleRandomWide(prng, r))

@@ -5,6 +5,9 @@ import (
 	"math/rand"
 )
 
+// TODO fix pad so that it represents the amount to pad RATHER THAN the excess
+// rows that did not fit into a multiple of 512.
+
 // A BitVect is a matrix of 512 by 512 bits encoded into uint64 elements.
 type BitVect struct {
 	set [512 * 8]uint64
@@ -15,7 +18,7 @@ type BitVect struct {
 // rows that should be padded at the front of the block. idx allows you to
 // to target a particular row or column from which to start the block from the
 // original matrix.
-func Unravel(matrix [][]uint64, pad int, idx int) BitVect {
+func Unravel(matrix [][]uint64, pad, idx int) BitVect {
 	set := [4096]uint64{}
 	if len(matrix) == 512 { // wide matrix
 		for i := 0; i < 512; i++ {
@@ -32,7 +35,7 @@ func Unravel(matrix [][]uint64, pad int, idx int) BitVect {
 	return BitVect{set}
 }
 
-// UnrollMatrix constructs a slice of BitVects to hold the blocks of bits from a 2D
+// UnravelMatrix constructs a slice of BitVects to hold the blocks of bits from a 2D
 // uint64 matrix. If the smaller dimension of the matrix (width or height) is not a
 // multiple of 512, additional rows or columns are padded in the first block at the
 // front of the matrix.
@@ -58,11 +61,15 @@ func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 			nBlk += 1
 		}
 		dst = make([]BitVect, nBlk)
-		dst[0] = Unravel(matrix, 8-rem, 0)
+		if rem == 0 {
+			dst[0] = Unravel(matrix, 0, 0)
+		} else {
+			dst[0] = Unravel(matrix, 8-rem, 0)
+		}
 
 		// populate rest of destination slice
-		for b := 0; b < nBlk-1; b++ {
-			dst[b] = Unravel(matrix, 0, rem+(b*8))
+		for b := 1; b < nBlk; b++ {
+			dst[b] = Unravel(matrix, 0, rem+((b-1)*8))
 		}
 
 		return dst, rem
@@ -84,15 +91,33 @@ func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 	if rem > 0 {
 		nBlk += 1
 	}
+
 	dst = make([]BitVect, nBlk)
-	dst[0] = Unravel(matrix, 512-rem, 0)
+	if rem == 0 {
+		dst[0] = Unravel(matrix, 0, 0)
+	} else {
+		dst[0] = Unravel(matrix, 512-rem, 0)
+	}
 
 	// populate rest of destination slice
-	for b := 0; b < nBlk-1; b++ {
-		dst[b] = Unravel(matrix, 0, rem+(b*512))
+	for b := 1; b < nBlk; b++ {
+		dst[b] = Unravel(matrix, 0, rem+((b-1)*512))
 	}
 
 	return dst, rem
+}
+
+// Ravel reconstructs a block of a 2D matrix from a BitVect
+func (b BitVect) Ravel(matrix [][]uint64, pad, idx int) {
+	if len(matrix[0]) == 8 { // tall matrix
+		for i := 0; i < 512-pad; i++ {
+			copy(matrix[idx+i][:], b.set[(i+pad)*8:(i+pad+1)*8])
+		}
+	} else { // wide matrix
+		for i := 0; i < 512; i++ {
+			copy(matrix[i][idx:idx+8-pad], b.set[(i*8)+pad:(i+1)*8])
+		}
+	}
 }
 
 // SampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
