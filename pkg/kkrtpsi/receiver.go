@@ -42,8 +42,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var intersection [][]byte
 	var oprfOutput [][]byte
 	var cuckooHashTable *cuckoo.Cuckoo
-	var input = make(chan [][]byte, 1)
-	//var errBus = make(chan error)
+	var oprfInputs [][]byte
 
 	// stage 1: read the hash seeds from the remote side
 	//          initiate a cuckoo hash table and insert all local
@@ -58,19 +57,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// instantiate cuckoo hash table
 		cuckooHashTable = cuckoo.NewCuckoo(uint64(n), seeds)
-		go func() {
-			// fetch local ID and insert
-			for identifier := range identifiers {
-				cuckooHashTable.Insert(identifier)
-			}
+		for identifier := range identifiers {
+			cuckooHashTable.Insert(identifier)
+		}
 
-			var oprfInputs [][]byte
-			for in := range cuckooHashTable.OPRFInput() {
-				oprfInputs = append(oprfInputs, in)
-			}
-			input <- oprfInputs
-			close(input)
-		}()
+		oprfInputs = cuckooHashTable.OPRFInput()
 
 		// send size
 		if err := binary.Write(r.rw, binary.BigEndian, &n); err != nil {
@@ -98,7 +89,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oprfOutput, err = oReceiver.Receive(<-input, r.rw)
+		oprfOutput, err = oReceiver.Receive(oprfInputs, r.rw)
 		if err != nil {
 			return err
 		}
@@ -127,13 +118,13 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 		// hash local oprf output
 		hasher, _ := hash.New(hash.Highway, seeds[0])
-		var i = 0
-		for value := range cuckooHashTable.Bucket() {
+		for i, value := range cuckooHashTable.Bucket() {
 			if !value.Empty() {
 				// insert into proper map
-				localEncodings[value.GetHashIdx()][hasher.Hash64(oprfOutput[i])] = value.GetItem()
+				id := value.GetItem()
+				id[len(id)-1] = id[len(id)-1] ^ value.GetHashIdx()
+				localEncodings[value.GetHashIdx()][hasher.Hash64(oprfOutput[i])] = id
 			}
-			i++
 		}
 
 		// read number of remote IDs

@@ -246,23 +246,20 @@ func (v *value) oprfInput() []byte {
 		return []byte{255}
 	}
 
-	return append(v.item, v.hIdx)
+	v.item[len(v.item)-1] = v.item[len(v.item)-1] ^ v.hIdx
+	return v.item
 }
 
 // OPRFInput returns the OPRF input for KKRT Receiver
 // if the identifier is in the bucket, it appends the hash index
 // if the identifier is on stash, it returns just the id
 // if the bucket has nothing it in, it returns a dummy value: 255
-func (c *Cuckoo) OPRFInput() <-chan []byte {
-	r := make(chan []byte, c.Len())
-	go func() {
-		for _, b := range c.buckets {
-			r <- b.oprfInput()
-		}
-		close(r)
-	}()
-
-	return r
+func (c *Cuckoo) OPRFInput() [][]byte {
+	var inputs = make([][]byte, c.bucketSize)
+	for i, b := range c.buckets {
+		inputs[i] = b.oprfInput()
+	}
+	return inputs
 }
 
 func (v *value) GetItem() []byte {
@@ -273,16 +270,8 @@ func (v *value) GetHashIdx() uint8 {
 	return v.hIdx
 }
 
-func (c *Cuckoo) Bucket() <-chan value {
-	var valueChan = make(chan value, c.bucketSize)
-	go func() {
-		for _, v := range c.buckets {
-			valueChan <- v
-		}
-		close(valueChan)
-	}()
-
-	return valueChan
+func (c *Cuckoo) Bucket() []value {
+	return c.buckets
 }
 
 func (c *Cuckoo) BucketSize() int {
