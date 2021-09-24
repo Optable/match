@@ -64,7 +64,7 @@ func (b BitVect) PrintBits(lim int) {
 // PrintUints prints all of the 512x8 uints in the bit array. Nobody want this.
 func (b BitVect) PrintUints() {
 	for i := 0; i < 512; i++ {
-		fmt.Println(b.set[i*8 : (i+1)*8])
+		fmt.Println(i, " - ", b.set[i*8:(i+1)*8])
 	}
 }
 
@@ -105,6 +105,10 @@ func (b BitVect) ReadFrom(stream io.Reader) error {
 }
 */
 
+func (b *BitVect) WriteT() {
+	b.set[0] = 0
+}
+
 // Transpose performs a cache-oblivious, in-place, contiguous transpose.
 // Since a BitVect represents a 512 by 512 square bit matrix, transposition will
 // be performed blockwise starting with blocks of 256 x 4, swapped about the
@@ -114,118 +118,114 @@ func (b BitVect) ReadFrom(stream io.Reader) error {
 // and 1. Since the input is square, the transposition can be performed in place.
 func (b *BitVect) Transpose() {
 	// Transpose 4 x 256 blocks
-	/*
-		tmp4 := make([]uint64, 4)
-		var jmp int
-		for i := 0; i < 256; i++ {
-			jmp = i * 8
-			copy(tmp4, b.set[jmp+4:jmp+8])
-			copy(b.set[jmp+4:jmp+8], b.set[256+jmp:256+jmp+4])
-			copy(b.set[256+jmp:256+jmp+4], tmp4)
-		}
-	*/
-	/*
-		// Transpose 2 x 128 blocks
-		tmp2 := make([]uint64, 2)
-		for j := 0; j < 128; j++ {
-			jmp = j * 8
-			copy(tmp2, b.set[jmp+2:jmp+4])
-			copy(b.set[jmp+2:jmp+4], b.set[128+jmp:128+jmp+2])
-			copy(b.set[128+jmp:128+jmp+2], tmp2)
 
-			copy(tmp2, b.set[jmp+6:jmp+8])
-			copy(b.set[jmp+6:jmp+8], b.set[128+jmp+4:128+jmp+6])
-			copy(b.set[128+jmp+4:128+jmp+6], tmp2)
-
-			copy(tmp2, b.set[256+jmp+2:256+jmp+4])
-			copy(b.set[256+jmp+2:256+jmp+4], b.set[384+jmp:384+jmp+2])
-			copy(b.set[384+jmp:384+jmp+2], tmp2)
-
-			copy(tmp2, b.set[256+jmp+6:256+jmp+8])
-			copy(b.set[256+jmp+6:256+jmp+8], b.set[384+jmp+4:384+jmp+6])
-			copy(b.set[384+jmp+4:384+jmp+6], tmp2)
-		}
-	*/
+	tmp4 := make([]uint64, 4)
 	var jmp int
+	for i := 0; i < 256; i++ {
+		jmp = i * 8
+		copy(tmp4, b.set[jmp+4:jmp+8])
+		copy(b.set[jmp+4:jmp+8], b.set[(256*8)+jmp:(256*8)+jmp+4])
+		copy(b.set[(256*8)+jmp:(256*8)+jmp+4], tmp4)
+	}
+
+	// Transpose 2 x 128 blocks
+	tmp2 := make([]uint64, 2)
+	for j := 0; j < 128; j++ {
+		jmp = j * 8
+		copy(tmp2, b.set[jmp+2:jmp+4])
+		copy(b.set[jmp+2:jmp+4], b.set[(128*8)+jmp:(128*8)+jmp+2])
+		copy(b.set[(128*8)+jmp:(128*8)+jmp+2], tmp2)
+
+		copy(tmp2, b.set[jmp+6:jmp+8])
+		copy(b.set[jmp+6:jmp+8], b.set[(128*8)+jmp+4:(128*8)+jmp+6])
+		copy(b.set[(128*8)+jmp+4:(128*8)+jmp+6], tmp2)
+
+		copy(tmp2, b.set[(256*8)+jmp+2:(256*8)+jmp+4])
+		copy(b.set[(256*8)+jmp+2:(256*8)+jmp+4], b.set[(384*8)+jmp:(384*8)+jmp+2])
+		copy(b.set[(384*8)+jmp:(384*8)+jmp+2], tmp2)
+
+		copy(tmp2, b.set[(256*8)+jmp+6:(256*8)+jmp+8])
+		copy(b.set[(256*8)+jmp+6:(256*8)+jmp+8], b.set[(384*8)+jmp+4:(384*8)+jmp+6])
+		copy(b.set[(384*8)+jmp+4:(384*8)+jmp+6], tmp2)
+	}
+
 	// Transpose 1 x 64 blocks
 	tmp := make([]uint64, 1)
 	for k := 0; k < 64; k++ {
 		jmp = k * 8
 		copy(tmp, b.set[jmp+1:jmp+2])
-		copy(b.set[jmp+1:jmp+2], b.set[64+jmp:64+jmp+1])
-		copy(b.set[64+jmp:64+jmp+1], tmp)
+		copy(b.set[jmp+1:jmp+2], b.set[(64*8)+jmp:(64*8)+jmp+1])
+		copy(b.set[(64*8)+jmp:(64*8)+jmp+1], tmp)
 
 		copy(tmp, b.set[jmp+3:jmp+4])
-		copy(b.set[jmp+3:jmp+4], b.set[64+jmp+2:64+jmp+3])
-		copy(b.set[64+jmp+2:64+jmp+3], tmp)
+		copy(b.set[jmp+3:jmp+4], b.set[(64*8)+jmp+2:(64*8)+jmp+3])
+		copy(b.set[(64*8)+jmp+2:(64*8)+jmp+3], tmp)
 
 		copy(tmp, b.set[jmp+5:jmp+6])
-		copy(b.set[jmp+5:jmp+6], b.set[64+jmp+4:64+jmp+5])
-		copy(b.set[64+jmp+4:64+jmp+5], tmp)
+		copy(b.set[jmp+5:jmp+6], b.set[(64*8)+jmp+4:(64*8)+jmp+5])
+		copy(b.set[(64*8)+jmp+4:(64*8)+jmp+5], tmp)
 
 		copy(tmp, b.set[jmp+7:jmp+8])
-		copy(b.set[jmp+7:jmp+8], b.set[64+jmp+6:64+jmp+7])
-		copy(b.set[64+jmp+6:64+jmp+7], tmp)
+		copy(b.set[jmp+7:jmp+8], b.set[(64*8)+jmp+6:(64*8)+jmp+7])
+		copy(b.set[(64*8)+jmp+6:(64*8)+jmp+7], tmp)
 
-		copy(tmp, b.set[128+jmp+1:128+jmp+2])
-		copy(b.set[128+jmp+1:128+jmp+2], b.set[192+jmp:192+jmp+1])
-		copy(b.set[192+jmp:192+jmp+1], tmp)
+		copy(tmp, b.set[(128*8)+jmp+1:(128*8)+jmp+2])
+		copy(b.set[(128*8)+jmp+1:(128*8)+jmp+2], b.set[(192*8)+jmp:(192*8)+jmp+1])
+		copy(b.set[(192*8)+jmp:(192*8)+jmp+1], tmp)
 
-		copy(tmp, b.set[128+jmp+3:128+jmp+4])
-		copy(b.set[128+jmp+3:128+jmp+4], b.set[192+jmp+2:192+jmp+3])
-		copy(b.set[192+jmp+2:192+jmp+3], tmp)
+		copy(tmp, b.set[(128*8)+jmp+3:(128*8)+jmp+4])
+		copy(b.set[(128*8)+jmp+3:(128*8)+jmp+4], b.set[(192*8)+jmp+2:(192*8)+jmp+3])
+		copy(b.set[(192*8)+jmp+2:(192*8)+jmp+3], tmp)
 
-		copy(tmp, b.set[128+jmp+5:128+jmp+6])
-		copy(b.set[128+jmp+5:128+jmp+6], b.set[192+jmp+4:192+jmp+5])
-		copy(b.set[192+jmp+4:192+jmp+5], tmp)
+		copy(tmp, b.set[(128*8)+jmp+5:(128*8)+jmp+6])
+		copy(b.set[(128*8)+jmp+5:(128*8)+jmp+6], b.set[(192*8)+jmp+4:(192*8)+jmp+5])
+		copy(b.set[(192*8)+jmp+4:(192*8)+jmp+5], tmp)
 
-		copy(tmp, b.set[128+jmp+7:128+jmp+8])
-		copy(b.set[128+jmp+7:128+jmp+8], b.set[192+jmp+6:192+jmp+7])
-		copy(b.set[192+jmp+6:192+jmp+7], tmp)
+		copy(tmp, b.set[(128*8)+jmp+7:(128*8)+jmp+8])
+		copy(b.set[(128*8)+jmp+7:(128*8)+jmp+8], b.set[(192*8)+jmp+6:(192*8)+jmp+7])
+		copy(b.set[(192*8)+jmp+6:(192*8)+jmp+7], tmp)
 		//
-		copy(tmp, b.set[256+jmp+1:256+jmp+2])
-		copy(b.set[256+jmp+1:256+jmp+2], b.set[320+jmp:320+jmp+1])
-		copy(b.set[320+jmp:320+jmp+1], tmp)
+		copy(tmp, b.set[(256*8)+jmp+1:(256*8)+jmp+2])
+		copy(b.set[(256*8)+jmp+1:(256*8)+jmp+2], b.set[(320*8)+jmp:(320*8)+jmp+1])
+		copy(b.set[(320*8)+jmp:(320*8)+jmp+1], tmp)
 
-		copy(tmp, b.set[256+jmp+3:256+jmp+4])
-		copy(b.set[256+jmp+3:256+jmp+4], b.set[320+jmp+2:320+jmp+3])
-		copy(b.set[320+jmp+2:320+jmp+3], tmp)
+		copy(tmp, b.set[(256*8)+jmp+3:(256*8)+jmp+4])
+		copy(b.set[(256*8)+jmp+3:(256*8)+jmp+4], b.set[(320*8)+jmp+2:(320*8)+jmp+3])
+		copy(b.set[(320*8)+jmp+2:(320*8)+jmp+3], tmp)
 
-		copy(tmp, b.set[256+jmp+5:256+jmp+6])
-		copy(b.set[256+jmp+5:256+jmp+6], b.set[320+jmp+4:320+jmp+5])
-		copy(b.set[320+jmp+4:320+jmp+5], tmp)
+		copy(tmp, b.set[(256*8)+jmp+5:(256*8)+jmp+6])
+		copy(b.set[(256*8)+jmp+5:(256*8)+jmp+6], b.set[(320*8)+jmp+4:(320*8)+jmp+5])
+		copy(b.set[(320*8)+jmp+4:(320*8)+jmp+5], tmp)
 
-		copy(tmp, b.set[256+jmp+7:256+jmp+8])
-		copy(b.set[256+jmp+7:256+jmp+8], b.set[320+jmp+6:320+jmp+7])
-		copy(b.set[320+jmp+6:320+jmp+7], tmp)
+		copy(tmp, b.set[(256*8)+jmp+7:(256*8)+jmp+8])
+		copy(b.set[(256*8)+jmp+7:(256*8)+jmp+8], b.set[(320*8)+jmp+6:(320*8)+jmp+7])
+		copy(b.set[(320*8)+jmp+6:(320*8)+jmp+7], tmp)
 
-		copy(tmp, b.set[384+jmp+1:384+jmp+2])
-		copy(b.set[384+jmp+1:384+jmp+2], b.set[448+jmp:448+jmp+1])
-		copy(b.set[448+jmp:448+jmp+1], tmp)
+		copy(tmp, b.set[(384*8)+jmp+1:(384*8)+jmp+2])
+		copy(b.set[(384*8)+jmp+1:(384*8)+jmp+2], b.set[(448*8)+jmp:(448*8)+jmp+1])
+		copy(b.set[(448*8)+jmp:(448*8)+jmp+1], tmp)
 
-		copy(tmp, b.set[384+jmp+3:384+jmp+4])
-		copy(b.set[384+jmp+3:384+jmp+4], b.set[448+jmp+2:448+jmp+3])
-		copy(b.set[448+jmp+2:448+jmp+3], tmp)
+		copy(tmp, b.set[(384*8)+jmp+3:(384*8)+jmp+4])
+		copy(b.set[(384*8)+jmp+3:(384*8)+jmp+4], b.set[(448*8)+jmp+2:(448*8)+jmp+3])
+		copy(b.set[(448*8)+jmp+2:(448*8)+jmp+3], tmp)
 
-		copy(tmp, b.set[384+jmp+5:384+jmp+6])
-		copy(b.set[384+jmp+5:384+jmp+6], b.set[448+jmp+4:448+jmp+5])
-		copy(b.set[448+jmp+4:448+jmp+5], tmp)
+		copy(tmp, b.set[(384*8)+jmp+5:(384*8)+jmp+6])
+		copy(b.set[(384*8)+jmp+5:(384*8)+jmp+6], b.set[(448*8)+jmp+4:(448*8)+jmp+5])
+		copy(b.set[(448*8)+jmp+4:(448*8)+jmp+5], tmp)
 
-		copy(tmp, b.set[384+jmp+7:384+jmp+8])
-		copy(b.set[384+jmp+7:384+jmp+8], b.set[448+jmp+6:448+jmp+7])
-		copy(b.set[448+jmp+6:448+jmp+7], tmp)
+		copy(tmp, b.set[(384*8)+jmp+7:(384*8)+jmp+8])
+		copy(b.set[(384*8)+jmp+7:(384*8)+jmp+8], b.set[(448*8)+jmp+6:(448*8)+jmp+7])
+		copy(b.set[(448*8)+jmp+6:(448*8)+jmp+7], tmp)
 
 	}
 
-	/*
-		// Bitwise transposition
-		for blk := 0; blk < 8; blk++ {
-			for col := 0; col < 8; col++ {
-				//transpose64(b, blk, col)
-				unrolledTranspose64(b, blk, col)
-			}
+	// Bitwise transposition
+	for blk := 0; blk < 8; blk++ {
+		for col := 0; col < 8; col++ {
+			//transpose64(b, blk, col)
+			unrolledTranspose64(b, blk, col)
 		}
-	*/
+	}
 }
 
 // transpose64 performs a bitwise transpose on a 64x64 bit matrix which is

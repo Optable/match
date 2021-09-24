@@ -42,7 +42,14 @@ func genOnesBlock() BitVect {
 		}
 	}
 	return From(onesBlock2D)
+}
 
+func genProbeBlock() BitVect {
+	probeBlock2D := make([][]uint64, 512)
+	for row := range probeBlock2D {
+		probeBlock2D[row] = []uint64{0, 1, 2, 3, 4, 5, 6, 7}
+	}
+	return From(probeBlock2D)
 }
 
 // test the tester
@@ -66,17 +73,14 @@ func TestCheckTransposed(t *testing.T) {
 func BenchmarkTranspose(b *testing.B) {
 	tr := randomBlock
 	fmt.Println("original\n----------")
+	tr.PrintBits(128)
 	b.StartTimer()
 	tr.Transpose()
-
 	b.StopTimer()
 	fmt.Println("transposed\n----------")
-
-	tr.PrintUints()
+	tr.PrintBits(128)
 	// check if transpose is correct
 	tr.Transpose()
-	fmt.Println("------")
-	tr.PrintUints()
 	if tr != randomBlock {
 		b.Fatalf("Block incorrectly transposed.")
 	}
