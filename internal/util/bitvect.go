@@ -11,18 +11,27 @@ type BitVect struct {
 }
 
 // From is a constructor used to create a BitVect from a 2D matrix of uint64.
-// The matrix must have 8 columns and 512 rows
-func From(matrix [][]uint64) BitVect {
+// The matrix must have 8 columns and 512-pad rows. Pad is the number of empty
+// rows that should be padded at the front of the block. idx allows you to
+// to target a particular block from the original matrix.
+func From(matrix [][]uint64, pad int, idx int) BitVect {
 	set := [4096]uint64{}
-	for i := 0; i < 512; i++ {
-		copy(set[i*8:(i+1)*8], matrix[i])
+	if len(matrix[0]) == 512 { // tall matrix
+		for i := 0; i < 512-pad; i++ {
+			copy(set[(i+pad)*8:(i+pad+1)*8], matrix[(idx*512)+i])
+		}
+	} else { // wide matrix
+		for i := 0; i < 512; i++ {
+			copy(set[(i*8)+pad:(i+1)*8], matrix[i][idx*8:((idx+1)*8)-pad])
+		}
 	}
+
 	return BitVect{set}
 }
 
+/* Combined with From above.
 // FromWide is a constructor used to create a BitVect from a 2D matrix of uint64.
 // Unlike From, this method must cut rows in the original matrix.
-// Is this inefficient because the entire matrix is copied when passed to function?
 func FromWide(matrix [][]uint64, blckIndx uint64) BitVect {
 	set := [4096]uint64{}
 	for i := 0; i < 512; i++ {
@@ -30,7 +39,16 @@ func FromWide(matrix [][]uint64, blckIndx uint64) BitVect {
 	}
 	return BitVect{set}
 }
+*/
 
+/*
+// GrabBlocks constructs a slice of BitVects to hold the blocks of bits from a 2D
+// uint64 matrix. This assumes a matrix with width equal to 512. If the number of
+// rows is not a multiple of 512, additional rows are padded at the front of the matrix
+func GrabBlocks(matrix [][]uint64) []BitVect {
+
+}
+*/
 // SampleRandomBlock fills an m by 8 uint64 matrix (512 by 512 bits) with
 // pseudorandom uint64
 func SampleRandomBlock(r *rand.Rand, m int) [][]uint64 {
@@ -73,10 +91,11 @@ func checkBit(u uint64, i uint) bool {
 	return u&(1<<i) > 0 // AND with mask with single set bit at testing location
 }
 
+/* TODO - manual check not working
 // CheckTranspose compares BitVect to second BitVect to determined if they are
 // the transposed matrix of each other.
-/* TODO: Fix this
 func (b BitVect) CheckTranspose(t BitVect) bool {
+	fmt.Println("test")
 	for r := uint(0); r < 512; r++ {
 		for c := uint(0); c < 8; c++ {
 			for i := uint(0); i < 64; i++ {
@@ -92,7 +111,6 @@ func (b BitVect) CheckTranspose(t BitVect) bool {
 	return true
 }
 */
-
 /* not necessary
 // WriteTo writes a BitVect to a stream
 func (b BitVect) WriteTo(stream io.Writer) error {
@@ -105,9 +123,11 @@ func (b BitVect) ReadFrom(stream io.Reader) error {
 }
 */
 
-func (b *BitVect) WriteT() {
+/*
+func (b *BitVect) WriteTo2D() [][]uint64 {
 	b.set[0] = 0
 }
+*/
 
 // Transpose performs a cache-oblivious, in-place, contiguous transpose.
 // Since a BitVect represents a 512 by 512 square bit matrix, transposition will

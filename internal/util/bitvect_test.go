@@ -1,12 +1,11 @@
 package util
 
 import (
-	"fmt"
 	"testing"
 )
 
 var uintBlock = SampleRandomBlock(prng, 1000)
-var randomBlock = From(uintBlock[:512])
+var randomBlock = From(uintBlock, 0, 0)
 
 func genOrigBlock() BitVect {
 	origBlock2D := make([][]uint64, 512)
@@ -19,7 +18,7 @@ func genOrigBlock() BitVect {
 			}
 		}
 	}
-	return From(origBlock2D)
+	return From(origBlock2D, 0, 0)
 }
 
 func genTranBlock() BitVect {
@@ -30,7 +29,7 @@ func genTranBlock() BitVect {
 			tranBlock2D[row][c] = 0x5555555555555555 // 01010...01
 		}
 	}
-	return From(tranBlock2D)
+	return From(tranBlock2D, 0, 0)
 }
 
 func genOnesBlock() BitVect {
@@ -41,29 +40,36 @@ func genOnesBlock() BitVect {
 			onesBlock2D[row][c] = ^uint64(0)
 		}
 	}
-	return From(onesBlock2D)
+	return From(onesBlock2D, 0, 0)
 }
 
+// this is convenient for visualizing steps of the transposition
 func genProbeBlock() BitVect {
 	probeBlock2D := make([][]uint64, 512)
 	for row := range probeBlock2D {
 		probeBlock2D[row] = []uint64{0, 1, 2, 3, 4, 5, 6, 7}
 	}
-	return From(probeBlock2D)
+	return From(probeBlock2D, 0, 0)
 }
 
+/* TODO - CheckTransposed not working
 // test the tester
-/* TODO: Fix this for the first case.
 func TestCheckTransposed(t *testing.T) {
+
+	fmt.Println("orig to tran")
 	if !genOrigBlock().CheckTranspose(genTranBlock()) {
 		t.Fatalf("Original block is transposed of transposed block but CheckTransposed doesn't identify as such.")
 	}
+
+	fmt.Println("tran to orig")
 	if !genTranBlock().CheckTranspose(genOrigBlock()) {
 		t.Fatalf("Original block is transposed of transposed block but CheckTransposed doesn't identify as such.")
 	}
+	fmt.Println("ones to ones")
 	if !genOnesBlock().CheckTranspose(genOnesBlock()) {
 		t.Fatalf("Ones block is transposed of itself but CheckTransposed doesn't identify as such.")
 	}
+	fmt.Println("orig to orig")
 	if genOrigBlock().CheckTranspose(genOrigBlock()) {
 		t.Fatalf("Original block is NOT transposed of itself but CheckTransposed doesn't identify as such.")
 	}
@@ -72,21 +78,25 @@ func TestCheckTransposed(t *testing.T) {
 
 func BenchmarkTranspose(b *testing.B) {
 	tr := randomBlock
-	fmt.Println("original\n----------")
-	tr.PrintBits(128)
-	b.StartTimer()
-	tr.Transpose()
-	b.StopTimer()
-	fmt.Println("transposed\n----------")
-	tr.PrintBits(128)
-	// check if transpose is correct
-	tr.Transpose()
-	if tr != randomBlock {
-		b.Fatalf("Block incorrectly transposed.")
+	//fmt.Println("original\n----------")
+	//tr.PrintBits(128)
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		tr.Transpose()
+		b.StopTimer()
+		//fmt.Println("transposed\n----------")
+		//tr.PrintBits(128)
+		// check if transpose is correct
+		tr.Transpose()
+		if tr != randomBlock {
+			b.Fatalf("Block incorrectly transposed.")
+		}
+		/* TODO - CheckTranspose not working
+		if !tr.CheckTranspose(randomBlock) {
+			b.Fatalf("Block incorrectly transposed.")
+		}
+		*/
 	}
-	//if !tr.CheckTranspose(randomBlock) {
-	//	b.Fatalf("Block incorrectly transposed.")
-	//}
 }
 
 /*
