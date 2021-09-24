@@ -31,7 +31,7 @@ func TestTranspose3D(t *testing.T) {
 	}
 }
 
-func TestTranspose(t *testing.T) {
+func TestOldTranspose(t *testing.T) {
 
 	b := make([][]byte, 4)
 	for m := range b {

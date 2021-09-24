@@ -10,54 +10,116 @@ type BitVect struct {
 	set [512 * 8]uint64
 }
 
-// From is a constructor used to create a BitVect from a 2D matrix of uint64.
+// Unravel is a constructor used to create a BitVect from a 2D matrix of uint64.
 // The matrix must have 8 columns and 512-pad rows. Pad is the number of empty
 // rows that should be padded at the front of the block. idx allows you to
-// to target a particular block from the original matrix.
-func From(matrix [][]uint64, pad int, idx int) BitVect {
+// to target a particular row or column from which to start the block from the
+// original matrix.
+func Unravel(matrix [][]uint64, pad int, idx int) BitVect {
 	set := [4096]uint64{}
-	if len(matrix[0]) == 512 { // tall matrix
-		for i := 0; i < 512-pad; i++ {
-			copy(set[(i+pad)*8:(i+pad+1)*8], matrix[(idx*512)+i])
-		}
-	} else { // wide matrix
+	if len(matrix) == 512 { // wide matrix
 		for i := 0; i < 512; i++ {
-			copy(set[(i*8)+pad:(i+1)*8], matrix[i][idx*8:((idx+1)*8)-pad])
+			copy(set[(i*8)+pad:(i+1)*8], matrix[i][idx:(idx+8)-pad])
 		}
+
+		return BitVect{set}
+	}
+
+	for i := 0; i < 512-pad; i++ {
+		copy(set[(i+pad)*8:(i+pad+1)*8], matrix[idx+i])
 	}
 
 	return BitVect{set}
 }
 
-/* Combined with From above.
-// FromWide is a constructor used to create a BitVect from a 2D matrix of uint64.
-// Unlike From, this method must cut rows in the original matrix.
-func FromWide(matrix [][]uint64, blckIndx uint64) BitVect {
-	set := [4096]uint64{}
-	for i := 0; i < 512; i++ {
-		copy(set[i*8:(i+1)*8], matrix[i][blckIndx*8:(blckIndx+1)*8])
+// UnrollMatrix constructs a slice of BitVects to hold the blocks of bits from a 2D
+// uint64 matrix. If the smaller dimension of the matrix (width or height) is not a
+// multiple of 512, additional rows or columns are padded in the first block at the
+// front of the matrix.
+func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
+	// Find constant axis (512 bits) of matrix
+	m := len(matrix)
+	if m == 512 { // WIDE
+		m = len(matrix[0])
+
+		// determine by how much to front-pad messages so they are a multiple of 512
+		var rem int
+		if m < 8 {
+			rem = m
+		} else {
+			rem = m % 8
+		}
+
+		// how many blocks of 512?
+		nBlk := m / 8
+
+		// deal with the first block which may be padded
+		if rem > 0 {
+			nBlk += 1
+		}
+		dst = make([]BitVect, nBlk)
+		dst[0] = Unravel(matrix, 8-rem, 0)
+
+		// populate rest of destination slice
+		for b := 0; b < nBlk-1; b++ {
+			dst[b] = Unravel(matrix, 0, rem+(b*8))
+		}
+
+		return dst, rem
 	}
-	return BitVect{set}
-}
-*/
 
-/*
-// GrabBlocks constructs a slice of BitVects to hold the blocks of bits from a 2D
-// uint64 matrix. This assumes a matrix with width equal to 512. If the number of
-// rows is not a multiple of 512, additional rows are padded at the front of the matrix
-func GrabBlocks(matrix [][]uint64) []BitVect {
+	// TALL
+	// determine by how much to front-pad messages so they are a multiple of 512
+	var rem int
+	if m < 512 {
+		rem = m
+	} else {
+		rem = m % 512
+	}
 
+	// how many blocks of 512?
+	nBlk := m / 512
+
+	// deal with the first block which may be padded
+	if rem > 0 {
+		nBlk += 1
+	}
+	dst = make([]BitVect, nBlk)
+	dst[0] = Unravel(matrix, 512-rem, 0)
+
+	// populate rest of destination slice
+	for b := 0; b < nBlk-1; b++ {
+		dst[b] = Unravel(matrix, 0, rem+(b*512))
+	}
+
+	return dst, rem
 }
-*/
-// SampleRandomBlock fills an m by 8 uint64 matrix (512 by 512 bits) with
-// pseudorandom uint64
-func SampleRandomBlock(r *rand.Rand, m int) [][]uint64 {
+
+// SampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
+// pseudorandom uint64.
+func SampleRandomTall(r *rand.Rand, m int) [][]uint64 {
 	// instantiate matrix
 	matrix := make([][]uint64, m)
 
 	for row := range matrix {
 		matrix[row] = make([]uint64, 8)
 		for c := 0; c < 8; c++ {
+			matrix[row][c] = r.Uint64()
+		}
+	}
+
+	return matrix
+}
+
+// SampleRandomWide fills a 512 by n uint64 matrix (512 bits tall) with
+// pseudorandom uint64.
+func SampleRandomWide(r *rand.Rand, n int) [][]uint64 {
+	// instantiate matrix
+	matrix := make([][]uint64, 512)
+
+	for row := range matrix {
+		matrix[row] = make([]uint64, n)
+		for c := 0; c < n; c++ {
 			matrix[row][c] = r.Uint64()
 		}
 	}
@@ -79,7 +141,8 @@ func (b BitVect) PrintBits(lim int) {
 	}
 }
 
-// PrintUints prints all of the 512x8 uints in the bit array. Nobody want this.
+// PrintUints prints all of the 512x8 uints in the bit array. Good for testing
+// transpose operations performed prior to the bit level.
 func (b BitVect) PrintUints() {
 	for i := 0; i < 512; i++ {
 		fmt.Println(i, " - ", b.set[i*8:(i+1)*8])
@@ -91,7 +154,7 @@ func checkBit(u uint64, i uint) bool {
 	return u&(1<<i) > 0 // AND with mask with single set bit at testing location
 }
 
-/* TODO - manual check not working
+/* TODO - manual check not working, using compare with doubly-transposed to confirm
 // CheckTranspose compares BitVect to second BitVect to determined if they are
 // the transposed matrix of each other.
 func (b BitVect) CheckTranspose(t BitVect) bool {

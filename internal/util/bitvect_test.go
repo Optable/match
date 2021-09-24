@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-var uintBlock = SampleRandomBlock(prng, 1000)
-var randomBlock = From(uintBlock, 0, 0)
+var uintBlock = SampleRandomTall(prng, 1000)
+var randomBlock = Unravel(uintBlock, 0, 0)
 
 func genOrigBlock() BitVect {
 	origBlock2D := make([][]uint64, 512)
@@ -18,7 +18,7 @@ func genOrigBlock() BitVect {
 			}
 		}
 	}
-	return From(origBlock2D, 0, 0)
+	return Unravel(origBlock2D, 0, 0)
 }
 
 func genTranBlock() BitVect {
@@ -29,7 +29,7 @@ func genTranBlock() BitVect {
 			tranBlock2D[row][c] = 0x5555555555555555 // 01010...01
 		}
 	}
-	return From(tranBlock2D, 0, 0)
+	return Unravel(tranBlock2D, 0, 0)
 }
 
 func genOnesBlock() BitVect {
@@ -40,7 +40,7 @@ func genOnesBlock() BitVect {
 			onesBlock2D[row][c] = ^uint64(0)
 		}
 	}
-	return From(onesBlock2D, 0, 0)
+	return Unravel(onesBlock2D, 0, 0)
 }
 
 // this is convenient for visualizing steps of the transposition
@@ -49,7 +49,7 @@ func genProbeBlock() BitVect {
 	for row := range probeBlock2D {
 		probeBlock2D[row] = []uint64{0, 1, 2, 3, 4, 5, 6, 7}
 	}
-	return From(probeBlock2D, 0, 0)
+	return Unravel(probeBlock2D, 0, 0)
 }
 
 /* TODO - CheckTransposed not working
@@ -76,26 +76,60 @@ func TestCheckTransposed(t *testing.T) {
 }
 */
 
+func TestUnravelMatrix(t *testing.T) {
+	trange := []int{200, 511, 513, 710, 5120, 5320}
+	// TALL m x 512
+	for _, r := range trange {
+		m, mp := UnravelMatrix(SampleRandomTall(prng, r))
+		if mp != r%512 && mp != 512-r {
+			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", r%512, "or", 512-r, "rows of padding.")
+		}
+		var pb int
+		if mp > 0 {
+			pb = 1
+		}
+		if len(m) != (r/512 + pb) {
+			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", r/512+pb, "blocks of 512x512.")
+		}
+	}
+	trange = []int{3, 7, 9, 14, 80, 83}
+	// WIDE 512 x n
+	for _, r := range trange {
+		m, mp := UnravelMatrix(SampleRandomWide(prng, r))
+		if mp != r%8 && mp != 8-r {
+			t.Fatal("Unraveling a wide (", r, ") matrix did not result in", r%8, "or", 8-r, "columns of padding.")
+		}
+		var pb int
+		if mp > 0 {
+			pb = 1
+		}
+		if len(m) != (r/8 + pb) {
+			t.Fatal("Unraveling a wide (", r, ") matrix did not result in", r/8+pb, "blocks of 512x512.")
+		}
+	}
+}
+
+func TestTranspose(t *testing.T) {
+	tr := randomBlock
+
+	tr.Transpose()
+	tr.Transpose()
+	// check if transpose is correct
+	if tr != randomBlock {
+		t.Fatalf("Block incorrectly transposed.")
+	}
+	/* TODO - CheckTranspose not working
+	if !tr.CheckTranspose(randomBlock) {
+		b.Fatalf("Block incorrectly transposed.")
+	}
+	*/
+}
+
 func BenchmarkTranspose(b *testing.B) {
 	tr := randomBlock
-	//fmt.Println("original\n----------")
-	//tr.PrintBits(128)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StartTimer()
 		tr.Transpose()
-		b.StopTimer()
-		//fmt.Println("transposed\n----------")
-		//tr.PrintBits(128)
-		// check if transpose is correct
-		tr.Transpose()
-		if tr != randomBlock {
-			b.Fatalf("Block incorrectly transposed.")
-		}
-		/* TODO - CheckTranspose not working
-		if !tr.CheckTranspose(randomBlock) {
-			b.Fatalf("Block incorrectly transposed.")
-		}
-		*/
 	}
 }
 
