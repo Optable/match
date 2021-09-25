@@ -67,13 +67,13 @@ func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 
 		// populate the rest
 		for blk := 0; blk < nblk-1; blk++ {
-			dst[blk] = Unravel(matrix, 0, (8-pad)+(blk*8)) // TODO step of block
+			dst[blk+1] = Unravel(matrix, 0, (8-pad)+(blk*8)) // TODO step of block
 
 		}
 		return dst, pad
 	}
 
-	// TALL
+	// TALL matrix
 	nrows := len(matrix)
 
 	// how much to front-pad messages so they are a multiple of 512 (512 bits)
@@ -97,18 +97,20 @@ func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 
 	// populate the rest
 	for blk := 0; blk < nblk-1; blk++ {
-		dst[blk] = Unravel(matrix, 0, (512-pad)+(blk*512))
+		dst[blk+1] = Unravel(matrix, 0, (512-pad)+(blk*512))
 	}
 	return dst, pad
 }
 
 // Ravel reconstructs a block of a 2D matrix from a BitVect
 func (b BitVect) Ravel(matrix [][]uint64, pad, idx int) {
-	if len(matrix[0]) == 8 { // tall matrix
+	// TALL matrix
+	if len(matrix[0]) == 8 {
 		for i := 0; i < 512-pad; i++ {
 			copy(matrix[idx+i][:], b.set[(i+pad)*8:(i+pad+1)*8])
 		}
-	} else { // wide matrix
+		// WIDE matrix
+	} else {
 		for i := 0; i < 512; i++ {
 			copy(matrix[i][idx:idx+8-pad], b.set[(i*8)+pad:(i+1)*8])
 		}

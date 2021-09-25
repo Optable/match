@@ -78,7 +78,7 @@ func TestCheckTransposed(t *testing.T) {
 
 func TestUnReRaveling(t *testing.T) {
 	trange := []int{200, 511, 512, 513, 710, 5120, 5320}
-	//trange := []int{5120}
+	//trange := []int{513}
 	// TALL m x 512
 	for _, r := range trange {
 		orig := SampleRandomTall(prng, r)
@@ -93,53 +93,76 @@ func TestUnReRaveling(t *testing.T) {
 		if len(m) != (r/512 + padded) {
 			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", r/512+padded, "blocks of 512x512.")
 		}
-		//fmt.Println("orig", orig[0])
-		//fmt.Println("unra", m[0].set)
-		/*
-			// now reconstruct
-			rerav := make([][]uint64, r)
-			for row := range rerav {
-				rerav[row] = make([]uint64, 8)
-			}
-			//fmt.Println("unraveled", m[0].set)
-			//fmt.Println("orig", orig[0])
-			// padded block first
-			if mp == 0 {
-				m[0].Ravel(rerav, 0, 0)
-			} else {
-				m[0].Ravel(rerav, 512-mp, 0)
-			}
-			// rest
-			fmt.Println("pb", pb)
-			for b := 1; b < (r/512)+pb; b++ {
-				fmt.Println("b", b)
-				m[b].Ravel(rerav, 0, mp+(b-1)*512)
-				fmt.Println(mp + (b-1)*512)
-			}
 
-			for k := range rerav {
-				for l := range rerav[k] {
-					//fmt.Println("k", k, "l", l)
-					if rerav[k][l] != orig[k][l] {
-						t.Fatal("Unraveled and reraveled tall (", r, ") matrix did not match with original at row", k, ".")
-					}
+		// now reconstruct
+		rerav := make([][]uint64, r)
+		for row := range rerav {
+			rerav[row] = make([]uint64, 8)
+		}
+
+		// padded block first
+		if padded == 1 {
+			m[0].Ravel(rerav, mp, 0)
+		} else {
+			m[0].Ravel(rerav, 0, 0)
+		}
+
+		// rest
+		for blk := 0; blk < len(m)-1; blk++ {
+			m[blk+1].Ravel(rerav, 0, (512-mp)+(blk*512))
+		}
+
+		for k := range rerav {
+			for l := range rerav[k] {
+				//fmt.Println("k", k, "l", l)
+				if rerav[k][l] != orig[k][l] {
+					t.Fatal("Unraveled and reraveled tall (", r, ") matrix did not match with original at row", k, ".")
 				}
 			}
-		*/
+		}
 	}
 	trange = []int{8, 9, 14, 80, 83}
+	//trange = []int{9}
 	// WIDE 512 x n
-	for _, r := range trange {
-		m, mp := UnravelMatrix(SampleRandomWide(prng, r))
-		if mp != 8-(r%8) && mp != 0 {
-			t.Fatal("Unraveling a wide (", r, ") matrix did not result in", 8-(r%8), "or", "0 columns of padding.")
+	for _, c := range trange {
+		orig := SampleRandomWide(prng, c)
+		m, mp := UnravelMatrix(orig)
+		if mp != 8-(c%8) && mp != 0 {
+			t.Fatal("Unraveling a wide (", c, ") matrix did not result in", 8-(c%8), "or", "0 columns of padding.")
 		}
 		var padded int
 		if mp > 0 {
 			padded = 1
 		}
-		if len(m) != (r/8 + padded) {
-			t.Fatal("Unraveling a wide (", r, ") matrix did not result in", r/8+padded, "blocks of 512x512.")
+		if len(m) != (c/8 + padded) {
+			t.Fatal("Unraveling a wide (", c, ") matrix did not result in", c/8+padded, "blocks of 512x512.")
+		}
+
+		// now reconstruct
+		rerav := make([][]uint64, 512)
+		for row := range rerav {
+			rerav[row] = make([]uint64, c)
+		}
+
+		// padded block first
+		if padded == 1 {
+			m[0].Ravel(rerav, mp, 0)
+		} else {
+			m[0].Ravel(rerav, 0, 0)
+		}
+
+		// rest
+		for blk := 0; blk < len(m)-1; blk++ {
+			m[blk+1].Ravel(rerav, 0, (8-mp)+(blk*8))
+		}
+
+		for k := range rerav {
+			for l := range rerav[k] {
+				//fmt.Println("k", k, "l", l)
+				if rerav[k][l] != orig[k][l] {
+					t.Fatal("Unraveled and reraveled wide (", c, ") matrix did not match with original at row", k, ".")
+				}
+			}
 		}
 	}
 }
