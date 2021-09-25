@@ -20,14 +20,15 @@ type BitVect struct {
 // original matrix.
 func Unravel(matrix [][]uint64, pad, idx int) BitVect {
 	set := [4096]uint64{}
-	if len(matrix) == 512 { // wide matrix
+	// WIDE matrix
+	if len(matrix[0]) > 8 {
 		for i := 0; i < 512; i++ {
 			copy(set[(i*8)+pad:(i+1)*8], matrix[i][idx:(idx+8)-pad])
 		}
 
 		return BitVect{set}
 	}
-
+	// TALL matrix
 	for i := 0; i < 512-pad; i++ {
 		copy(set[(i+pad)*8:(i+pad+1)*8], matrix[idx+i])
 	}
@@ -41,70 +42,64 @@ func Unravel(matrix [][]uint64, pad, idx int) BitVect {
 // front of the matrix.
 func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 	// Find constant axis (512 bits) of matrix
-	m := len(matrix)
-	if m == 512 { // WIDE
-		m = len(matrix[0])
+	// WIDE matrix
+	if len(matrix[0]) > 8 {
+		ncols := len(matrix[0])
 
-		// determine by how much to front-pad messages so they are a multiple of 512
-		var rem int
-		if m < 8 {
-			rem = m
+		// how much to front-pad messages so they are a multiple of 8 (512 bits)
+		pad = 8 - (ncols % 8)
+		if pad == 8 {
+			pad = 0
+		}
+		// number of blocks
+		var nblk int
+		if pad > 0 {
+			nblk = (ncols / 8) + 1
 		} else {
-			rem = m % 8
+			nblk = ncols / 8
 		}
 
-		// how many blocks of 512?
-		nBlk := m / 8
+		// construct matrix
+		dst = make([]BitVect, nblk)
 
-		// deal with the first block which may be padded
-		if rem > 0 {
-			nBlk += 1
-		}
-		dst = make([]BitVect, nBlk)
-		if rem == 0 {
-			dst[0] = Unravel(matrix, 0, 0)
-		} else {
-			dst[0] = Unravel(matrix, 8-rem, 0)
-		}
+		// deal with first block which may be padded
+		dst[0] = Unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
 
-		// populate rest of destination slice
-		for b := 1; b < nBlk; b++ {
-			dst[b] = Unravel(matrix, 0, rem+((b-1)*8))
-		}
+		// populate the rest
+		for blk := 0; blk < nblk-1; blk++ {
+			dst[blk] = Unravel(matrix, 0, (8-pad)+(blk*8)) // TODO step of block
 
-		return dst, rem
+		}
+		return dst, pad
 	}
 
 	// TALL
-	// determine by how much to front-pad messages so they are a multiple of 512
-	var rem int
-	if m < 512 {
-		rem = m
+	nrows := len(matrix)
+
+	// how much to front-pad messages so they are a multiple of 512 (512 bits)
+	pad = 512 - (nrows % 512)
+	if pad == 512 {
+		pad = 0
+	}
+	// number of blocks
+	var nblk int
+	if pad > 0 {
+		nblk = (nrows / 512) + 1
 	} else {
-		rem = m % 512
+		nblk = nrows / 512
 	}
 
-	// how many blocks of 512?
-	nBlk := m / 512
+	// construct matrix
+	dst = make([]BitVect, nblk)
 
-	// deal with the first block which may be padded
-	if rem > 0 {
-		nBlk += 1
+	// deal with first block which may be padded
+	dst[0] = Unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
+
+	// populate the rest
+	for blk := 0; blk < nblk-1; blk++ {
+		dst[blk] = Unravel(matrix, 0, (512-pad)+(blk*512))
 	}
-
-	dst = make([]BitVect, nBlk)
-	if rem == 0 {
-		dst[0] = Unravel(matrix, 0, 0)
-	} else {
-		dst[0] = Unravel(matrix, 512-rem, 0)
-	}
-
-	// populate rest of destination slice
-	for b := 1; b < nBlk; b++ {
-		dst[b] = Unravel(matrix, 0, rem+((b-1)*512))
-	}
-
-	return dst, rem
+	return dst, pad
 }
 
 // Ravel reconstructs a block of a 2D matrix from a BitVect
