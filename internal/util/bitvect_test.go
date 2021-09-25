@@ -4,7 +4,8 @@ import (
 	"testing"
 )
 
-var uintBlock = SampleRandomTall(prng, 1000)
+var nmsg = 1000000
+var uintBlock = SampleRandomTall(prng, nmsg)
 var randomBlock = Unravel(uintBlock, 0, 0)
 
 func genOrigBlock() BitVect {
@@ -94,6 +95,12 @@ func TestUnReRaveling(t *testing.T) {
 			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", r/512+padded, "blocks of 512x512.")
 		}
 
+		// doubly transpose for fun
+		for _, blk := range m {
+			blk.Transpose()
+			blk.Transpose()
+		}
+
 		// now reconstruct
 		rerav := make([][]uint64, r)
 		for row := range rerav {
@@ -136,6 +143,12 @@ func TestUnReRaveling(t *testing.T) {
 		}
 		if len(m) != (c/8 + padded) {
 			t.Fatal("Unraveling a wide (", c, ") matrix did not result in", c/8+padded, "blocks of 512x512.")
+		}
+
+		// doubly transpose for fun
+		for _, blk := range m {
+			blk.Transpose()
+			blk.Transpose()
 		}
 
 		// now reconstruct
@@ -183,11 +196,21 @@ func TestTranspose(t *testing.T) {
 	*/
 }
 
-func BenchmarkTranspose(b *testing.B) {
+func BenchmarkTranspose512x512(b *testing.B) {
 	tr := randomBlock
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		tr.Transpose()
+	}
+}
+
+func BenchmarkTranspose(b *testing.B) {
+	m, _ := UnravelMatrix(uintBlock)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, blk := range m {
+			blk.Transpose()
+		}
 	}
 }
 
