@@ -17,7 +17,6 @@ Various cipher suite implementation in golang
 
 const (
 	GCM = iota
-	XORBlake2
 	XORBlake3
 
 	nonceSize = 12 //aesgcm NonceSize
@@ -201,7 +200,7 @@ func EncryptLen(mode int, msgLen int) int {
 	switch mode {
 	case GCM:
 		return nonceSize + aes.BlockSize + msgLen
-	case XORBlake2, XORBlake3:
+	case XORBlake3:
 		fallthrough
 	default:
 		return msgLen
