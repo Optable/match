@@ -135,6 +135,34 @@ func TestPseudorandomGeneratorWithBlake3(t *testing.T) {
 	}
 }
 
+func TestPrgWithSeed(t *testing.T) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
+	n := 1000000
+	p := PrgWithSeed(seed, n)
+	if bytes.Equal(make([]byte, n), p) {
+		t.Fatalf("pseudorandom should not be 0")
+	}
+}
+
+func BenchmarkPrgWithSeed(b *testing.B) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PrgWithSeed(seed, 10000000)
+	}
+}
+
+func BenchmarkPseudorandomGeneratorWithBlake3(b *testing.B) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PseudorandomGeneratorWithBlake3(blake3.New(), seed, 10000000)
+	}
+}
+
 func BenchmarkPseudorandomCode(b *testing.B) {
 	in := make([]byte, 64)
 	util.SampleBitSlice(prng, in)

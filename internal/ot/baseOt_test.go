@@ -29,7 +29,7 @@ func genMsg(n, t int) [][][]byte {
 	for i := 0; i < n; i++ {
 		data[i] = make([][]byte, t)
 		for j := range data[i] {
-			data[i][j] = make([]byte, 1000)
+			data[i][j] = make([]byte, 512)
 			r.Read(data[i][j])
 		}
 	}
