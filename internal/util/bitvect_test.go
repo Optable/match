@@ -4,10 +4,10 @@ import (
 	"testing"
 )
 
-var nmsg = 250000000
+var nmsg = 250000
 var nworkers = 6
-var uintBlock = SampleRandomTall(prng, nmsg)
-var randomBlock = Unravel(uintBlock, 0, 0)
+var uintBlock = sampleRandomTall(prng, nmsg)
+var randomBlock = unravel(uintBlock, 0, 0)
 
 func genOrigBlock() BitVect {
 	origBlock2D := make([][]uint64, 512)
@@ -20,7 +20,7 @@ func genOrigBlock() BitVect {
 			}
 		}
 	}
-	return Unravel(origBlock2D, 0, 0)
+	return unravel(origBlock2D, 0, 0)
 }
 
 func genTranBlock() BitVect {
@@ -31,7 +31,7 @@ func genTranBlock() BitVect {
 			tranBlock2D[row][c] = 0x5555555555555555 // 01010...01
 		}
 	}
-	return Unravel(tranBlock2D, 0, 0)
+	return unravel(tranBlock2D, 0, 0)
 }
 
 func genOnesBlock() BitVect {
@@ -42,7 +42,7 @@ func genOnesBlock() BitVect {
 			onesBlock2D[row][c] = ^uint64(0)
 		}
 	}
-	return Unravel(onesBlock2D, 0, 0)
+	return unravel(onesBlock2D, 0, 0)
 }
 
 // this is convenient for visualizing steps of the transposition
@@ -51,7 +51,7 @@ func genProbeBlock() BitVect {
 	for row := range probeBlock2D {
 		probeBlock2D[row] = []uint64{0, 1, 2, 3, 4, 5, 6, 7}
 	}
-	return Unravel(probeBlock2D, 0, 0)
+	return unravel(probeBlock2D, 0, 0)
 }
 
 /* TODO - CheckTransposed not working
@@ -83,8 +83,8 @@ func TestUnReRaveling(t *testing.T) {
 	//trange := []int{513}
 	// TALL m x 512
 	for _, r := range trange {
-		orig := SampleRandomTall(prng, r)
-		m, mp := UnravelMatrix(orig)
+		orig := sampleRandomTall(prng, r)
+		m, mp := unravelMatrix(orig)
 		if mp != 512-(r%512) && mp != 0 {
 			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", 512-(r%512), "or 0 rows of padding.")
 		}
@@ -98,8 +98,8 @@ func TestUnReRaveling(t *testing.T) {
 
 		// doubly transpose for fun
 		for _, blk := range m {
-			blk.Transpose()
-			blk.Transpose()
+			blk.transpose()
+			blk.transpose()
 		}
 
 		// now reconstruct
@@ -110,14 +110,14 @@ func TestUnReRaveling(t *testing.T) {
 
 		// padded block first
 		if padded == 1 {
-			m[0].Ravel(rerav, mp, 0)
+			m[0].ravel(rerav, mp, 0)
 		} else {
-			m[0].Ravel(rerav, 0, 0)
+			m[0].ravel(rerav, 0, 0)
 		}
 
 		// rest
 		for blk := 0; blk < len(m)-1; blk++ {
-			m[blk+1].Ravel(rerav, 0, (512-mp)+(blk*512))
+			m[blk+1].ravel(rerav, 0, (512-mp)+(blk*512))
 		}
 
 		for k := range rerav {
@@ -133,8 +133,8 @@ func TestUnReRaveling(t *testing.T) {
 	//trange = []int{9}
 	// WIDE 512 x n
 	for _, c := range trange {
-		orig := SampleRandomWide(prng, c)
-		m, mp := UnravelMatrix(orig)
+		orig := sampleRandomWide(prng, c)
+		m, mp := unravelMatrix(orig)
 		if mp != 8-(c%8) && mp != 0 {
 			t.Fatal("Unraveling a wide (", c, ") matrix did not result in", 8-(c%8), "or", "0 columns of padding.")
 		}
@@ -148,8 +148,8 @@ func TestUnReRaveling(t *testing.T) {
 
 		// doubly transpose for fun
 		for _, blk := range m {
-			blk.Transpose()
-			blk.Transpose()
+			blk.transpose()
+			blk.transpose()
 		}
 
 		// now reconstruct
@@ -160,14 +160,14 @@ func TestUnReRaveling(t *testing.T) {
 
 		// padded block first
 		if padded == 1 {
-			m[0].Ravel(rerav, mp, 0)
+			m[0].ravel(rerav, mp, 0)
 		} else {
-			m[0].Ravel(rerav, 0, 0)
+			m[0].ravel(rerav, 0, 0)
 		}
 
 		// rest
 		for blk := 0; blk < len(m)-1; blk++ {
-			m[blk+1].Ravel(rerav, 0, (8-mp)+(blk*8))
+			m[blk+1].ravel(rerav, 0, (8-mp)+(blk*8))
 		}
 
 		for k := range rerav {
@@ -184,8 +184,8 @@ func TestUnReRaveling(t *testing.T) {
 func TestTranspose(t *testing.T) {
 	tr := randomBlock
 
-	tr.Transpose()
-	tr.Transpose()
+	tr.transpose()
+	tr.transpose()
 	// check if transpose is correct
 	if tr != randomBlock {
 		t.Fatalf("Block incorrectly transposed.")
@@ -201,16 +201,16 @@ func BenchmarkTranspose512x512(b *testing.B) {
 	tr := randomBlock
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tr.Transpose()
+		tr.transpose()
 	}
 }
 
 func BenchmarkTranspose(b *testing.B) {
-	m, _ := UnravelMatrix(uintBlock)
+	m, _ := unravelMatrix(uintBlock)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, blk := range m {
-			blk.Transpose()
+			blk.transpose()
 		}
 	}
 }
@@ -229,7 +229,7 @@ func BenchmarkTransposeAdmin(b *testing.B) {
 			trans[t] = make([]uint64, ncols)
 		}
 		// find where to divide matrix
-		bitIdx, bitPad := FindBlocks(uintBlock)
+		bitIdx, bitPad := findBlocks(uintBlock)
 
 		// iterate over each block
 		for _, id := range bitIdx {
@@ -242,18 +242,18 @@ func BenchmarkTransposeAdmin(b *testing.B) {
 				}
 			*/
 			if id == 0 {
-				b := Unravel(uintBlock, bitPad, 0)
-				b.Transpose()
-				b.Ravel(trans, bitPad/64, 0)
+				b := unravel(uintBlock, bitPad, 0)
+				b.transpose()
+				b.ravel(trans, bitPad/64, 0)
 
 			} else {
-				b := Unravel(uintBlock, 0, id)
-				b.Transpose()
+				b := unravel(uintBlock, 0, id)
+				b.transpose()
 				trId := id / 64
 				if id%64 > 0 {
 					trId += 1
 				}
-				b.Ravel(trans, 0, trId)
+				b.ravel(trans, 0, trId)
 			}
 		}
 	}
@@ -264,14 +264,3 @@ func BenchmarkConcurrentTranspose(b *testing.B) {
 		ConcurrentTranspose(uintBlock, nworkers)
 	}
 }
-
-/*
-func BenchmarkXorBytes(b *testing.B) {
-	a := make([]byte, 10000)
-	SampleBitSlice(prng, a)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		XorBytes(a, a)
-	}
-}
-*/

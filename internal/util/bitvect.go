@@ -19,7 +19,7 @@ type BitVect struct {
 // rows or columns that should be padded at the front of the block. idx allows
 // you to to target a particular row or column from which to start the block
 // from the original matrix.
-func Unravel(matrix [][]uint64, pad, idx int) BitVect {
+func unravel(matrix [][]uint64, pad, idx int) BitVect {
 	set := [4096]uint64{}
 	// WIDE matrix
 	if len(matrix[0]) > 8 {
@@ -41,7 +41,7 @@ func Unravel(matrix [][]uint64, pad, idx int) BitVect {
 // uint64 matrix. If the smaller dimension of the matrix (width or height) is not a
 // multiple of 512, additional rows or columns are padded in the first block at the
 // front of the matrix.
-func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
+func unravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 	// Find constant axis (512 bits) of matrix
 	// WIDE matrix
 	if len(matrix[0]) > 8 {
@@ -64,11 +64,11 @@ func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 		dst = make([]BitVect, nblk)
 
 		// deal with first block which may be padded
-		dst[0] = Unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
+		dst[0] = unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
 
 		// populate the rest
 		for blk := 0; blk < nblk-1; blk++ {
-			dst[blk+1] = Unravel(matrix, 0, (8-pad)+(blk*8)) // TODO step of block
+			dst[blk+1] = unravel(matrix, 0, (8-pad)+(blk*8)) // TODO step of block
 
 		}
 		return dst, pad
@@ -94,11 +94,11 @@ func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 	dst = make([]BitVect, nblk)
 
 	// deal with first block which may be padded
-	dst[0] = Unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
+	dst[0] = unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
 
 	// populate the rest
 	for blk := 0; blk < nblk-1; blk++ {
-		dst[blk+1] = Unravel(matrix, 0, (512-pad)+(blk*512))
+		dst[blk+1] = unravel(matrix, 0, (512-pad)+(blk*512))
 	}
 	return dst, pad
 }
@@ -165,7 +165,7 @@ func FindBlocks(matrix [][]uint64) (bitIdx []int, bitpad int) {
 
 // FindBlocks determines where a matrix should be split into blocks and
 // by how much to pad the first block (both in bits).
-func FindBlocks(matrix [][]uint64) (bitIdx []int, bitPad int) {
+func findBlocks(matrix [][]uint64) (bitIdx []int, bitPad int) {
 	// Find constant axis (512 bits) of matrix
 	// WIDE matrix
 	if len(matrix[0]) > 8 {
@@ -222,7 +222,7 @@ func FindBlocks(matrix [][]uint64) (bitIdx []int, bitPad int) {
 }
 
 // Ravel reconstructs a block of a 2D matrix from a BitVect
-func (b BitVect) Ravel(matrix [][]uint64, pad, idx int) {
+func (b BitVect) ravel(matrix [][]uint64, pad, idx int) {
 	// TALL matrix
 	// idx is a row index in this case
 	if len(matrix[0]) == 8 {
@@ -240,7 +240,7 @@ func (b BitVect) Ravel(matrix [][]uint64, pad, idx int) {
 
 // SampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
 // pseudorandom uint64.
-func SampleRandomTall(r *rand.Rand, m int) [][]uint64 {
+func sampleRandomTall(r *rand.Rand, m int) [][]uint64 {
 	// instantiate matrix
 	matrix := make([][]uint64, m)
 
@@ -256,7 +256,7 @@ func SampleRandomTall(r *rand.Rand, m int) [][]uint64 {
 
 // SampleRandomWide fills a 512 by n uint64 matrix (512 bits tall) with
 // pseudorandom uint64.
-func SampleRandomWide(r *rand.Rand, n int) [][]uint64 {
+func sampleRandomWide(r *rand.Rand, n int) [][]uint64 {
 	// instantiate matrix
 	matrix := make([][]uint64, 512)
 
@@ -273,7 +273,7 @@ func SampleRandomWide(r *rand.Rand, n int) [][]uint64 {
 // PrintBits prints a subset of the overall bit array. The limit is in bits but
 // since we are really printing uint64, everything is rounded down to the nearest
 // multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
-func (b BitVect) PrintBits(lim int) {
+func (b BitVect) printBits(lim int) {
 	//lim = lim/64
 	if lim > 512 {
 		lim = 512
@@ -286,7 +286,7 @@ func (b BitVect) PrintBits(lim int) {
 
 // PrintUints prints all of the 512x8 uints in the bit array. Good for testing
 // transpose operations performed prior to the bit level.
-func (b BitVect) PrintUints() {
+func (b BitVect) printUints() {
 	for i := 0; i < 512; i++ {
 		fmt.Println(i, " - ", b.set[i*8:(i+1)*8])
 	}
@@ -317,23 +317,6 @@ func (b BitVect) CheckTranspose(t BitVect) bool {
 	return true
 }
 */
-/* not necessary
-// WriteTo writes a BitVect to a stream
-func (b BitVect) WriteTo(stream io.Writer) error {
-	return binary.Write(stream, binary.BigEndian, b.set)
-}
-
-// ReadFrom reads a BitVect from a stream written using WriteTo
-func (b BitVect) ReadFrom(stream io.Reader) error {
-	return binary.Read(stream, binary.BigEndian, b.set)
-}
-*/
-
-/*
-func (b *BitVect) WriteTo2D() [][]uint64 {
-	b.set[0] = 0
-}
-*/
 
 // ConcurrentTranspose tranposes a wide (512 row) or tall (8 column) matrix.
 // First it determines how many 512x512 bit blocks are necessary to contain the
@@ -356,7 +339,7 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 	}
 
 	// determine indices and padding to split original matrix
-	bitIdx, bitPad := FindBlocks(matrix)
+	bitIdx, bitPad := findBlocks(matrix)
 
 	// feed into buffered channel
 	ch := make(chan int, len(bitIdx))
@@ -374,18 +357,18 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 			for id := range ch {
 				// first block
 				if id == 0 {
-					b := Unravel(matrix, bitPad, 0)
-					b.Transpose()
-					b.Ravel(trans, bitPad/64, 0)
+					b := unravel(matrix, bitPad, 0)
+					b.transpose()
+					b.ravel(trans, bitPad/64, 0)
 					// all other blocks
 				} else {
-					b := Unravel(matrix, 0, id)
-					b.Transpose()
+					b := unravel(matrix, 0, id)
+					b.transpose()
 					trId := id / 64 // ONLY works for tall matrices
 					if id%64 > 0 {
 						trId += 1
 					}
-					b.Ravel(trans, 0, trId)
+					b.ravel(trans, 0, trId)
 				}
 			}
 		}()
@@ -403,7 +386,7 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 // 64 x 1. The remaining transposition steps are performed using bit masks and
 // shifts. Operations are performed on blocks of bits of size 32, 16, 8, 4, 2,
 // and 1. Since the input is square, the transposition can be performed in place.
-func (b *BitVect) Transpose() {
+func (b *BitVect) transpose() {
 	// Transpose 4 x 256 blocks
 
 	tmp4 := make([]uint64, 4)
