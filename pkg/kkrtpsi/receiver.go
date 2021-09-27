@@ -76,7 +76,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
-		oprfInputSize := int64(cuckooHashTable.Len())
+		oprfInputSize := int64(len(oprfInputs))
 
 		// inform the sender of the size
 		// its about to receive
@@ -118,12 +118,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 		// hash local oprf output
 		hasher, _ := hash.New(hash.Highway, seeds[0])
-		for i, value := range cuckooHashTable.Bucket() {
-			if !value.Empty() {
+		for i, input := range oprfInputs {
+			// check if it was a dummy input
+			if len(input) != 1 && input[0] != 255 {
 				// insert into proper map
-				id := value.GetItem()
-				id[len(id)-1] = id[len(id)-1] ^ value.GetHashIdx()
-				localEncodings[value.GetHashIdx()][hasher.Hash64(oprfOutput[i])] = id
+				localEncodings[input[len(input)-1]][hasher.Hash64(oprfOutput[i])] = input[:len(input)-1]
 			}
 		}
 

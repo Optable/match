@@ -246,8 +246,7 @@ func (v *value) oprfInput() []byte {
 		return []byte{255}
 	}
 
-	v.item[len(v.item)-1] = v.item[len(v.item)-1] ^ v.hIdx
-	return v.item
+	return append(v.item, v.hIdx)
 }
 
 // OPRFInput returns the OPRF input for KKRT Receiver
@@ -260,22 +259,6 @@ func (c *Cuckoo) OPRFInput() [][]byte {
 		inputs[i] = b.oprfInput()
 	}
 	return inputs
-}
-
-func (v *value) GetItem() []byte {
-	return v.item
-}
-
-func (v *value) GetHashIdx() uint8 {
-	return v.hIdx
-}
-
-func (c *Cuckoo) Bucket() []value {
-	return c.buckets
-}
-
-func (c *Cuckoo) BucketSize() int {
-	return int(c.bucketSize)
 }
 
 func max(a, b uint64) uint64 {
