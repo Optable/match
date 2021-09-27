@@ -4,7 +4,8 @@ import (
 	"testing"
 )
 
-var nmsg = 1000000
+var nmsg = 250000000
+var nworkers = 6
 var uintBlock = SampleRandomTall(prng, nmsg)
 var randomBlock = Unravel(uintBlock, 0, 0)
 
@@ -211,6 +212,56 @@ func BenchmarkTranspose(b *testing.B) {
 		for _, blk := range m {
 			blk.Transpose()
 		}
+	}
+}
+
+// Test transpose with the added overhead of creating the blocks
+// and writing to an output transpose matrix.
+func BenchmarkTransposeAdmin(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		// make transposed matrix to store output
+		trans := make([][]uint64, len(uintBlock[0])*64)
+		ncols := len(uintBlock) / 64
+		if len(uintBlock)%64 > 0 {
+			ncols += 1
+		}
+		for t := range trans {
+			trans[t] = make([]uint64, ncols)
+		}
+		// find where to divide matrix
+		bitIdx, bitPad := FindBlocks(uintBlock)
+
+		// iterate over each block
+		for _, id := range bitIdx {
+			/*
+				if id%64 > 0 {
+					id /= 64
+					id += 1
+				} else {
+					id /= 64
+				}
+			*/
+			if id == 0 {
+				b := Unravel(uintBlock, bitPad, 0)
+				b.Transpose()
+				b.Ravel(trans, bitPad/64, 0)
+
+			} else {
+				b := Unravel(uintBlock, 0, id)
+				b.Transpose()
+				trId := id / 64
+				if id%64 > 0 {
+					trId += 1
+				}
+				b.Ravel(trans, 0, trId)
+			}
+		}
+	}
+}
+
+func BenchmarkConcurrentTranspose(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		ConcurrentTranspose(uintBlock, nworkers)
 	}
 }
 

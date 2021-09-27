@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 )
 
 // TODO fix pad so that it represents the amount to pad RATHER THAN the excess
@@ -15,9 +16,9 @@ type BitVect struct {
 
 // Unravel is a constructor used to create a BitVect from a 2D matrix of uint64.
 // The matrix must have 8 columns and 512-pad rows. Pad is the number of empty
-// rows that should be padded at the front of the block. idx allows you to
-// to target a particular row or column from which to start the block from the
-// original matrix.
+// rows or columns that should be padded at the front of the block. idx allows
+// you to to target a particular row or column from which to start the block
+// from the original matrix.
 func Unravel(matrix [][]uint64, pad, idx int) BitVect {
 	set := [4096]uint64{}
 	// WIDE matrix
@@ -102,14 +103,134 @@ func UnravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
 	return dst, pad
 }
 
+/*
+// FindBlocks determines where a matrix should be split into blocks and
+// by how much to pad the first block (both in bits).
+func FindBlocks(matrix [][]uint64) (bitIdx []int, bitpad int) {
+	// Find constant axis (512 bits) of matrix
+	// WIDE matrix
+	if len(matrix[0]) > 8 {
+		ncols := len(matrix[0])
+
+		// how much to front-pad messages so they are a multiple of 8 (512 bits)
+		pad = (8 - (ncols % 8))
+		if pad == 8 {
+			pad = 0
+		}
+		// number of blocks
+		var nblk int
+		if pad > 0 {
+			nblk = (ncols / 8) + 1
+		} else {
+			nblk = ncols / 8
+		}
+
+		idx = make([]int, nblk)
+
+		// first index is always 0
+		// populate the rest
+		for blk := 0; blk < nblk-1; blk++ {
+			idx[blk+1] = (8 - pad) + (blk * 8)
+		}
+
+		return idx, pad
+	}
+	// TALL matrix
+	nrows := len(matrix)
+
+	// how much to front-pad messages so they are a multiple of 512 (512 bits)
+	pad = 512 - (nrows % 512)
+	if pad == 512 {
+		pad = 0
+	}
+	// number of blocks
+	var nblk int
+	if pad > 0 {
+		nblk = (nrows / 512) + 1
+	} else {
+		nblk = nrows / 512
+	}
+
+	idx = make([]int, nblk)
+
+	// first index is always 0
+	// populate the rest
+	for blk := 0; blk < nblk-1; blk++ {
+		idx[blk+1] = (512 - pad) + (blk * 512)
+	}
+
+	return idx, pad
+}
+*/
+
+// FindBlocks determines where a matrix should be split into blocks and
+// by how much to pad the first block (both in bits).
+func FindBlocks(matrix [][]uint64) (bitIdx []int, bitPad int) {
+	// Find constant axis (512 bits) of matrix
+	// WIDE matrix
+	if len(matrix[0]) > 8 {
+		ncols := len(matrix[0])
+
+		// how much to front-pad messages so they are a multiple of 8 (512 bits)
+		bitPad = (8 - (ncols % 8)) * 64
+		if bitPad == 512 { // 8*64
+			bitPad = 0
+		}
+		// number of blocks
+		var nblk int
+		if bitPad > 0 {
+			nblk = (ncols / 8) + 1
+		} else {
+			nblk = ncols / 8
+		}
+
+		bitIdx = make([]int, nblk)
+
+		// first index is always 0
+		// populate the rest
+		for blk := 0; blk < nblk-1; blk++ {
+			bitIdx[blk+1] = (512 - bitPad) + (blk * 512)
+		}
+
+		return bitIdx, bitPad
+	}
+	// TALL matrix
+	nrows := len(matrix)
+
+	// how much to front-pad messages so they are a multiple of 512 (512 bits)
+	bitPad = 512 - (nrows % 512)
+	if bitPad == 512 {
+		bitPad = 0
+	}
+	// number of blocks
+	var nblk int
+	if bitPad > 0 {
+		nblk = (nrows / 512) + 1
+	} else {
+		nblk = nrows / 512
+	}
+
+	bitIdx = make([]int, nblk)
+
+	// first index is always 0
+	// populate the rest
+	for blk := 0; blk < nblk-1; blk++ {
+		bitIdx[blk+1] = (512 - bitPad) + (blk * 512)
+	}
+
+	return bitIdx, bitPad
+}
+
 // Ravel reconstructs a block of a 2D matrix from a BitVect
 func (b BitVect) Ravel(matrix [][]uint64, pad, idx int) {
 	// TALL matrix
+	// idx is a row index in this case
 	if len(matrix[0]) == 8 {
 		for i := 0; i < 512-pad; i++ {
 			copy(matrix[idx+i][:], b.set[(i+pad)*8:(i+pad+1)*8])
 		}
 		// WIDE matrix
+		// idx is a column index in this case
 	} else {
 		for i := 0; i < 512; i++ {
 			copy(matrix[i][idx:idx+8-pad], b.set[(i*8)+pad:(i+1)*8])
@@ -213,6 +334,67 @@ func (b *BitVect) WriteTo2D() [][]uint64 {
 	b.set[0] = 0
 }
 */
+
+// ConcurrentTranspose tranposes a wide (512 row) or tall (8 column) matrix.
+// First it determines how many 512x512 bit blocks are necessary to contain the
+// matrix and hold the indices where the blocks should be split from the larger
+// matrix. It also determines by how much the first block needs to be padded.
+// The indices are passed into a channel which is being read by a worker pool of
+// goroutines. Each goroutine reads an index, generates a BitVect from the matrix
+// at that index (with padding if necessary), performs a cache-oblivious, in-place,
+// contiguous transpose on the BitVect, and finally writes the result to a shared
+// final output matrix.
+func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
+	// build output matrix
+	trans := make([][]uint64, len(matrix[0])*64)
+	ncols := len(matrix) / 64
+	if len(matrix)%64 > 0 {
+		ncols += 1
+	}
+	for r := range trans {
+		trans[r] = make([]uint64, ncols)
+	}
+
+	// determine indices and padding to split original matrix
+	bitIdx, bitPad := FindBlocks(matrix)
+
+	// feed into buffered channel
+	ch := make(chan int, len(bitIdx))
+	for _, i := range bitIdx {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			for id := range ch {
+				// first block
+				if id == 0 {
+					b := Unravel(matrix, bitPad, 0)
+					b.Transpose()
+					b.Ravel(trans, bitPad/64, 0)
+					// all other blocks
+				} else {
+					b := Unravel(matrix, 0, id)
+					b.Transpose()
+					trId := id / 64 // ONLY works for tall matrices
+					if id%64 > 0 {
+						trId += 1
+					}
+					b.Ravel(trans, 0, trId)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return trans
+}
 
 // Transpose performs a cache-oblivious, in-place, contiguous transpose.
 // Since a BitVect represents a 512 by 512 square bit matrix, transposition will
