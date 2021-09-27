@@ -6,7 +6,7 @@ import (
 
 var nmsg = 250000
 var nworkers = 6
-var uintBlock = sampleRandomTall(prng, nmsg)
+var uintBlock = SampleRandomTall(prng, nmsg)
 var randomBlock = unravel(uintBlock, 0, 0)
 
 func genOrigBlock() BitVect {
@@ -83,7 +83,7 @@ func TestUnReRaveling(t *testing.T) {
 	//trange := []int{513}
 	// TALL m x 512
 	for _, r := range trange {
-		orig := sampleRandomTall(prng, r)
+		orig := SampleRandomTall(prng, r)
 		m, mp := unravelMatrix(orig)
 		if mp != 512-(r%512) && mp != 0 {
 			t.Fatal("Unraveling a tall (", r, ") matrix did not result in", 512-(r%512), "or 0 rows of padding.")
@@ -133,7 +133,7 @@ func TestUnReRaveling(t *testing.T) {
 	//trange = []int{9}
 	// WIDE 512 x n
 	for _, c := range trange {
-		orig := sampleRandomWide(prng, c)
+		orig := SampleRandomWide(prng, c)
 		m, mp := unravelMatrix(orig)
 		if mp != 8-(c%8) && mp != 0 {
 			t.Fatal("Unraveling a wide (", c, ") matrix did not result in", 8-(c%8), "or", "0 columns of padding.")

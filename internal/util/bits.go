@@ -151,6 +151,38 @@ func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
 	return nil
 }
 
+// sampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
+// pseudorandom uint64.
+func SampleRandomTall(r *rand.Rand, m int) [][]uint64 {
+	// instantiate matrix
+	matrix := make([][]uint64, m)
+
+	for row := range matrix {
+		matrix[row] = make([]uint64, 8)
+		for c := 0; c < 8; c++ {
+			matrix[row][c] = r.Uint64()
+		}
+	}
+
+	return matrix
+}
+
+// SampleRandomWide fills a 512 by n uint64 matrix (512 bits tall) with
+// pseudorandom uint64.
+func SampleRandomWide(r *rand.Rand, n int) [][]uint64 {
+	// instantiate matrix
+	matrix := make([][]uint64, 512)
+
+	for row := range matrix {
+		matrix[row] = make([]uint64, n)
+		for c := 0; c < n; c++ {
+			matrix[row][c] = r.Uint64()
+		}
+	}
+
+	return matrix
+}
+
 // ExtractBytesToBits returns a byte array of bits from src
 // if len(dst) < len(src) * 8, nothing will be done
 func ExtractBytesToBits(src, dst []byte) {

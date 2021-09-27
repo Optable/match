@@ -2,19 +2,15 @@ package util
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 )
-
-// TODO fix pad so that it represents the amount to pad RATHER THAN the excess
-// rows that did not fit into a multiple of 512.
 
 // A BitVect is a matrix of 512 by 512 bits encoded into uint64 elements.
 type BitVect struct {
 	set [512 * 8]uint64
 }
 
-// Unravel is a constructor used to create a BitVect from a 2D matrix of uint64.
+// unravel is a constructor used to create a BitVect from a 2D matrix of uint64.
 // The matrix must have 8 columns and 512-pad rows. Pad is the number of empty
 // rows or columns that should be padded at the front of the block. idx allows
 // you to to target a particular row or column from which to start the block
@@ -37,7 +33,7 @@ func unravel(matrix [][]uint64, pad, idx int) BitVect {
 	return BitVect{set}
 }
 
-// UnravelMatrix constructs a slice of BitVects to hold the blocks of bits from a 2D
+// unravelMatrix constructs a slice of BitVects to hold the blocks of bits from a 2D
 // uint64 matrix. If the smaller dimension of the matrix (width or height) is not a
 // multiple of 512, additional rows or columns are padded in the first block at the
 // front of the matrix.
@@ -163,7 +159,7 @@ func FindBlocks(matrix [][]uint64) (bitIdx []int, bitpad int) {
 }
 */
 
-// FindBlocks determines where a matrix should be split into blocks and
+// findBlocks determines where a matrix should be split into blocks and
 // by how much to pad the first block (both in bits).
 func findBlocks(matrix [][]uint64) (bitIdx []int, bitPad int) {
 	// Find constant axis (512 bits) of matrix
@@ -221,7 +217,7 @@ func findBlocks(matrix [][]uint64) (bitIdx []int, bitPad int) {
 	return bitIdx, bitPad
 }
 
-// Ravel reconstructs a block of a 2D matrix from a BitVect
+// ravel reconstructs a block of a 2D matrix from a BitVect
 func (b BitVect) ravel(matrix [][]uint64, pad, idx int) {
 	// TALL matrix
 	// idx is a row index in this case
@@ -238,39 +234,7 @@ func (b BitVect) ravel(matrix [][]uint64, pad, idx int) {
 	}
 }
 
-// SampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
-// pseudorandom uint64.
-func sampleRandomTall(r *rand.Rand, m int) [][]uint64 {
-	// instantiate matrix
-	matrix := make([][]uint64, m)
-
-	for row := range matrix {
-		matrix[row] = make([]uint64, 8)
-		for c := 0; c < 8; c++ {
-			matrix[row][c] = r.Uint64()
-		}
-	}
-
-	return matrix
-}
-
-// SampleRandomWide fills a 512 by n uint64 matrix (512 bits tall) with
-// pseudorandom uint64.
-func sampleRandomWide(r *rand.Rand, n int) [][]uint64 {
-	// instantiate matrix
-	matrix := make([][]uint64, 512)
-
-	for row := range matrix {
-		matrix[row] = make([]uint64, n)
-		for c := 0; c < n; c++ {
-			matrix[row][c] = r.Uint64()
-		}
-	}
-
-	return matrix
-}
-
-// PrintBits prints a subset of the overall bit array. The limit is in bits but
+// printBits prints a subset of the overall bit array. The limit is in bits but
 // since we are really printing uint64, everything is rounded down to the nearest
 // multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
 func (b BitVect) printBits(lim int) {
@@ -284,7 +248,7 @@ func (b BitVect) printBits(lim int) {
 	}
 }
 
-// PrintUints prints all of the 512x8 uints in the bit array. Good for testing
+// printUints prints all of the 512x8 uints in the bit array. Good for testing
 // transpose operations performed prior to the bit level.
 func (b BitVect) printUints() {
 	for i := 0; i < 512; i++ {
@@ -379,7 +343,7 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 	return trans
 }
 
-// Transpose performs a cache-oblivious, in-place, contiguous transpose.
+// transpose performs a cache-oblivious, in-place, contiguous transpose.
 // Since a BitVect represents a 512 by 512 square bit matrix, transposition will
 // be performed blockwise starting with blocks of 256 x 4, swapped about the
 // principle diagonal. Then blocks size will decrease by half until it is only
