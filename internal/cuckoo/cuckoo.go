@@ -237,7 +237,7 @@ func (c *Cuckoo) LoadFactor() (factor float64) {
 // Len returns the total size of the cuckoo struct
 // which is equal to bucketSize + stashSize
 func (c *Cuckoo) Len() uint64 {
-	return c.bucketSize //+ uint64(c.StashSize())
+	return c.bucketSize
 }
 
 func (v *value) oprfInput() []byte {

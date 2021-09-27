@@ -51,31 +51,6 @@ func TestGCMEncrypDecrypt(t *testing.T) {
 	}
 }
 
-func TestXORBlake2EncryptDecrypt(t *testing.T) {
-	ciphertext, err := xorCipherWithBlake2(xorKey, 0, p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plain, err := Decrypt(XORBlake2, xorKey, 1, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if bytes.Equal(p, plain) {
-		t.Fatalf("decryption should not work!")
-	}
-
-	plain, err = xorCipherWithBlake2(xorKey, 0, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(p, plain) {
-		t.Fatalf("Decryption should have worked")
-	}
-}
-
 func TestXORBlake3EncryptDecrypt(t *testing.T) {
 	ciphertext, err := Encrypt(XORBlake3, xorKey, 0, p)
 	if err != nil {
@@ -133,6 +108,10 @@ func TestPseudorandomGeneratorWithBlake3(t *testing.T) {
 	if bytes.Equal(make([]byte, n), p) {
 		t.Fatalf("pseudorandom should not be 0")
 	}
+
+	if len(p) != n {
+		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
+	}
 }
 
 func TestPrgWithSeed(t *testing.T) {
@@ -142,6 +121,10 @@ func TestPrgWithSeed(t *testing.T) {
 	p := PrgWithSeed(seed, n)
 	if bytes.Equal(make([]byte, n), p) {
 		t.Fatalf("pseudorandom should not be 0")
+	}
+
+	if len(p) != n {
+		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
 	}
 }
 
@@ -169,24 +152,6 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		PseudorandomCode(aesKey, in)
-	}
-}
-
-func BenchmarkXORCipherWithBlake2Encrypt(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		xorCipherWithBlake2(xorKey, 0, p)
-	}
-}
-
-func BenchmarkXORCipherWithBlake2Decrypt(b *testing.B) {
-	c, err := xorCipherWithBlake2(xorKey, 0, p)
-	if err != nil {
-		b.Log(err)
-	}
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		xorCipherWithBlake2(xorKey, 0, c)
 	}
 }
 

@@ -3,13 +3,12 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
+	crand "crypto/rand"
 	"fmt"
 	mrand "math/rand"
 
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
-	"golang.org/x/crypto/blake2b"
 )
 
 /*
@@ -133,32 +132,6 @@ func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 	return err
 }
 
-// xorCipher returns the result of H(ind, key) XOR src
-// note that encrypt and decrypt in XOR cipher are the same.
-func xorCipherWithBlake2(key []byte, ind uint8, src []byte) ([]byte, error) {
-	hash := make([]byte, len(src))
-	err := getBlake2Hash(key, ind, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	return util.XorBytes(hash, src)
-}
-
-// getHash produce hash digest of the key and index
-func getBlake2Hash(key []byte, ind uint8, dst []byte) (err error) {
-	d, err := blake2b.NewXOF(uint32(len(dst)), nil)
-	if err != nil {
-		return err
-	}
-
-	d.Write(key)
-	d.Write([]byte{ind})
-	d.Read(dst)
-
-	return
-}
-
 // aes GCM block encryption decryption
 func gcmEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
 	block, err := aes.NewCipher(key)
@@ -172,7 +145,7 @@ func gcmEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
 	}
 
 	nonce := make([]byte, aesgcm.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
+	if _, err := crand.Read(nonce); err != nil {
 		return nil, err
 	}
 
@@ -205,8 +178,6 @@ func Encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 	switch mode {
 	case GCM:
 		return gcmEncrypt(key, plaintext)
-	case XORBlake2:
-		return xorCipherWithBlake2(key, ind, plaintext)
 	case XORBlake3:
 		return xorCipherWithBlake3(key, ind, plaintext)
 	}
@@ -218,8 +189,6 @@ func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 	switch mode {
 	case GCM:
 		return gcmDecrypt(key, ciphertext)
-	case XORBlake2:
-		return xorCipherWithBlake2(key, ind, ciphertext)
 	case XORBlake3:
 		return xorCipherWithBlake3(key, ind, ciphertext)
 	}
