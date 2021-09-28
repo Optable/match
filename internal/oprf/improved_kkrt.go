@@ -14,7 +14,6 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 
 import (
 	"crypto/rand"
-	"fmt"
 	"io"
 
 	"github.com/optable/match/internal/crypto"
@@ -73,7 +72,6 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return nil, err
 	}
-	fmt.Println(seeds)
 
 	// receive masked columns u
 	u := make([]byte, ext.m)
@@ -132,8 +130,6 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		baseMsgs[j][0] = seeds[2*j]
 		baseMsgs[j][1] = seeds[2*j+1]
 	}
-
-	fmt.Println(baseMsgs)
 
 	// act as sender in baseOT to send k columns
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {

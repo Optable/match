@@ -135,7 +135,7 @@ func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
 // or math/rand.Rand
 func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
 	// read up to len(b) + 1 pseudorandom bits
-	t := make([]byte, len(b)/8+1)
+	t := make([]byte, len(b)/8)
 	if _, err = prng.Read(t); err != nil {
 		return nil
 	}
@@ -149,12 +149,13 @@ func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
 // ExtractBytesToBits returns a byte array of bits from src
 // if len(dst) < len(src) * 8, nothing will be done
 func ExtractBytesToBits(src, dst []byte) {
-	if len(dst) > len(src)*8 {
+	if len(dst) != len(src)*8 {
+		fmt.Println(len(dst), len(src))
 		return
 	}
 
 	var i int
-	for _, _byte := range src[:len(src)-1] {
+	for _, _byte := range src {
 		dst[i] = uint8(_byte & 0x01)
 		dst[i+1] = uint8((_byte >> 1) & 0x01)
 		dst[i+2] = uint8((_byte >> 2) & 0x01)
@@ -164,11 +165,6 @@ func ExtractBytesToBits(src, dst []byte) {
 		dst[i+6] = uint8((_byte >> 6) & 0x01)
 		dst[i+7] = uint8((_byte >> 7) & 0x01)
 		i += 8
-	}
-
-	// handle the last byte
-	for i = 0; i < len(dst)%8; i++ {
-		dst[(len(src)-1)*8+i] = uint8((src[len(src)-1] >> i) & 0x01)
 	}
 }
 
