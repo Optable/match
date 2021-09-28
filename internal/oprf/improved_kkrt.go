@@ -94,7 +94,8 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 		util.InPlaceXorBytes(util.AndByte(s[col], u), q[col])
 	}
 
-	q = util.Transpose(q)
+	//q = util.Transpose(q)
+	q = util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(q), 6))
 
 	// store oprf keys
 	keys = make([]Key, len(q))
@@ -124,7 +125,8 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		for i := 0; i < ext.m; i++ {
 			d[i] = crypto.PseudorandomCode(sk, choices[i])
 		}
-		pseudorandomChan <- util.Transpose(d)
+		//pseudorandomChan <- util.Transpose(d)
+		pseudorandomChan <- util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(d), 6))
 	}()
 
 	// sample k x k bit mtrix
@@ -169,5 +171,6 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		}
 	}
 
-	return util.Transpose(t), nil
+	//return util.Transpose(t), nil
+	return util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(t), 6)), nil
 }

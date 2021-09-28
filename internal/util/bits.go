@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations")
+var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for byte wise operations")
 
 // XorBytes xors each byte from a with b and returns dst
 // if a and b are the same length
@@ -73,6 +73,25 @@ func InPlaceAndBytes(a, dst []byte) error {
 	return nil
 }
 
+// a is sparse byte slice
+// dst is dense byte slice
+// want to take AND bitwise of the two and return a dense dense slice
+func InPlaceAndBytesBits(a, dst []byte) error {
+	if len(dst)*8 != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := range dst {
+		var acc byte
+		for j := 0; j < 8; j++ {
+			acc += a[j+(8*i)] << (7 - j)
+		}
+		dst[i] &= acc
+	}
+
+	return nil
+}
+
 func AndByte(a uint8, b []byte) []byte {
 	if a == 1 {
 		return b
@@ -114,17 +133,37 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 	return tr
 }
 
+func BytesInUint64(b int) int {
+	length := b / 8
+	if b%64 != 0 {
+		length += (64 - b%64) / 8
+		if (64-b%64)%8 != 0 {
+			length += 1
+		}
+	}
+	return length
+}
+
 // SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
 // with pseudorandom bit values
 func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
+	length := k / 8
+	if k%64 != 0 {
+		length += (64 - k%64) / 8
+		if (64-k%64)%8 != 0 {
+			length += 1
+		}
+	}
+
 	// instantiate matrix
 	matrix := make([][]uint8, m)
+
 	for row := range matrix {
-		matrix[row] = make([]uint8, k)
+		matrix[row] = make([]uint8, length)
 	}
 
 	for row := range matrix {
-		if err := SampleBitSlice(prng, matrix[row]); err != nil {
+		if _, err := prng.Read(matrix[row]); err != nil {
 			return nil, err
 		}
 	}
@@ -137,7 +176,7 @@ func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
 // or math/rand.Rand
 func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
 	// read up to len(b) + 1 pseudorandom bits
-	t := make([]byte, len(b)/8+1)
+	t := make([]byte, len(b)/8)
 	if _, err = prng.Read(t); err != nil {
 		return nil
 	}
@@ -183,12 +222,12 @@ func SampleRandomWide(r *rand.Rand, n int) [][]uint64 {
 // ExtractBytesToBits returns a byte array of bits from src
 // if len(dst) < len(src) * 8, nothing will be done
 func ExtractBytesToBits(src, dst []byte) {
-	if len(dst) > len(src)*8 {
+	if len(dst) != len(src)*8 {
 		return
 	}
 
 	var i int
-	for _, _byte := range src[:len(src)-1] {
+	for _, _byte := range src {
 		dst[i] = uint8(_byte & 0x01)
 		dst[i+1] = uint8((_byte >> 1) & 0x01)
 		dst[i+2] = uint8((_byte >> 2) & 0x01)
@@ -198,11 +237,6 @@ func ExtractBytesToBits(src, dst []byte) {
 		dst[i+6] = uint8((_byte >> 6) & 0x01)
 		dst[i+7] = uint8((_byte >> 7) & 0x01)
 		i += 8
-	}
-
-	// handle the last byte
-	for i = 0; i < len(dst)%8; i++ {
-		dst[(len(src)-1)*8+i] = uint8((src[len(src)-1] >> i) & 0x01)
 	}
 }
 

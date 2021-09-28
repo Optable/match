@@ -45,9 +45,10 @@ type kkrt struct {
 // ristretto: baseOT implemented using ristretto
 func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length m
+	length := util.BytesInUint64(m)
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = m
+		baseMsgLen[i] = length
 	}
 
 	ot, err := ot.NewBaseOT(baseOT, ristretto, k, curve, baseMsgLen, cipherMode)
@@ -85,14 +86,14 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
 		return nil, err
 	}
-
+	fmt.Println("q", len(q), len(q[0]))
 	// transpose q to m x k matrix for easier row operations
-	//q = util.ConcurrentColumnarTranspose(q)
-	q = util.Transpose(q)
-
+	q = util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(q), 6))
+	fmt.Println("q after transpose", len(q), len(q[0]))
 	// store oprf keys
 	keys = make([]Key, len(q))
-	for j := range q {
+	fmt.Println("length of q-o.m", len(q[len(q)-o.m:]))
+	for j := range q[len(q)-o.m:] {
 		keys[j] = Key{sk: sk, s: s, q: q[j]}
 	}
 
@@ -121,19 +122,21 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		}
 		fmt.Printf("Compute pseudorandom code on %d messages of %d bits each took: %v\n", o.m, o.k, time.Since(start))
 		tran := time.Now()
-		//pseudorandomChan <- util.ConcurrentColumnarTranspose(d)
-		pseudorandomChan <- util.Transpose(d)
+		pseudorandomChan <- util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(d), 6))
 		fmt.Printf("Compute transpose took: %v\n", time.Since(tran))
 	}()
 
 	// Sample k x m matrix T
-	t, err = util.SampleRandomBitMatrix(o.prng, o.k, o.m)
+	t, err = util.SampleRandomBitMatrix(o.prng, o.m, o.k)
 	if err != nil {
 		return nil, err
 	}
 
-	d := <-pseudorandomChan
+	t = util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(t), 6))
 
+	d := <-pseudorandomChan
+	fmt.Println("t", len(t[0]))
+	fmt.Println("d", len(d[0]))
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, o.k)
 	for i := range baseMsgs {
@@ -145,7 +148,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		baseMsgs[i][0] = t[i]
 		baseMsgs[i][1] = d[i]
 	}
-
+	fmt.Println("baseMsgs", len(baseMsgs), len(baseMsgs[0][0]), len(baseMsgs[0][1]))
 	start := time.Now()
 	// act as sender in baseOT to send k columns
 	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
@@ -154,5 +157,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	fmt.Printf("base OT of %d messages of %d bits each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 
 	//return util.ConcurrentColumnarTranspose(t), nil
-	return util.Transpose(t), nil
+	//return util.Transpose(t), nil
+	t = util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(t), 6))
+	return t[len(t)-o.m:], nil
 }
