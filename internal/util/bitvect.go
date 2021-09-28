@@ -10,226 +10,100 @@ type BitVect struct {
 	set [512 * 8]uint64
 }
 
-// unravel is a constructor used to create a BitVect from a 2D matrix of uint64.
-// The matrix must have 8 columns and 512-pad rows. Pad is the number of empty
-// rows or columns that should be padded at the front of the block. idx allows
-// you to to target a particular row or column from which to start the block
-// from the original matrix.
-func unravel(matrix [][]uint64, pad, idx int) BitVect {
-	set := [4096]uint64{}
-	// WIDE matrix
-	if len(matrix[0]) > 8 {
-		for i := 0; i < 512; i++ {
-			copy(set[(i*8)+pad:(i+1)*8], matrix[i][idx:(idx+8)-pad])
-		}
+// findBlocksTall determines where a matrix should be split into blocks of 512
+// rows and 8 columns and by how much to pad the first block.
+func findBlocksTall(matrix [][]uint64) (nblk, pad int) {
+	// how much to front-pad messages so they are a multiple of 512 (512 bits)
+	pad = 512 - (len(matrix) % 512)
+	if pad == 512 {
+		pad = 0
+	}
+	// number of blocks
+	nblk = len(matrix) / 512
+	if pad > 0 {
+		nblk += 1
+	}
 
+	return nblk, pad
+}
+
+// findBlocksWide determines where a matrix should be split into blocks of 512
+// rows and 8 columns and by how much to pad the first block.
+func findBlocksWide(matrix [][]uint64) (nblk, pad int) {
+	// how much to front-pad messages so they are a multiple of 8 (512 bits)
+	pad = 8 - (len(matrix[0]) % 8)
+	if pad == 8 {
+		pad = 0
+	}
+	// number of blocks
+	nblk = len(matrix[0]) / 8
+	if pad > 0 {
+		nblk += 1
+	}
+
+	return nblk, pad
+}
+
+// unravelTall is a constructor used to create a BitVect from a 2D matrix of uint64.
+// The matrix must have 8 columns and 512-pad rows. Pad is the number of empty rows
+// that should be padded at the front of the 0th block. idx is the block target.
+func unravelTall(matrix [][]uint64, pad, idx int) BitVect {
+	set := [4096]uint64{}
+	// we only need to pad first block
+	if idx == 0 {
+		for i := 0; i < 512-pad; i++ {
+			copy(set[(i+pad)*8:(i+pad+1)*8], matrix[i])
+		}
 		return BitVect{set}
 	}
-	// TALL matrix
-	for i := 0; i < 512-pad; i++ {
-		copy(set[(i+pad)*8:(i+pad+1)*8], matrix[idx+i])
-	}
 
+	for i := 0; i < 512; i++ {
+		copy(set[(i)*8:(i+1)*8], matrix[(512*idx)-pad+i])
+	}
 	return BitVect{set}
 }
 
-// unravelMatrix constructs a slice of BitVects to hold the blocks of bits from a 2D
-// uint64 matrix. If the smaller dimension of the matrix (width or height) is not a
-// multiple of 512, additional rows or columns are padded in the first block at the
-// front of the matrix.
-func unravelMatrix(matrix [][]uint64) (dst []BitVect, pad int) {
-	// Find constant axis (512 bits) of matrix
-	// WIDE matrix
-	if len(matrix[0]) > 8 {
-		ncols := len(matrix[0])
-
-		// how much to front-pad messages so they are a multiple of 8 (512 bits)
-		pad = 8 - (ncols % 8)
-		if pad == 8 {
-			pad = 0
+// unravelWide is a constructor used to create a BitVect from a 2D matrix of uint64.
+// The matrix must have 8-pad columns and 512 rows. Pad is the number of empty columns
+// that should be padded at the front of the 0th block. idx is the block target.
+func unravelWide(matrix [][]uint64, pad, idx int) BitVect {
+	set := [4096]uint64{}
+	// we only need to pad first block
+	if idx == 0 {
+		for i := 0; i < 512; i++ {
+			copy(set[(i*8)+pad:(i+1)*8], matrix[i][:8-pad])
 		}
-		// number of blocks
-		var nblk int
-		if pad > 0 {
-			nblk = (ncols / 8) + 1
-		} else {
-			nblk = ncols / 8
-		}
-
-		// construct matrix
-		dst = make([]BitVect, nblk)
-
-		// deal with first block which may be padded
-		dst[0] = unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
-
-		// populate the rest
-		for blk := 0; blk < nblk-1; blk++ {
-			dst[blk+1] = unravel(matrix, 0, (8-pad)+(blk*8)) // TODO step of block
-
-		}
-		return dst, pad
+		return BitVect{set}
 	}
 
-	// TALL matrix
-	nrows := len(matrix)
-
-	// how much to front-pad messages so they are a multiple of 512 (512 bits)
-	pad = 512 - (nrows % 512)
-	if pad == 512 {
-		pad = 0
+	for i := 0; i < 512; i++ {
+		copy(set[(i*8):(i+1)*8], matrix[i][(8*idx)-pad:(8*idx)+8-pad])
 	}
-	// number of blocks
-	var nblk int
-	if pad > 0 {
-		nblk = (nrows / 512) + 1
-	} else {
-		nblk = nrows / 512
-	}
-
-	// construct matrix
-	dst = make([]BitVect, nblk)
-
-	// deal with first block which may be padded
-	dst[0] = unravel(matrix, pad, 0) // if there is no pad block, this still works as pad is 0
-
-	// populate the rest
-	for blk := 0; blk < nblk-1; blk++ {
-		dst[blk+1] = unravel(matrix, 0, (512-pad)+(blk*512))
-	}
-	return dst, pad
+	return BitVect{set}
 }
 
-/*
-// FindBlocks determines where a matrix should be split into blocks and
-// by how much to pad the first block (both in bits).
-func FindBlocks(matrix [][]uint64) (bitIdx []int, bitpad int) {
-	// Find constant axis (512 bits) of matrix
-	// WIDE matrix
-	if len(matrix[0]) > 8 {
-		ncols := len(matrix[0])
-
-		// how much to front-pad messages so they are a multiple of 8 (512 bits)
-		pad = (8 - (ncols % 8))
-		if pad == 8 {
-			pad = 0
-		}
-		// number of blocks
-		var nblk int
-		if pad > 0 {
-			nblk = (ncols / 8) + 1
-		} else {
-			nblk = ncols / 8
-		}
-
-		idx = make([]int, nblk)
-
-		// first index is always 0
-		// populate the rest
-		for blk := 0; blk < nblk-1; blk++ {
-			idx[blk+1] = (8 - pad) + (blk * 8)
-		}
-
-		return idx, pad
-	}
-	// TALL matrix
-	nrows := len(matrix)
-
-	// how much to front-pad messages so they are a multiple of 512 (512 bits)
-	pad = 512 - (nrows % 512)
-	if pad == 512 {
-		pad = 0
-	}
-	// number of blocks
-	var nblk int
-	if pad > 0 {
-		nblk = (nrows / 512) + 1
-	} else {
-		nblk = nrows / 512
-	}
-
-	idx = make([]int, nblk)
-
-	// first index is always 0
-	// populate the rest
-	for blk := 0; blk < nblk-1; blk++ {
-		idx[blk+1] = (512 - pad) + (blk * 512)
-	}
-
-	return idx, pad
-}
-*/
-
-// findBlocks determines where a matrix should be split into blocks and
-// by how much to pad the first block (both in bits).
-func findBlocks(matrix [][]uint64) (bitIdx []int, bitPad int) {
-	// Find constant axis (512 bits) of matrix
-	// WIDE matrix
-	if len(matrix[0]) > 8 {
-		ncols := len(matrix[0])
-
-		// how much to front-pad messages so they are a multiple of 8 (512 bits)
-		bitPad = (8 - (ncols % 8)) * 64
-		if bitPad == 512 { // 8*64
-			bitPad = 0
-		}
-		// number of blocks
-		var nblk int
-		if bitPad > 0 {
-			nblk = (ncols / 8) + 1
-		} else {
-			nblk = ncols / 8
-		}
-
-		bitIdx = make([]int, nblk)
-
-		// first index is always 0
-		// populate the rest
-		for blk := 0; blk < nblk-1; blk++ {
-			bitIdx[blk+1] = (512 - bitPad) + (blk * 512)
-		}
-
-		return bitIdx, bitPad
-	}
-	// TALL matrix
-	nrows := len(matrix)
-
-	// how much to front-pad messages so they are a multiple of 512 (512 bits)
-	bitPad = 512 - (nrows % 512)
-	if bitPad == 512 {
-		bitPad = 0
-	}
-	// number of blocks
-	var nblk int
-	if bitPad > 0 {
-		nblk = (nrows / 512) + 1
-	} else {
-		nblk = nrows / 512
-	}
-
-	bitIdx = make([]int, nblk)
-
-	// first index is always 0
-	// populate the rest
-	for blk := 0; blk < nblk-1; blk++ {
-		bitIdx[blk+1] = (512 - bitPad) + (blk * 512)
-	}
-
-	return bitIdx, bitPad
-}
-
-// ravel reconstructs a block of a 2D matrix from a BitVect
-func (b BitVect) ravel(matrix [][]uint64, pad, idx int) {
-	// TALL matrix
-	// idx is a row index in this case
-	if len(matrix[0]) == 8 {
+// ravelTall reconstructs a subsection of a tall (mx8) matrix from a BitVect.
+func (b BitVect) ravelToTall(matrix [][]uint64, pad, idx int) {
+	if idx == 0 {
 		for i := 0; i < 512-pad; i++ {
-			copy(matrix[idx+i][:], b.set[(i+pad)*8:(i+pad+1)*8])
+			copy(matrix[i][:], b.set[(i+pad)*8:(i+pad+1)*8])
 		}
-		// WIDE matrix
-		// idx is a column index in this case
 	} else {
 		for i := 0; i < 512; i++ {
-			copy(matrix[i][idx:idx+8-pad], b.set[(i*8)+pad:(i+1)*8])
+			copy(matrix[(idx*512)-pad+i][:], b.set[i*8:(i+1)*8])
+		}
+	}
+}
+
+// ravelWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
+func (b BitVect) ravelToWide(matrix [][]uint64, pad, idx int) {
+	if idx == 0 {
+		for i := 0; i < 512; i++ {
+			copy(matrix[i][:8-pad], b.set[(i*8)+pad:(i+1)*8])
+		}
+	} else {
+		for i := 0; i < 512; i++ {
+			copy(matrix[i][(idx*8)-pad:((idx+1)*8)-pad], b.set[(i*8):(i+1)*8])
 		}
 	}
 }
@@ -292,22 +166,40 @@ func (b BitVect) CheckTranspose(t BitVect) bool {
 // contiguous transpose on the BitVect, and finally writes the result to a shared
 // final output matrix.
 func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
-	// build output matrix
-	trans := make([][]uint64, len(matrix[0])*64)
-	ncols := len(matrix) / 64
-	if len(matrix)%64 > 0 {
-		ncols += 1
+	// determine is original matrix is wide or tall
+	var tall bool
+	if len(matrix[0]) == 8 {
+		tall = true
 	}
+
+	// determine indices and padding to split original matrix
+	var idx, pad int
+	if tall {
+		idx, pad = findBlocksTall(matrix)
+	} else {
+		idx, pad = findBlocksWide(matrix)
+	}
+
+	// build output matrix
+	var nrows, ncols int
+	if tall {
+		nrows = 512
+		ncols = len(matrix) / 64
+		if len(matrix)%64 > 0 {
+			ncols += 1
+		}
+	} else {
+		nrows = len(matrix[0]) * 64
+		ncols = 8
+	}
+	trans := make([][]uint64, nrows)
 	for r := range trans {
 		trans[r] = make([]uint64, ncols)
 	}
 
-	// determine indices and padding to split original matrix
-	bitIdx, bitPad := findBlocks(matrix)
-
 	// feed into buffered channel
-	ch := make(chan int, len(bitIdx))
-	for _, i := range bitIdx {
+	ch := make(chan int, idx)
+	for i := 0; i < idx; i++ {
 		ch <- i
 	}
 	close(ch)
@@ -318,21 +210,17 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 	for w := 0; w < nworkers; w++ {
 		go func() {
 			defer wg.Done()
-			for id := range ch {
-				// first block
-				if id == 0 {
-					b := unravel(matrix, bitPad, 0)
+			if tall {
+				for id := range ch {
+					b := unravelTall(matrix, pad, id)
 					b.transpose()
-					b.ravel(trans, bitPad/64, 0)
-					// all other blocks
-				} else {
-					b := unravel(matrix, 0, id)
+					b.ravelToWide(trans, pad/64, id)
+				}
+			} else {
+				for id := range ch {
+					b := unravelWide(matrix, pad, id)
 					b.transpose()
-					trId := id / 64 // ONLY works for tall matrices
-					if id%64 > 0 {
-						trId += 1
-					}
-					b.ravel(trans, 0, trId)
+					b.ravelToTall(trans, pad*64, id)
 				}
 			}
 		}()
