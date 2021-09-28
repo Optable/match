@@ -12,12 +12,12 @@ Reference:	https://eprint.iacr.org/2013/491.pdf (Improved IKNP)
 */
 
 import (
-	"crypto/aes"
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
-	"math/rand"
+	mrand "math/rand"
 	"sync"
-	"time"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -34,7 +34,7 @@ type kkrt struct {
 	k      int
 	n      int
 	msgLen []int
-	prng   *rand.Rand
+	prng   *mrand.Rand
 }
 
 func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
@@ -49,13 +49,16 @@ func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
 		return kkrt{}, err
 	}
 
-	return kkrt{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
+	return kkrt{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, prng: mrand.New(mrand.NewSource(seed))}, nil
 }
 
 func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = ext.prng.Read(sk); err != nil {
+	if _, err = crand.Read(sk); err != nil {
 		return nil
 	}
 
@@ -66,7 +69,7 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(ext.prng, s); err != nil {
+	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
 		return err
 	}
 
@@ -79,15 +82,15 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// transpose q to m x k matrix for easier row operations
 	q = util.Transpose(q)
 
-	var key, x, ciphertext []byte
+	var key, ciphertext []byte
 	// encrypt messages and send them
-	aesBlock, _ := aes.NewCipher(sk)
 	for i := range messages {
 		// proof of concept, suppose we have n messages, and the choice string is an integer in [1, ..., n]
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			x, _ = util.AndBytes(crypto.PseudorandomCode(aesBlock, ext.k, []byte{byte(choice)}), s)
-			key, _ = util.XorBytes(q[i], x)
+			key = crypto.PseudorandomCode(sk, []byte{byte(choice)})
+			util.InPlaceAndBytes(s, key)
+			util.InPlaceXorBytes(q[i], key)
 
 			ciphertext, err = crypto.Encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
@@ -125,14 +128,13 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	var wg sync.WaitGroup
 	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, ext.m)
-	aesBlock, _ := aes.NewCipher(sk)
 	for i := range baseMsgs {
 		wg.Add(1)
 		go func(i int, msg chan<- []byte) {
 			defer wg.Done()
 			msg <- t[i]
 
-			m2, err := util.XorBytes(t[i], crypto.PseudorandomCode(aesBlock, ext.k, []byte{choices[i]}))
+			m2, err := util.XorBytes(t[i], crypto.PseudorandomCode(sk, []byte{choices[i]}))
 			msg <- m2
 			if err != nil {
 				errBus <- err

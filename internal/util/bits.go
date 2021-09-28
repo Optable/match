@@ -3,7 +3,9 @@ package util
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math/rand"
+	"sync"
 )
 
 var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations")
@@ -34,7 +36,7 @@ func InPlaceXorBytes(a, dst []byte) error {
 	}
 
 	for i := 0; i < n; i++ {
-		dst[i] = a[i] ^ dst[i]
+		dst[i] ^= a[i]
 	}
 
 	return nil
@@ -65,26 +67,18 @@ func InPlaceAndBytes(a, dst []byte) error {
 	}
 
 	for i := range dst {
-		dst[i] = a[i] & dst[i]
+		dst[i] &= a[i]
 	}
 
 	return nil
 }
 
-func AndByte(a uint8, b []byte) (dst []byte) {
-	dst = make([]byte, len(b))
-
-	for i := range b {
-		dst[i] = a & b[i]
+func AndByte(a uint8, b []byte) []byte {
+	if a == 1 {
+		return b
 	}
 
-	return
-}
-
-func InPlaceAndByte(a uint8, dst []byte) {
-	for i := range dst {
-		dst[i] = a & dst[i]
-	}
+	return make([]byte, len(b))
 }
 
 // Transpose returns the transpose of a 2D slices of uint8
@@ -122,7 +116,7 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 
 // SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
 // with pseudorandom bit values
-func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
+func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, m)
 	for row := range matrix {
@@ -130,7 +124,7 @@ func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 	}
 
 	for row := range matrix {
-		if err := SampleBitSlice(r, matrix[row]); err != nil {
+		if err := SampleBitSlice(prng, matrix[row]); err != nil {
 			return nil, err
 		}
 	}
@@ -139,7 +133,9 @@ func SampleRandomBitMatrix(r *rand.Rand, m, k int) ([][]uint8, error) {
 }
 
 // SampleBitSlice returns a slice of uint8 of pseudorandom bits
-func SampleBitSlice(prng *rand.Rand, b []uint8) (err error) {
+// prng is a reader from either crypto/rand.Reader
+// or math/rand.Rand
+func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
 	// read up to len(b) + 1 pseudorandom bits
 	t := make([]byte, len(b)/8+1)
 	if _, err = prng.Read(t); err != nil {
@@ -291,4 +287,85 @@ func AndUint64Slice(u, w []uint64) error {
 	}
 
 	return nil
+}
+
+// The major failing of my last attempt at concurrent transposition
+// was that each goroutine (and there were far too many) was accessing
+// the same shared array. This meant that the cache on each core had to
+// be constantly updated as each coroutine updated their cache-local
+// version. Instead this version splits everything by column. Each
+// goroutine reads from the same shared matrix, but since nothing is
+// is changed, the local cache shouldn't need an update. Then each
+// goroutine sends the transposed row back to a channel in an ordered set.
+// Once all transpositions are done, rows are recombined into a 2D matrix.
+func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
+	var wg sync.WaitGroup
+	m := len(matrix)
+	n := len(matrix[0])
+	tr := make([][]uint8, n)
+
+	// the optimal number of goroutines will likely vary due to
+	// hardware and array size
+	//nThreads := n // one thread per column (likely only efficient for huge matrix)
+	// nThreads := runtime.NumCPU()
+	// nThreads := runtime.NumCPU()*2
+	nThreads := 12
+	// add to quick check to ensure there are not more threads than columns
+	if n < nThreads {
+		nThreads = n
+	}
+
+	// number of columns for which each goroutine is responsible
+	nColumns := n / nThreads
+
+	// create ordered channels to store values from goroutines
+	// each channel is buffered to store the number of desired rows
+	channels := make([]chan []uint8, nThreads)
+	for i := 0; i < nThreads-1; i++ {
+		channels[i] = make(chan []uint8, nColumns)
+	}
+	// last one may have excess columns
+	channels[nThreads-1] = make(chan []uint8, nColumns+n%nThreads)
+
+	// goroutine
+	//wg.Add(nThreads)
+	for i := 0; i < nThreads; i++ {
+		wg.Add(1)
+		go func(i int) {
+			//	fmt.Println("goroutine", i, "created")
+			defer wg.Done()
+			// we need to handle excess columns which don't evenly divide among
+			// number of threads -> in this case, I just add to the last goroutine
+			// perhaps a more sophisticated division of labor would be more efficient
+			var extraColumns int
+			if i == nThreads-1 {
+				extraColumns = n % nThreads
+			}
+
+			for c := 0; c < (nColumns + extraColumns); c++ {
+				row := make([]uint8, m)
+				for r := 0; r < m; r++ {
+					row[r] = matrix[r][(i*nColumns)+c]
+				}
+
+				channels[i] <- row
+			}
+
+			close(channels[i])
+		}(i)
+	}
+
+	// Wait until all goroutines have finished
+	wg.Wait()
+
+	// Reconstruct a transposed matrix from the channels
+	for i, channel := range channels {
+		var j int
+		for row := range channel {
+			tr[(i*nColumns)+j] = row
+			j++
+		}
+	}
+
+	return tr
 }

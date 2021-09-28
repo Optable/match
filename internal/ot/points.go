@@ -34,9 +34,8 @@ func (p points) scalarMult(scalar []byte) points {
 
 func (p points) sub(q points) points {
 	// p - q = p.x + q.x, p.y - q.y
-	n := big.NewInt(0)
-	n.Neg(q.y)
-	x, y := p.curve.Add(p.x, p.y, q.x, n)
+	x := big.NewInt(0)
+	x, y := p.curve.Add(p.x, p.y, q.x, x.Neg(q.y))
 	return newPoints(p.curve, x, y)
 }
 
@@ -46,8 +45,7 @@ func (p points) isOnCurve() bool {
 
 // deriveKey returns a key of 32 byte from an elliptic curve point
 func (p points) deriveKey() []byte {
-	buf := elliptic.Marshal(p.curve, p.x, p.y)
-	key := blake3.Sum256(buf)
+	key := blake3.Sum256(p.x.Bytes())
 	return key[:]
 }
 
