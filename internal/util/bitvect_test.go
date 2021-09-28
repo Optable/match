@@ -4,10 +4,21 @@ import (
 	"testing"
 )
 
-var nmsg = 30000000
+var nmsg = 1000000
 var nworkers = 6
 var uintBlock = SampleRandomTall(prng, nmsg)
 var randomBlock = unravelTall(uintBlock, 0, 0)
+var (
+	oneMil         = 1000000
+	fiveMil        = 5000000
+	tenMil         = 10000000
+	thirtyMil      = 30000000
+	fiftyMil       = 50000000
+	eightyMil      = 80000000
+	oneHundredMil  = 100000000
+	fiveHundredMil = 500000000
+	oneBil         = 1000000000
+)
 
 func genOrigBlock() BitVect {
 	origBlock2D := make([][]uint64, 512)
