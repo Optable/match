@@ -128,6 +128,26 @@ func TestPrgWithSeed(t *testing.T) {
 	}
 }
 
+func TestAESCTRDrbg(t *testing.T) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
+	n := 1000000
+	p := AESCTRDrbg(seed, n)
+	if bytes.Equal(make([]byte, n), p) {
+		t.Fatalf("pseudorandom should not be 0")
+	}
+
+	if len(p) != n {
+		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
+	}
+
+	// is it deterministic?
+	q := AESCTRDrbg(seed, n)
+	if !bytes.Equal(p, q) {
+		t.Fatalf("drbg is not deterministic")
+	}
+}
+
 func BenchmarkPrgWithSeed(b *testing.B) {
 	seed := make([]byte, 512)
 	prng.Read(seed)
@@ -143,6 +163,15 @@ func BenchmarkPseudorandomGeneratorWithBlake3(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		PseudorandomGeneratorWithBlake3(blake3.New(), seed, 10000000)
+	}
+}
+
+func BenchmarkAESCTRDrbg(b *testing.B) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		AESCTRDrbg(seed, 10000000)
 	}
 }
 

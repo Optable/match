@@ -110,6 +110,23 @@ func PrgWithSeed(seed []byte, length int) (dst []byte) {
 	return dst[:length]
 }
 
+func AESCTRDrbg(seed []byte, length int) (dst []byte) {
+	// need expand?
+	if length < len(seed) {
+		return seed[:length]
+	}
+
+	var newSeed [48]byte
+	copy(newSeed[:], seed)
+	drbg := NewDRBG(&newSeed)
+	tmp := make([]byte, (length+7)/8)
+	dst = make([]byte, len(tmp)*8)
+	drbg.Fill(tmp)
+	// extract pseudorandom bytes to bits
+	util.ExtractBytesToBits(tmp, dst)
+	return dst[:length]
+}
+
 // Blake3 has XOF which is perfect for doing xor cipher.
 func xorCipherWithBlake3(key []byte, ind uint8, src []byte) ([]byte, error) {
 	hash := make([]byte, len(src))

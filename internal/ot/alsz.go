@@ -8,7 +8,6 @@ import (
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
-	"github.com/zeebo/blake3"
 )
 
 /*
@@ -17,10 +16,8 @@ from the paper: Extending Oblivious Transfers Efficiently
 by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
 reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
 
-The improvement from normal IKNP is just to use pseudorandom generators
+The improvement from normal IKNP is to use pseudorandom generators
 to send short OT messages instead of the full encrypted messages.
-Computation overhead seems to make it more time consuming at the expense
-of the smaller network costs.
 */
 
 type alsz struct {
@@ -29,7 +26,6 @@ type alsz struct {
 	k      int
 	msgLen []int
 	prng   *rand.Rand
-	g      *blake3.Hasher
 }
 
 func NewAlsz(m, k, baseOt int, ristretto bool, msgLen []int) (alsz, error) {
@@ -43,10 +39,9 @@ func NewAlsz(m, k, baseOt int, ristretto bool, msgLen []int) (alsz, error) {
 	if err != nil {
 		return alsz{}, err
 	}
-	g := blake3.New()
 
 	return alsz{baseOT: ot, m: m, k: k, msgLen: msgLen,
-		prng: rand.New(rand.NewSource(time.Now().UnixNano())), g: g}, nil
+		prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
 }
 
 func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -70,7 +65,7 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			return err
 		}
 
-		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
+		q[col] = crypto.AESCTRDrbg(seeds[col], ext.m)
 
 		q[col], _ = util.XorBytes(util.AndByte(s[col], u), q[col])
 	}
@@ -132,9 +127,9 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range t {
-		t[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
+		t[col] = crypto.AESCTRDrbg(baseMsgs[col][0], ext.m)
 
-		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+		u = crypto.AESCTRDrbg(baseMsgs[col][1], ext.m)
 
 		u, err = util.XorBytes(u, t[col])
 		if err != nil {

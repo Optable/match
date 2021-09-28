@@ -13,15 +13,13 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
+	"crypto/rand"
+	"fmt"
 	"io"
-	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
-	"github.com/zeebo/blake3"
 )
 
 type imprvKKRT struct {
@@ -29,8 +27,6 @@ type imprvKKRT struct {
 	m      int   // number of message tuples
 	k      int   // width of base OT binary matrix as well as
 	// pseudorandom code output length
-	prng *mrand.Rand // source of randomness
-	g    *blake3.Hasher
 }
 
 // NewKKRT returns a KKRT OPRF
@@ -49,19 +45,15 @@ func NewImprovedKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 	if err != nil {
 		return imprvKKRT{}, err
 	}
-	g := blake3.New()
 
-	// seed math rand with crypto/rand random number
-	var seed int64
-	binary.Read(crand.Reader, binary.BigEndian, &seed)
-	return imprvKKRT{baseOT: ot, m: m, k: k, prng: mrand.New(mrand.NewSource(seed)), g: g}, nil
+	return imprvKKRT{baseOT: ot, m: m, k: k}, nil
 }
 
 // Send returns the OPRF keys
 func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = crand.Read(sk); err != nil {
+	if _, err = rand.Read(sk); err != nil {
 		return nil, err
 	}
 
@@ -72,7 +64,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
+	if err = util.SampleBitSlice(rand.Reader, s); err != nil {
 		return nil, err
 	}
 
@@ -81,6 +73,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return nil, err
 	}
+	fmt.Println(seeds)
 
 	// receive masked columns u
 	u := make([]byte, ext.m)
@@ -90,7 +83,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 			return nil, err
 		}
 
-		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
+		q[col] = crypto.AESCTRDrbg(seeds[col], ext.m)
 		util.InPlaceXorBytes(util.AndByte(s[col], u), q[col])
 	}
 
@@ -128,7 +121,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	}()
 
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(ext.prng, 2*ext.k, ext.k)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +132,8 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		baseMsgs[j][0] = seeds[2*j]
 		baseMsgs[j][1] = seeds[2*j+1]
 	}
+
+	fmt.Println(baseMsgs)
 
 	// act as sender in baseOT to send k columns
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
@@ -152,8 +147,8 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		t[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
-		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+		t[col] = crypto.AESCTRDrbg(baseMsgs[col][0], ext.m)
+		u = crypto.AESCTRDrbg(baseMsgs[col][1], ext.m)
 		err = util.InPlaceXorBytes(t[col], u)
 		if err != nil {
 			return nil, err
