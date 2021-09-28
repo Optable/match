@@ -13,7 +13,6 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	"crypto/aes"
 	crand "crypto/rand"
 	"encoding/binary"
 	"io"
@@ -73,7 +72,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(ext.prng, s); err != nil {
+	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
 		return nil, err
 	}
 
@@ -91,9 +90,8 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 			return nil, err
 		}
 
-		util.InPlaceAndByte(s[col], u)
 		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
-		util.InPlaceXorBytes(u, q[col])
+		util.InPlaceXorBytes(util.AndByte(s[col], u), q[col])
 	}
 
 	q = util.Transpose(q)
@@ -123,9 +121,8 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		d := make([][]byte, ext.m)
-		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(aesBlock, ext.k, choices[i])
+			d[i] = crypto.PseudorandomCode(sk, choices[i])
 		}
 		pseudorandomChan <- util.Transpose(d)
 	}()
@@ -173,18 +170,4 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	}
 
 	return util.Transpose(t), nil
-}
-
-// Encode computes and returns OPRF(k, in)
-func (o imprvKKRT) Encode(k Key, in []byte) (out []byte, err error) {
-	// compute q_i ^ (C(r) & s)
-	aesBlock, _ := aes.NewCipher(k.sk)
-	out, err = util.AndBytes(crypto.PseudorandomCode(aesBlock, o.k, in), k.s)
-	if err != nil {
-		return
-	}
-
-	err = util.InPlaceXorBytes(k.q, out)
-
-	return
 }

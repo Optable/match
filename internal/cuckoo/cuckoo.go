@@ -237,7 +237,7 @@ func (c *Cuckoo) LoadFactor() (factor float64) {
 // Len returns the total size of the cuckoo struct
 // which is equal to bucketSize + stashSize
 func (c *Cuckoo) Len() uint64 {
-	return c.bucketSize //+ uint64(c.StashSize())
+	return c.bucketSize
 }
 
 func (v *value) oprfInput() []byte {
@@ -253,40 +253,12 @@ func (v *value) oprfInput() []byte {
 // if the identifier is in the bucket, it appends the hash index
 // if the identifier is on stash, it returns just the id
 // if the bucket has nothing it in, it returns a dummy value: 255
-func (c *Cuckoo) OPRFInput() <-chan []byte {
-	r := make(chan []byte, c.Len())
-	go func() {
-		for _, b := range c.buckets {
-			r <- b.oprfInput()
-		}
-		close(r)
-	}()
-
-	return r
-}
-
-func (v *value) GetItem() []byte {
-	return v.item
-}
-
-func (v *value) GetHashIdx() uint8 {
-	return v.hIdx
-}
-
-func (c *Cuckoo) Bucket() <-chan value {
-	var valueChan = make(chan value, c.bucketSize)
-	go func() {
-		for _, v := range c.buckets {
-			valueChan <- v
-		}
-		close(valueChan)
-	}()
-
-	return valueChan
-}
-
-func (c *Cuckoo) BucketSize() int {
-	return int(c.bucketSize)
+func (c *Cuckoo) OPRFInput() [][]byte {
+	var inputs = make([][]byte, c.bucketSize)
+	for i, b := range c.buckets {
+		inputs[i] = b.oprfInput()
+	}
+	return inputs
 }
 
 func max(a, b uint64) uint64 {

@@ -83,7 +83,7 @@ func TestDeriveKeyPoints(t *testing.T) {
 	p := newPoints(c, bx, by)
 	key := p.deriveKey()
 
-	key2 := blake3.Sum256(elliptic.Marshal(c, bx, by))
+	key2 := blake3.Sum256(bx.Bytes())
 	if string(key) != string(key2[:]) || len(key) != 32 {
 		t.Fatal("Error in points deriveKey")
 	}
@@ -99,5 +99,29 @@ func TestGenerateKeyWithPoints(t *testing.T) {
 	d := p.scalarMult(s)
 	if !arePointsEqual(d, P) {
 		t.Fatal("Error in points generateKeyWithPoints")
+	}
+}
+
+func BenchmarkDeriveKey(b *testing.B) {
+	c, _ = initCurve(curve)
+	x := big.NewInt(1)
+	y := big.NewInt(2)
+	p := newPoints(c, x, y)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		p.deriveKey()
+	}
+}
+
+func BenchmarkSub(b *testing.B) {
+	c, _ = initCurve(curve)
+	x := big.NewInt(1)
+	y := big.NewInt(2)
+	p := newPoints(c, x, y)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		p.sub(p)
 	}
 }

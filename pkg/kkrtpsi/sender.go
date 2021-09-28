@@ -2,12 +2,10 @@ package kkrtpsi
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/binary"
-	"encoding/gob"
 	"fmt"
 	"io"
-	"math/rand"
-	"sync"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -48,7 +46,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var remoteN int64       // receiver size
 	var oprfInputSize int64 // nb of OPRF keys
 
-	var oSender oprf.OPRF
 	var oprfKeys []oprf.Key
 	var hashedIds = make(chan hashable, n)
 
@@ -96,7 +93,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err = oprf.NewKKRT(int(oprfInputSize), findK(oprfInputSize), ot.Simplest, false)
+		oSender, err := oprf.NewKKRT(int(oprfInputSize), k, ot.NaorPinkas, false)
 		if err != nil {
 			return err
 		}
@@ -116,62 +113,16 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		var localEncodings [cuckoo.Nhash]chan uint64
-
 		hasher, err := hash.New(hash.Highway, seeds[0])
 		if err != nil {
 			return err
 		}
 
-		for i := range localEncodings {
-			localEncodings[i] = make(chan uint64, n)
-		}
-
-		var wg sync.WaitGroup
-		var errBus = make(chan error)
-
-		for hash := range hashedIds {
-			wg.Add(1)
-			go func(hash hashable) {
-				defer wg.Done()
-				// encode identifiers that are potentially stored in receiver's cuckoo hash table
-				// in any of the cuckoo.Nhash bukcet index and store it.
-				for hIdx, bucketIdx := range hash.bucketIdx {
-					encoded, err := oSender.Encode(oprfKeys[bucketIdx], append(hash.identifier, uint8(hIdx)))
-					if err != nil {
-						errBus <- err
-					}
-
-					localEncodings[hIdx] <- hasher.Hash64(encoded)
-				}
-			}(hash)
-		}
-
-		// Wait for all encode to complete.
-		wg.Wait()
-		close(errBus)
-		for i := range localEncodings {
-			close(localEncodings[i])
-		}
-
-		//errors?
-		for err := range errBus {
-			if err != nil {
-				return err
-			}
-		}
-
-		// exhaust the hashes into the receiver
-		encoder := gob.NewEncoder(s.rw)
-		for i := range localEncodings {
-			var hashMap = make(map[uint64]bool, n)
-			for hash := range localEncodings[i] {
-				hashMap[hash] = true
-			}
-
-			// send encoding of map
-			if err := encoder.Encode(hashMap); err != nil {
-				return fmt.Errorf("stage2: %v", err)
+		localEncodings := EncodeAndHashAllParallel(oprfKeys, hasher, hashedIds)
+		for hashedEncodings := range localEncodings {
+			// send all 3 encoding at once
+			if err := EncodesWrite(s.rw, hashedEncodings); err != nil {
+				return fmt.Errorf("stage3: %v", err)
 			}
 		}
 

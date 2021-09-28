@@ -2,8 +2,6 @@ package crypto
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/sha256"
 	"math/rand"
 	"testing"
@@ -17,12 +15,12 @@ var (
 	p      = []byte("example testing plaintext that holds important secrets: %QWEQW$##%Y^&%^*(*)&, []m")
 	aesKey = make([]byte, 16)
 	xorKey = make([]byte, len(p))
-	r      = rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng   = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func init() {
-	r.Read(aesKey)
-	r.Read(xorKey)
+	prng.Read(aesKey)
+	prng.Read(xorKey)
 }
 
 func BenchmarkSha(b *testing.B) {
@@ -34,22 +32,6 @@ func BenchmarkSha(b *testing.B) {
 func BenchmarkBlake3(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		blake3.Sum256(p)
-	}
-}
-
-func TestCTREncrypDecrypt(t *testing.T) {
-	ciphertext, err := Encrypt(CTR, aesKey, 0, p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plain, err := Decrypt(CTR, aesKey, 0, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(p, plain) {
-		t.Errorf("error in decrypt, want: %s, got: %s", string(p), string(plain))
 	}
 }
 
@@ -66,56 +48,6 @@ func TestGCMEncrypDecrypt(t *testing.T) {
 
 	if !bytes.Equal(p, plain) {
 		t.Errorf("error in decrypt, want: %s, got: %s", string(p), string(plain))
-	}
-}
-
-func TestXORShakeEncryptDecrypt(t *testing.T) {
-	ciphertext, err := Encrypt(XORShake, xorKey, 0, p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plain, err := Decrypt(XORShake, xorKey, 1, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if bytes.Equal(p, plain) {
-		t.Fatalf("decryption should not work!")
-	}
-
-	plain, err = Decrypt(XORShake, xorKey, 0, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(p, plain) {
-		t.Fatalf("Decryption should have worked")
-	}
-}
-
-func TestXORBlake2EncryptDecrypt(t *testing.T) {
-	ciphertext, err := xorCipherWithBlake2(xorKey, 0, p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plain, err := Decrypt(XORBlake2, xorKey, 1, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if bytes.Equal(p, plain) {
-		t.Fatalf("decryption should not work!")
-	}
-
-	plain, err = xorCipherWithBlake2(xorKey, 0, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(p, plain) {
-		t.Fatalf("Decryption should have worked")
 	}
 }
 
@@ -146,10 +78,10 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 
 func TestXORBytes(t *testing.T) {
 	a := make([]byte, 32)
-	r.Read(a)
+	prng.Read(a)
 
 	b := make([]byte, 32)
-	r.Read(b)
+	prng.Read(b)
 	c, err := util.XorBytes(a, b)
 	if err != nil {
 		t.Fatal(err)
@@ -170,51 +102,61 @@ func TestXORBytes(t *testing.T) {
 
 func TestPseudorandomGeneratorWithBlake3(t *testing.T) {
 	seed := make([]byte, 424)
-	r.Read(seed)
+	prng.Read(seed)
 	n := 212
 	p := PseudorandomGeneratorWithBlake3(blake3.New(), seed, n)
 	if bytes.Equal(make([]byte, n), p) {
 		t.Fatalf("pseudorandom should not be 0")
 	}
-}
 
-func BenchmarkXORCipherWithShakeEncrypt(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		xorCipherWithShake(xorKey, 0, p)
+	if len(p) != n {
+		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
 	}
 }
 
-func BenchmarkXORCipherWithShakeDecrypt(b *testing.B) {
-	c, err := xorCipherWithShake(xorKey, 0, p)
-	if err != nil {
-		b.Log(err)
+func TestPrgWithSeed(t *testing.T) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
+	n := 1000000
+	p := PrgWithSeed(seed, n)
+	if bytes.Equal(make([]byte, n), p) {
+		t.Fatalf("pseudorandom should not be 0")
 	}
+
+	if len(p) != n {
+		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
+	}
+}
+
+func BenchmarkPrgWithSeed(b *testing.B) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
 	b.ResetTimer()
-
 	for i := 0; i < b.N; i++ {
-		xorCipherWithShake(xorKey, 0, c)
+		PrgWithSeed(seed, 10000000)
 	}
 }
 
-func BenchmarkXORCipherWithBlake2Encrypt(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		xorCipherWithBlake2(xorKey, 0, p)
-	}
-}
-
-func BenchmarkXORCipherWithBlake2Decrypt(b *testing.B) {
-	c, err := xorCipherWithBlake2(xorKey, 0, p)
-	if err != nil {
-		b.Log(err)
-	}
+func BenchmarkPseudorandomGeneratorWithBlake3(b *testing.B) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
 	b.ResetTimer()
-
 	for i := 0; i < b.N; i++ {
-		xorCipherWithBlake2(xorKey, 0, c)
+		PseudorandomGeneratorWithBlake3(blake3.New(), seed, 10000000)
+	}
+}
+
+func BenchmarkPseudorandomCode(b *testing.B) {
+	in := make([]byte, 64)
+	util.SampleBitSlice(prng, in)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PseudorandomCode(aesKey, in)
 	}
 }
 
 func BenchmarkXORCipherWithBlake3Encrypt(b *testing.B) {
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		xorCipherWithBlake3(xorKey, 0, p)
 	}
@@ -247,24 +189,6 @@ func BenchmarkAesGcmDecrypt(b *testing.B) {
 	}
 }
 
-func BenchmarkAesCtrEncrypt(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		ctrEncrypt(aesKey, p)
-	}
-}
-
-func BenchmarkAesCtrDecrypt(b *testing.B) {
-	c, err := ctrEncrypt(aesKey, p)
-	if err != nil {
-		b.Log(err)
-	}
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		ctrDecrypt(aesKey, c)
-	}
-}
-
 func BenchmarkXORCipherWithPRG(b *testing.B) {
 	s := blake3.New()
 	b.ResetTimer()
@@ -273,49 +197,10 @@ func BenchmarkXORCipherWithPRG(b *testing.B) {
 	}
 }
 
-func BenchmarkXORCipherWithAESCTR(b *testing.B) {
-	block, err := aes.NewCipher(aesKey)
-	if err != nil {
-		b.Log(err)
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		xorCipherWithAESCTR(block, xorKey, p)
-	}
-}
-
-func BenchmarkXORCipherWithAESCTR2(b *testing.B) {
-	block, err := aes.NewCipher(aesKey)
-	if err != nil {
-		b.Log(err)
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		xorCipherWithAESCTR2(block, xorKey, p)
-	}
-}
-
 func BenchmarkPRGWithBlake3(b *testing.B) {
 	s := blake3.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		PseudorandomGeneratorWithBlake3(s, xorKey, len(p))
-	}
-}
-
-func BenchmarkPRGWithAESGCM(b *testing.B) {
-	block, err := aes.NewCipher(aesKey)
-	if err != nil {
-		b.Log(err)
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		b.Log(err)
-	}
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pseudorandomGeneratorWithAESGCM(aesgcm, xorKey, len(p))
 	}
 }

@@ -1,11 +1,11 @@
 package ot
 
 import (
-	"crypto/aes"
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
-	"math/rand"
-	"time"
+	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -22,7 +22,7 @@ type imprvKKRT struct {
 	k      int
 	n      int
 	msgLen []int
-	prng   *rand.Rand
+	prng   *mrand.Rand
 	g      *blake3.Hasher
 }
 
@@ -39,14 +39,17 @@ func NewImprovedKKRT(m, k, n, baseOt int, ristretto bool, msgLen []int) (imprvKK
 	}
 	g := blake3.New()
 
+	// seed math rand with crypto/rand random number
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
 	return imprvKKRT{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen,
-		prng: rand.New(rand.NewSource(time.Now().UnixNano())), g: g}, nil
+		prng: mrand.New(mrand.NewSource(seed)), g: g}, nil
 }
 
 func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = ext.prng.Read(sk); err != nil {
+	if _, err = crand.Read(sk); err != nil {
 		return err
 	}
 
@@ -57,7 +60,7 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(ext.prng, s); err != nil {
+	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
 		return err
 	}
 
@@ -83,13 +86,13 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	q = util.Transpose(q)
 
 	// encrypt messages and send them
-	var key, ciphertext, x []byte
-	aesBlock, _ := aes.NewCipher(sk)
+	var key, ciphertext []byte
 	for i := range messages {
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			x, _ = util.AndBytes(crypto.PseudorandomCode(aesBlock, ext.k, []byte{byte(choice)}), s)
-			key, _ = util.XorBytes(q[i], x)
+			key = crypto.PseudorandomCode(sk, []byte{byte(choice)})
+			util.InPlaceAndBytes(s, key)
+			util.InPlaceXorBytes(q[i], key)
 
 			ciphertext, err = crypto.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
@@ -119,9 +122,8 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 
 	// compute code word using pseudorandom code on choice stirng r
 	d := make([][]byte, ext.m)
-	aesBlock, _ := aes.NewCipher(sk)
 	for row := range d {
-		d[row] = crypto.PseudorandomCode(aesBlock, ext.k, []byte{choices[row]})
+		d[row] = crypto.PseudorandomCode(sk, []byte{choices[row]})
 	}
 
 	d = util.Transpose(d)
