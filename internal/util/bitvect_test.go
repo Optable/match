@@ -6,7 +6,7 @@ import (
 
 var nmsg = 1000000
 var nworkers = 6
-var uintBlock = SampleRandomTall(prng, nmsg)
+var uintBlock = SampleRandomTall(prng, fiftyMil)
 var randomBlock = unravelTall(uintBlock, 0, 0)
 var (
 	oneMil         = 1000000

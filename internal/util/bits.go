@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/rand"
 )
@@ -207,4 +208,87 @@ func ExtractBytesToBits(src, dst []byte) {
 	for i = 0; i < len(dst)%8; i++ {
 		dst[(len(src)-1)*8+i] = uint8((src[len(src)-1] >> i) & 0x01)
 	}
+}
+
+// Uint64Slice converts a slice of bytes to a slice of uint64s.
+// Note: additional 0's will be appended to the byte slice to
+// ensure it has a multiple of 8 elements.
+func Uint64Slice(b []byte) (u []uint64) {
+	// expand byte slice to a multiple of 8
+	var x int
+	if len(b)%8 != 0 {
+		x = 8 - (len(b) % 8)
+	}
+
+	b = append(b, make([]byte, x)...)
+
+	u = make([]uint64, len(b)/8)
+	for i := 0; i < len(b); i += 8 {
+		u[i/8] = binary.LittleEndian.Uint64(b[i:])
+	}
+
+	return u
+}
+
+// ByteSlice extracts a slice of bytes from a slice of uint64.
+func ByteSlice(u []uint64) (b []byte) {
+	b = make([]byte, len(u)*8)
+
+	for i, e := range u {
+		binary.LittleEndian.PutUint64(b[i*8:], e)
+	}
+
+	return b
+}
+
+// Uint64Matrix converts matrix of bytes to matrix of uint64s.
+func Uint64Matrix(b [][]byte) (u [][]uint64) {
+	u = make([][]uint64, len(b))
+
+	for i, e := range b {
+		u[i] = Uint64Slice(e)
+	}
+
+	return u
+}
+
+// ByteMatrix converts matrix of uint64s to matrix of bytes.
+func ByteMatrix(u [][]uint64) (b [][]byte) {
+	b = make([][]byte, len(u))
+
+	for i, e := range u {
+		b[i] = ByteSlice(e)
+	}
+
+	return b
+}
+
+// XorUint64 performs the binary XOR of each uint64 in u and w
+// in-place as long as the slices are of the same length. u is
+// the modified slice.
+func XorUint64(u, w []uint64) error {
+	if len(u) != len(w) {
+		return fmt.Errorf("provided slices do not have the same length for XOR operations")
+	}
+
+	for i := range u {
+		u[i] ^= w[i]
+	}
+
+	return nil
+}
+
+// AndUint64 performs the binary AND of each uint64 in u and w
+// in-place as long as the slices are of the same length. u is
+// the modified slice.
+func AndUint64(u, w []uint64) error {
+	if len(u) != len(w) {
+		return fmt.Errorf("provided slices do not have the same length for AND operations")
+	}
+
+	for i := range u {
+		u[i] &= w[i]
+	}
+
+	return nil
 }
