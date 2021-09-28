@@ -210,10 +210,10 @@ func ExtractBytesToBits(src, dst []byte) {
 	}
 }
 
-// Uint64Slice converts a slice of bytes to a slice of uint64s.
+// FromByteToUint64Slice converts a slice of bytes to a slice of uint64s.
 // Note: additional 0's will be appended to the byte slice to
 // ensure it has a multiple of 8 elements.
-func Uint64Slice(b []byte) (u []uint64) {
+func Uint64SliceFromByte(b []byte) (u []uint64) {
 	// expand byte slice to a multiple of 8
 	var x int
 	if len(b)%8 != 0 {
@@ -230,8 +230,8 @@ func Uint64Slice(b []byte) (u []uint64) {
 	return u
 }
 
-// ByteSlice extracts a slice of bytes from a slice of uint64.
-func ByteSlice(u []uint64) (b []byte) {
+// FromUint64ToByteSlice extracts a slice of bytes from a slice of uint64.
+func ByteSliceFromUint64(u []uint64) (b []byte) {
 	b = make([]byte, len(u)*8)
 
 	for i, e := range u {
@@ -241,32 +241,32 @@ func ByteSlice(u []uint64) (b []byte) {
 	return b
 }
 
-// Uint64Matrix converts matrix of bytes to matrix of uint64s.
-func Uint64Matrix(b [][]byte) (u [][]uint64) {
+// FromByteToUint64Matrix converts matrix of bytes to matrix of uint64s.
+func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
 	u = make([][]uint64, len(b))
 
 	for i, e := range b {
-		u[i] = Uint64Slice(e)
+		u[i] = Uint64SliceFromByte(e)
 	}
 
 	return u
 }
 
-// ByteMatrix converts matrix of uint64s to matrix of bytes.
-func ByteMatrix(u [][]uint64) (b [][]byte) {
+// FromUint64ToByteMatrix converts matrix of uint64s to matrix of bytes.
+func ByteMatrixFromUint64(u [][]uint64) (b [][]byte) {
 	b = make([][]byte, len(u))
 
 	for i, e := range u {
-		b[i] = ByteSlice(e)
+		b[i] = ByteSliceFromUint64(e)
 	}
 
 	return b
 }
 
-// XorUint64 performs the binary XOR of each uint64 in u and w
+// XorUint64Slice performs the binary XOR of each uint64 in u and w
 // in-place as long as the slices are of the same length. u is
 // the modified slice.
-func XorUint64(u, w []uint64) error {
+func XorUint64Slice(u, w []uint64) error {
 	if len(u) != len(w) {
 		return fmt.Errorf("provided slices do not have the same length for XOR operations")
 	}
@@ -278,10 +278,10 @@ func XorUint64(u, w []uint64) error {
 	return nil
 }
 
-// AndUint64 performs the binary AND of each uint64 in u and w
+// AndUint64Slice performs the binary AND of each uint64 in u and w
 // in-place as long as the slices are of the same length. u is
 // the modified slice.
-func AndUint64(u, w []uint64) error {
+func AndUint64Slice(u, w []uint64) error {
 	if len(u) != len(w) {
 		return fmt.Errorf("provided slices do not have the same length for AND operations")
 	}

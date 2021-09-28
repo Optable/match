@@ -45,8 +45,8 @@ func TestSliceConversions(t *testing.T) {
 		// Bytes to Uint64s
 		b := make([]byte, l)
 		sampleByteSlice(prng, b)
-		u := Uint64Slice(b)
-		bb := ByteSlice(u)
+		u := Uint64SliceFromByte(b)
+		bb := ByteSliceFromUint64(u)
 
 		// test
 		for i, e := range b {
@@ -58,8 +58,8 @@ func TestSliceConversions(t *testing.T) {
 		// Uint64s to Bytes
 		u = make([]uint64, l)
 		sampleUint64Slice(prng, u)
-		b = ByteSlice(u)
-		uu := Uint64Slice(b)
+		b = ByteSliceFromUint64(u)
+		uu := Uint64SliceFromByte(b)
 
 		//test
 		for i, e := range u {
@@ -83,8 +83,8 @@ func TestXorUint64(t *testing.T) {
 		for i := range x {
 			x[i] = 0x5555555555555555 // 01010...01
 		}
-		XorUint64(u, x)
-		XorUint64(u, x)
+		XorUint64Slice(u, x)
+		XorUint64Slice(u, x)
 		// test
 		for i, e := range c {
 			if e != u[i] {
@@ -106,8 +106,8 @@ func TestAndUint64(t *testing.T) {
 		for i := range x {
 			x[i] = 0x5555555555555555 // 01010...01
 		}
-		AndUint64(u, x)
-		AndUint64(x, c)
+		AndUint64Slice(u, x)
+		AndUint64Slice(x, c)
 		// test
 		for i, e := range u {
 			if e != x[i] {
