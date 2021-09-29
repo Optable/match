@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	crand "crypto/rand"
 	"fmt"
-	mrand "math/rand"
 
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
@@ -65,66 +64,6 @@ func XorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, er
 	d := s.Digest()
 	d.Read(dst)
 	return util.XorBytes(src, dst)
-}
-
-// H(seed, src), where H is modeled as a pseudorandom generator.
-func PseudorandomGeneratorWithBlake3(s *blake3.Hasher, seed []byte, length int) (dst []byte) {
-	// need expand?
-	if length < len(seed) {
-		return seed[:length]
-	}
-
-	tmp := make([]byte, (length+7)/8)
-	dst = make([]byte, len(tmp)*8)
-	s.Reset()
-	s.Write(seed)
-	d := s.Digest()
-	d.Read(tmp)
-	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(tmp, dst)
-	return dst[:length]
-}
-
-func PrgWithSeed(seed []byte, length int) (dst []byte) {
-	// need expand?
-	if length < len(seed) {
-		return seed[:length]
-	}
-
-	tmp := make([]byte, (length+7)/8)
-	dst = make([]byte, len(tmp)*8)
-	var source int64
-	for i := 0; i < len(seed)/64; i++ {
-		var s int64
-		for j, b := range seed[i*64 : (i+1)*64] {
-			s += (int64(b) << j)
-		}
-		source ^= s
-	}
-
-	r := mrand.New(mrand.NewSource(source))
-
-	r.Read(tmp)
-	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(tmp, dst)
-	return dst[:length]
-}
-
-func AESCTRDrbg(seed []byte, length int) (dst []byte) {
-	// need expand?
-	if length < len(seed) {
-		return seed[:length]
-	}
-
-	var newSeed [48]byte
-	copy(newSeed[:], seed)
-	drbg := NewDRBG(&newSeed)
-	tmp := make([]byte, (length+7)/8)
-	dst = make([]byte, len(tmp)*8)
-	drbg.Fill(tmp)
-	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(tmp, dst)
-	return dst[:length]
 }
 
 // Blake3 has XOF which is perfect for doing xor cipher.

@@ -100,39 +100,14 @@ func TestXORBytes(t *testing.T) {
 	}
 }
 
-func TestPseudorandomGeneratorWithBlake3(t *testing.T) {
-	seed := make([]byte, 424)
-	prng.Read(seed)
-	n := 212
-	p := PseudorandomGeneratorWithBlake3(blake3.New(), seed, n)
-	if bytes.Equal(make([]byte, n), p) {
-		t.Fatalf("pseudorandom should not be 0")
-	}
-
-	if len(p) != n {
-		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
-	}
-}
-
 func TestPrgWithSeed(t *testing.T) {
 	seed := make([]byte, 512)
 	prng.Read(seed)
 	n := 1000000
-	p := PrgWithSeed(seed, n)
-	if bytes.Equal(make([]byte, n), p) {
-		t.Fatalf("pseudorandom should not be 0")
+	p, err := PseudorandomGenerate(MrandDrbg, seed, n)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	if len(p) != n {
-		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
-	}
-}
-
-func TestAESCTRDrbg(t *testing.T) {
-	seed := make([]byte, 512)
-	prng.Read(seed)
-	n := 1000000
-	p := AESCTRDrbg(seed, n)
 	if bytes.Equal(make([]byte, n), p) {
 		t.Fatalf("pseudorandom should not be 0")
 	}
@@ -142,7 +117,30 @@ func TestAESCTRDrbg(t *testing.T) {
 	}
 
 	// is it deterministic?
-	q := AESCTRDrbg(seed, n)
+	q, _ := PseudorandomGenerate(MrandDrbg, seed, n)
+	if !bytes.Equal(p, q) {
+		t.Fatalf("drbg is not deterministic")
+	}
+}
+
+func TestAESCTRDrbg(t *testing.T) {
+	seed := make([]byte, 512)
+	prng.Read(seed)
+	n := 1000000
+	p, err := PseudorandomGenerate(AESCtrDrbg, seed, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(make([]byte, n), p) {
+		t.Fatalf("pseudorandom should not be 0")
+	}
+
+	if len(p) != n {
+		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
+	}
+
+	// is it deterministic?
+	q, _ := PseudorandomGenerate(AESCtrDrbg, seed, n)
 	if !bytes.Equal(p, q) {
 		t.Fatalf("drbg is not deterministic")
 	}
@@ -153,16 +151,7 @@ func BenchmarkPrgWithSeed(b *testing.B) {
 	prng.Read(seed)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		PrgWithSeed(seed, 10000000)
-	}
-}
-
-func BenchmarkPseudorandomGeneratorWithBlake3(b *testing.B) {
-	seed := make([]byte, 512)
-	prng.Read(seed)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		PseudorandomGeneratorWithBlake3(blake3.New(), seed, 10000000)
+		PseudorandomGenerate(AESCtrDrbg, seed, 10000000)
 	}
 }
 
@@ -171,7 +160,7 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 	prng.Read(seed)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		AESCTRDrbg(seed, 10000000)
+		PseudorandomGenerate(AESCtrDrbg, seed, 10000000)
 	}
 }
 
@@ -223,13 +212,5 @@ func BenchmarkXORCipherWithPRG(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		XorCipherWithPRG(s, xorKey, p)
-	}
-}
-
-func BenchmarkPRGWithBlake3(b *testing.B) {
-	s := blake3.New()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		PseudorandomGeneratorWithBlake3(s, xorKey, len(p))
 	}
 }

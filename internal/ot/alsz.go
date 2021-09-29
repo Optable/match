@@ -1,10 +1,9 @@
 package ot
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
-	"math/rand"
-	"time"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -25,10 +24,10 @@ type alsz struct {
 	m      int
 	k      int
 	msgLen []int
-	prng   *rand.Rand
+	drbg   int
 }
 
-func NewAlsz(m, k, baseOt int, ristretto bool, msgLen []int) (alsz, error) {
+func NewAlsz(m, k, baseOt, drbg int, ristretto bool, msgLen []int) (alsz, error) {
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -40,14 +39,13 @@ func NewAlsz(m, k, baseOt int, ristretto bool, msgLen []int) (alsz, error) {
 		return alsz{}, err
 	}
 
-	return alsz{baseOT: ot, m: m, k: k, msgLen: msgLen,
-		prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	return alsz{baseOT: ot, m: m, k: k, drbg: drbg, msgLen: msgLen}, nil
 }
 
 func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(ext.prng, s); err != nil {
+	if err = util.SampleBitSlice(rand.Reader, s); err != nil {
 		return err
 	}
 
@@ -65,9 +63,15 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			return err
 		}
 
-		q[col] = crypto.AESCTRDrbg(seeds[col], ext.m)
+		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m)
+		if err != nil {
+			return err
+		}
 
-		q[col], _ = util.XorBytes(util.AndByte(s[col], u), q[col])
+		q[col], err = util.XorBytes(util.AndByte(s[col], u), q[col])
+		if err != nil {
+			return err
+		}
 	}
 
 	q = util.Transpose(q)
@@ -105,7 +109,7 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(ext.prng, 2*ext.k, ext.k)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k)
 	if err != nil {
 		return err
 	}
@@ -127,9 +131,15 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range t {
-		t[col] = crypto.AESCTRDrbg(baseMsgs[col][0], ext.m)
+		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m)
+		if err != nil {
+			return err
+		}
 
-		u = crypto.AESCTRDrbg(baseMsgs[col][1], ext.m)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m)
+		if err != nil {
+			return err
+		}
 
 		u, err = util.XorBytes(u, t[col])
 		if err != nil {

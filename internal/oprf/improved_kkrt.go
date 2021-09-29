@@ -26,6 +26,7 @@ type imprvKKRT struct {
 	m      int   // number of message tuples
 	k      int   // width of base OT binary matrix as well as
 	// pseudorandom code output length
+	drbg int
 }
 
 // NewKKRT returns a KKRT OPRF
@@ -33,7 +34,7 @@ type imprvKKRT struct {
 // k: width of OT extension binary matrix
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
-func NewImprovedKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
+func NewImprovedKKRT(m, k, baseOT, drbg int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -45,7 +46,7 @@ func NewImprovedKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 		return imprvKKRT{}, err
 	}
 
-	return imprvKKRT{baseOT: ot, m: m, k: k}, nil
+	return imprvKKRT{baseOT: ot, m: m, k: k, drbg: drbg}, nil
 }
 
 // Send returns the OPRF keys
@@ -81,8 +82,14 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 			return nil, err
 		}
 
-		q[col] = crypto.AESCTRDrbg(seeds[col], ext.m)
-		util.InPlaceXorBytes(util.AndByte(s[col], u), q[col])
+		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m)
+		if err != nil {
+			return nil, err
+		}
+		err = util.InPlaceXorBytes(util.AndByte(s[col], u), q[col])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	q = util.Transpose(q)
@@ -143,8 +150,16 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		t[col] = crypto.AESCTRDrbg(baseMsgs[col][0], ext.m)
-		u = crypto.AESCTRDrbg(baseMsgs[col][1], ext.m)
+		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m)
+		if err != nil {
+			return nil, err
+		}
+
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m)
+		if err != nil {
+			return nil, err
+		}
+
 		err = util.InPlaceXorBytes(t[col], u)
 		if err != nil {
 			return nil, err
