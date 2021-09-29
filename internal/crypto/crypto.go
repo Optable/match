@@ -3,7 +3,7 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	crand "crypto/rand"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/optable/match/internal/util"
@@ -100,7 +100,7 @@ func gcmEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
 	}
 
 	nonce := make([]byte, aesgcm.NonceSize())
-	if _, err := crand.Read(nonce); err != nil {
+	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
 
