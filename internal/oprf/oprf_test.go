@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
@@ -151,7 +152,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, false)
+	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +162,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, false)
+	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
 	if err != nil {
 		t.Fatal(err)
 	}
