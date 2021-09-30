@@ -37,6 +37,7 @@ func sampleUint64Matrix(prng *rand.Rand, u [][]uint64) {
 	}
 }
 
+/*
 // Note the double conversion of bytes to uint64s to bytes does
 // result in added 0s.
 func TestSliceConversions(t *testing.T) {
@@ -70,7 +71,7 @@ func TestSliceConversions(t *testing.T) {
 
 	}
 }
-
+*/
 func TestXorUint64(t *testing.T) {
 	lengths := []int{1, 7, 8, 9, 100, 1000}
 	for _, l := range lengths {

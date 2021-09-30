@@ -116,11 +116,11 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 
 // SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
 // with pseudorandom bit values
-func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
+func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
-	matrix := make([][]uint8, m)
+	matrix := make([][]uint8, row)
 	for row := range matrix {
-		matrix[row] = make([]uint8, k)
+		matrix[row] = make([]uint8, col+colsToPad(col))
 	}
 
 	for row := range matrix {
@@ -206,27 +206,38 @@ func ExtractBytesToBits(src, dst []byte) {
 	}
 }
 
-// FromByteToUint64Slice converts a slice of bytes to a slice of uint64s.
-// Note: additional 0's will be appended to the byte slice to
-// ensure it has a multiple of 8 elements.
-func Uint64SliceFromByte(b []byte) (u []uint64) {
-	// expand byte slice to a multiple of 8
-	var x int
-	if len(b)%8 != 0 {
-		x = 8 - (len(b) % 8)
+// RowsToPad returns the number of rows to pad such that the number of rows is
+// a multiple of 512.
+func RowsToPad(m int) (pad int) {
+	pad = 512 - (m % 512)
+	if pad == 512 {
+		pad = 0
 	}
+	return pad
+}
 
-	b = append(b, make([]byte, x)...)
+// ColsToPad returns the number of columns to pad such that the number of columns
+// is 8.
+func colsToPad(m int) (pad int) {
+	pad = 8 - (m % 8)
+	if pad == 8 {
+		pad = 0
+	}
+	return pad
+}
 
+// Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.
+// There must be a multiple of 8 bytes so they can be packed nicely into uint64.
+func Uint64SliceFromByte(b []byte) (u []uint64) {
 	u = make([]uint64, len(b)/8)
-	for i := 0; i < len(b); i += 8 {
-		u[i/8] = binary.LittleEndian.Uint64(b[i:])
+	for i := range u {
+		u[i] = binary.LittleEndian.Uint64(b[i*8:])
 	}
 
 	return u
 }
 
-// FromUint64ToByteSlice extracts a slice of bytes from a slice of uint64.
+// ByteSliceFromUint64 extracts a slice of bytes from a slice of uint64.
 func ByteSliceFromUint64(u []uint64) (b []byte) {
 	b = make([]byte, len(u)*8)
 
@@ -238,17 +249,24 @@ func ByteSliceFromUint64(u []uint64) (b []byte) {
 }
 
 // FromByteToUint64Matrix converts matrix of bytes to matrix of uint64s.
+// pad is number of rows containing 0s which will be added to end of matrix.
+// Assume each row contains 64 bytes (512 bits).
 func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
-	u = make([][]uint64, len(b))
+	pad := RowsToPad(len(b))
+	u = make([][]uint64, len(b)+pad)
 
-	for i, e := range b {
-		u[i] = Uint64SliceFromByte(e)
+	for i := 0; i < len(b); i++ {
+		u[i] = Uint64SliceFromByte(b[i])
+	}
+	for j := 0; j < pad; j++ {
+		u[len(b)+j] = make([]uint64, len(u[0]))
 	}
 
 	return u
 }
 
 // FromUint64ToByteMatrix converts matrix of uint64s to matrix of bytes.
+// If any padding was added, it is left untouched.
 func ByteMatrixFromUint64(u [][]uint64) (b [][]byte) {
 	b = make([][]byte, len(u))
 
