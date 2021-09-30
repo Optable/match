@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-var nmsg = 1000000
+var nmsg = 1000
 var nworkers = 6
-var uintBlock = SampleRandomTall(prng, fiftyMil)
+var uintBlock = SampleRandomTall(prng, nmsg)
 var randomBlock = unravelTall(uintBlock, 0, 0)
 var (
 	oneMil         = 1000000
