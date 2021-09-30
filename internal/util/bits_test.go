@@ -117,30 +117,6 @@ func TestAndUint64(t *testing.T) {
 	}
 }
 
-func TestInPlaceAndBytesBits(t *testing.T) {
-	a := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-	dst := []byte{255}
-	InPlaceAndBytesBits(a, dst)
-	if !bytes.Equal([]byte{0}, dst) {
-		t.Fatalf("Bit operation bad")
-	}
-
-	a = []byte{1, 1, 1, 1, 1, 1, 1, 1}
-	dst = []byte{255}
-	InPlaceAndBytesBits(a, dst)
-	if !bytes.Equal([]byte{255}, dst) {
-		t.Fatalf("Bit operation bad")
-	}
-
-	a = []byte{1, 0, 1, 0, 1, 0, 1, 0}
-	dst = []byte{255}
-	InPlaceAndBytesBits(a, dst)
-	//fmt.Printf("%08b\n", dst)
-	if !bytes.Equal([]byte{170}, dst) {
-		t.Fatalf("Bit operation bad")
-	}
-}
-
 func TestTranspose3D(t *testing.T) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([][][]byte, 4)

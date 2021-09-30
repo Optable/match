@@ -33,10 +33,7 @@ type Key struct {
 func (k Key) Encode(in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
 	out = crypto.PseudorandomCode(k.sk, in)
-	err = util.InPlaceAndBytesBits(k.s, out)
-	if err != nil {
-		return nil, err
-	}
+	util.InPlaceAndBytes(k.s, out)
 	err = util.InPlaceXorBytes(k.q, out)
 	return
 }
