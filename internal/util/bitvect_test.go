@@ -4,10 +4,10 @@ import (
 	"testing"
 )
 
-var nmsg = 1000
+var nmsg = 1024
 var nworkers = 6
 var uintBlock = SampleRandomTall(prng, nmsg)
-var randomBlock = unravelTall(uintBlock, 0, 0)
+var randomBlock = unravelTall(uintBlock, 0)
 var (
 	oneMil         = 1000000
 	fiveMil        = 5000000
@@ -31,7 +31,7 @@ func genOrigBlock() BitVect {
 			}
 		}
 	}
-	return unravelTall(origBlock2D, 0, 0)
+	return unravelTall(origBlock2D, 0)
 }
 
 func genTranBlock() BitVect {
@@ -42,7 +42,7 @@ func genTranBlock() BitVect {
 			tranBlock2D[row][c] = 0x5555555555555555 // 01010...01
 		}
 	}
-	return unravelTall(tranBlock2D, 0, 0)
+	return unravelTall(tranBlock2D, 0)
 }
 
 func genOnesBlock() BitVect {
@@ -53,7 +53,7 @@ func genOnesBlock() BitVect {
 			onesBlock2D[row][c] = ^uint64(0)
 		}
 	}
-	return unravelTall(onesBlock2D, 0, 0)
+	return unravelTall(onesBlock2D, 0)
 }
 
 // this is convenient for visualizing steps of the transposition
@@ -62,7 +62,7 @@ func genProbeBlock() BitVect {
 	for row := range probeBlock2D {
 		probeBlock2D[row] = []uint64{0, 1, 2, 3, 4, 5, 6, 7}
 	}
-	return unravelTall(probeBlock2D, 0, 0)
+	return unravelTall(probeBlock2D, 0)
 }
 
 /* TODO - CheckTransposed not working
@@ -90,28 +90,27 @@ func TestCheckTransposed(t *testing.T) {
 */
 
 func TestUnReRavelingTall(t *testing.T) {
-	trange := []int{200, 511, 512, 513, 710, 5120, 5320}
+	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, a := range trange {
 		matrix := SampleRandomTall(prng, a)
 		// TALL m x 8
-		// determine indices and padding to split original matrix
-		var idx, pad int
-		idx, pad = findBlocksTall(matrix)
+		// determine number of blocks to split original matrix
+		nblks := len(matrix) / 512
 
-		trans := make([][]uint64, len(matrix))
-		for r := range trans {
-			trans[r] = make([]uint64, len(matrix[0]))
+		rerav := make([][]uint64, len(matrix))
+		for r := range rerav {
+			rerav[r] = make([]uint64, len(matrix[0]))
 		}
 
-		for id := 0; id < idx; id++ {
-			b := unravelTall(matrix, pad, id)
-			b.ravelToTall(trans, pad, id)
+		for id := 0; id < nblks; id++ {
+			b := unravelTall(matrix, id)
+			b.ravelToTall(rerav, id)
 		}
 
 		// check
-		for k := range trans {
-			for l := range trans[k] {
-				if trans[k][l] != matrix[k][l] {
+		for k := range rerav {
+			for l := range rerav[k] {
+				if rerav[k][l] != matrix[k][l] {
 					t.Fatal("Unraveled and reraveled tall (", a, ") matrix did not match with original at row", k, ".")
 				}
 			}
@@ -120,22 +119,21 @@ func TestUnReRavelingTall(t *testing.T) {
 }
 
 func TestUnReRavelingWide(t *testing.T) {
-	trange := []int{7, 8, 9, 14, 80, 83}
+	trange := []int{8, 16, 24, 32, 40}
 	for _, a := range trange {
 		matrix := SampleRandomWide(prng, a)
-		// TALL m x 8
-		// determine indices and padding to split original matrix
-		var idx, pad int
-		idx, pad = findBlocksWide(matrix)
+		// WIDE 512 x n
+		// determine number of blocks to split original matrix
+		nblks := len(matrix[0]) / 8
 
 		trans := make([][]uint64, len(matrix))
 		for r := range trans {
 			trans[r] = make([]uint64, len(matrix[0]))
 		}
 
-		for id := 0; id < idx; id++ {
-			b := unravelWide(matrix, pad, id)
-			b.ravelToWide(trans, pad, id)
+		for id := 0; id < nblks; id++ {
+			b := unravelWide(matrix, id)
+			b.ravelToWide(trans, id)
 		}
 
 		// check
@@ -167,7 +165,7 @@ func TestTranspose512x512(t *testing.T) {
 
 func TestConcurrentTranspose(t *testing.T) {
 	// TALL
-	trange := []int{200, 511, 512, 513, 710, 5120, 5320}
+	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, m := range trange {
 		orig := SampleRandomTall(prng, m)
 		tr := ConcurrentTranspose(orig, nworkers)
@@ -184,7 +182,7 @@ func TestConcurrentTranspose(t *testing.T) {
 		}
 	}
 	// WIDE
-	trange = []int{7, 8, 9, 12, 25, 500}
+	trange = []int{8, 16, 24, 32, 40}
 	for _, m := range trange {
 		orig := SampleRandomWide(prng, m)
 		tr := ConcurrentTranspose(orig, nworkers)

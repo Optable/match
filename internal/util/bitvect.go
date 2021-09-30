@@ -10,101 +10,39 @@ type BitVect struct {
 	set [512 * 8]uint64
 }
 
-// findBlocksTall determines where a matrix should be split into blocks of 512
-// rows and 8 columns and by how much to pad the first block.
-func findBlocksTall(matrix [][]uint64) (nblk, pad int) {
-	// how much to front-pad messages so they are a multiple of 512 (512 bits)
-	pad = 512 - (len(matrix) % 512)
-	if pad == 512 {
-		pad = 0
-	}
-	// number of blocks
-	nblk = len(matrix) / 512
-	if pad > 0 {
-		nblk += 1
-	}
-
-	return nblk, pad
-}
-
-// findBlocksWide determines where a matrix should be split into blocks of 512
-// rows and 8 columns and by how much to pad the first block.
-func findBlocksWide(matrix [][]uint64) (nblk, pad int) {
-	// how much to front-pad messages so they are a multiple of 8 (512 bits)
-	pad = 8 - (len(matrix[0]) % 8)
-	if pad == 8 {
-		pad = 0
-	}
-	// number of blocks
-	nblk = len(matrix[0]) / 8
-	if pad > 0 {
-		nblk += 1
-	}
-
-	return nblk, pad
-}
-
 // unravelTall is a constructor used to create a BitVect from a 2D matrix of uint64.
-// The matrix must have 8 columns and 512-pad rows. Pad is the number of empty rows
-// that should be padded at the front of the 0th block. idx is the block target.
-func unravelTall(matrix [][]uint64, pad, idx int) BitVect {
+// The matrix must have 8 columns and 512 rows. idx is the block target.
+func unravelTall(matrix [][]uint64, idx int) BitVect {
 	set := [4096]uint64{}
-	// we only need to pad first block
-	if idx == 0 {
-		for i := 0; i < 512-pad; i++ {
-			copy(set[(i+pad)*8:(i+pad+1)*8], matrix[i])
-		}
-		return BitVect{set}
-	}
 
 	for i := 0; i < 512; i++ {
-		copy(set[(i)*8:(i+1)*8], matrix[(512*idx)-pad+i])
+		copy(set[(i)*8:(i+1)*8], matrix[(512*idx)+i])
 	}
 	return BitVect{set}
 }
 
 // unravelWide is a constructor used to create a BitVect from a 2D matrix of uint64.
-// The matrix must have 8-pad columns and 512 rows. Pad is the number of empty columns
-// that should be padded at the front of the 0th block. idx is the block target.
-func unravelWide(matrix [][]uint64, pad, idx int) BitVect {
+// The matrix must have 8 columns and 512 rows. idx is the block target.
+func unravelWide(matrix [][]uint64, idx int) BitVect {
 	set := [4096]uint64{}
-	// we only need to pad first block
-	if idx == 0 {
-		for i := 0; i < 512; i++ {
-			copy(set[(i*8)+pad:(i+1)*8], matrix[i][:8-pad])
-		}
-		return BitVect{set}
-	}
 
 	for i := 0; i < 512; i++ {
-		copy(set[(i*8):(i+1)*8], matrix[i][(8*idx)-pad:(8*idx)+8-pad])
+		copy(set[i*8:(i+1)*8], matrix[i][idx*8:(8*idx)+8])
 	}
 	return BitVect{set}
 }
 
 // ravelTall reconstructs a subsection of a tall (mx8) matrix from a BitVect.
-func (b BitVect) ravelToTall(matrix [][]uint64, pad, idx int) {
-	if idx == 0 {
-		for i := 0; i < 512-pad; i++ {
-			copy(matrix[i][:], b.set[(i+pad)*8:(i+pad+1)*8])
-		}
-	} else {
-		for i := 0; i < 512; i++ {
-			copy(matrix[(idx*512)-pad+i][:], b.set[i*8:(i+1)*8])
-		}
+func (b BitVect) ravelToTall(matrix [][]uint64, idx int) {
+	for i := 0; i < 512; i++ {
+		copy(matrix[(idx*512)+i][:], b.set[i*8:(i+1)*8])
 	}
 }
 
 // ravelWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
-func (b BitVect) ravelToWide(matrix [][]uint64, pad, idx int) {
-	if idx == 0 {
-		for i := 0; i < 512; i++ {
-			copy(matrix[i][:8-pad], b.set[(i*8)+pad:(i+1)*8])
-		}
-	} else {
-		for i := 0; i < 512; i++ {
-			copy(matrix[i][(idx*8)-pad:((idx+1)*8)-pad], b.set[(i*8):(i+1)*8])
-		}
+func (b BitVect) ravelToWide(matrix [][]uint64, idx int) {
+	for i := 0; i < 512; i++ {
+		copy(matrix[i][idx*8:(idx+1)*8], b.set[(i*8):(i+1)*8])
 	}
 }
 
@@ -159,7 +97,7 @@ func (b BitVect) CheckTranspose(t BitVect) bool {
 // ConcurrentTranspose tranposes a wide (512 row) or tall (8 column) matrix.
 // First it determines how many 512x512 bit blocks are necessary to contain the
 // matrix and hold the indices where the blocks should be split from the larger
-// matrix. It also determines by how much the first block needs to be padded.
+// matrix. The input matrix must have a multiple of 512 rows (tall) or 8 columns (wide)
 // The indices are passed into a channel which is being read by a worker pool of
 // goroutines. Each goroutine reads an index, generates a BitVect from the matrix
 // at that index (with padding if necessary), performs a cache-oblivious, in-place,
@@ -172,12 +110,12 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 		tall = true
 	}
 
-	// determine indices and padding to split original matrix
-	var idx, pad int
+	// determine number of blocks to split original matrix
+	var nblks int
 	if tall {
-		idx, pad = findBlocksTall(matrix)
+		nblks = len(matrix) / 512
 	} else {
-		idx, pad = findBlocksWide(matrix)
+		nblks = len(matrix[0]) / 8
 	}
 
 	// build output matrix
@@ -185,9 +123,6 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 	if tall {
 		nrows = 512
 		ncols = len(matrix) / 64
-		if len(matrix)%64 > 0 {
-			ncols += 1
-		}
 	} else {
 		nrows = len(matrix[0]) * 64
 		ncols = 8
@@ -198,8 +133,8 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 	}
 
 	// feed into buffered channel
-	ch := make(chan int, idx)
-	for i := 0; i < idx; i++ {
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
 		ch <- i
 	}
 	close(ch)
@@ -212,15 +147,15 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 			defer wg.Done()
 			if tall {
 				for id := range ch {
-					b := unravelTall(matrix, pad, id)
+					b := unravelTall(matrix, id)
 					b.transpose()
-					b.ravelToWide(trans, pad/64, id)
+					b.ravelToWide(trans, id)
 				}
 			} else {
 				for id := range ch {
-					b := unravelWide(matrix, pad, id)
+					b := unravelWide(matrix, id)
 					b.transpose()
-					b.ravelToTall(trans, pad*64, id)
+					b.ravelToTall(trans, id)
 				}
 			}
 		}()
