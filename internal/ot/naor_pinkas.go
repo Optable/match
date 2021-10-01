@@ -148,7 +148,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
-		if util.TestBitSetInByte(choices, i) == 1 {
+		if util.TestBitSetInByte(choices, i) == 0 {
 			// K0 = Kc = B
 			if err := writer.write(B); err != nil {
 				return err
