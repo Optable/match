@@ -121,8 +121,10 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		fmt.Printf("Compute pseudorandom code on %d messages of %d bits each took: %v\n", o.m, o.k, time.Since(start))
 		tran := time.Now()
 		// TODO number of rows of tr incorrect
-		tr := util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(d), 6))
+		tr := util.TransposeByteMatrix(d)
+		ttr := util.TransposeByteMatrix(tr)
 		fmt.Println("transposed size", len(tr), len(tr[0]))
+		fmt.Println("transposed size", len(ttr), len(ttr[0]))
 		pseudorandomChan <- tr
 		fmt.Printf("Compute transpose took: %v\n", time.Since(tran))
 	}()
@@ -155,5 +157,5 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	}
 	fmt.Printf("base OT of %d messages of %d bits each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 
-	return util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(t), 6))[:o.m], nil
+	return util.TransposeByteMatrix(t)[:o.m], nil
 }

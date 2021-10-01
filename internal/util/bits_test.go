@@ -37,11 +37,10 @@ func sampleUint64Matrix(prng *rand.Rand, u [][]uint64) {
 	}
 }
 
-/*
 // Note the double conversion of bytes to uint64s to bytes does
 // result in added 0s.
 func TestSliceConversions(t *testing.T) {
-	lengths := []int{1, 7, 8, 9, 100, 1000}
+	lengths := []int{8, 16, 24, 32, 40, 48}
 	for _, l := range lengths {
 		// Bytes to Uint64s
 		b := make([]byte, l)
@@ -55,11 +54,13 @@ func TestSliceConversions(t *testing.T) {
 				t.Errorf("Byte-to-Uint64-to-Byte conversion did not result in identical slices")
 			}
 		}
-
+	}
+	lengths = []int{2, 8, 16, 34, 100}
+	for _, l := range lengths {
 		// Uint64s to Bytes
-		u = make([]uint64, l)
+		u := make([]uint64, l)
 		sampleUint64Slice(prng, u)
-		b = ByteSliceFromUint64(u)
+		b := ByteSliceFromUint64(u)
 		uu := Uint64SliceFromByte(b)
 
 		//test
@@ -71,7 +72,7 @@ func TestSliceConversions(t *testing.T) {
 
 	}
 }
-*/
+
 func TestXorUint64(t *testing.T) {
 	lengths := []int{1, 7, 8, 9, 100, 1000}
 	for _, l := range lengths {

@@ -226,6 +226,13 @@ func colsToPad(m int) (pad int) {
 	return pad
 }
 
+// TransposeByteMatrix performs a concurrent cache-oblivious transpose on a byte matrix by first
+// converting from bytes to uint64 (and padding as needed), performing the tranpose on the uint64
+// matrix and then converting back to bytes.
+func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
+	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), 6))
+}
+
 // Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.
 // There must be a multiple of 8 bytes so they can be packed nicely into uint64.
 func Uint64SliceFromByte(b []byte) (u []uint64) {
