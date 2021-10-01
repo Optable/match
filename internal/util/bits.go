@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/bits"
 	"math/rand"
 	"sync"
 )
@@ -67,7 +68,7 @@ func InPlaceAndBytes(a, dst []byte) error {
 	}
 
 	for i := range dst {
-		dst[i] &= a[i]
+		dst[i] &= bits.Reverse8(a[i])
 	}
 
 	return nil

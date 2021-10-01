@@ -51,6 +51,20 @@ func TestTestBitSetInByte(t *testing.T) {
 				t.Fatalf("bit extraction failed")
 			}
 		}
+	}
+
+	b = []byte{161}
+	for i := 0; i < 8; i++ {
+		//fmt.Printf("%08b\n", 128>>(i%8))
+		if i == 0 || i == 7 || i == 2 {
+			if TestBitSetInByte(b, i) != 1 {
+				t.Fatalf("bit extraction failed")
+			}
+		} else {
+			if TestBitSetInByte(b, i) != 0 {
+				t.Fatalf("bit extraction failed")
+			}
+		}
 
 	}
 }

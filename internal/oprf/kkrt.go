@@ -79,16 +79,16 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	if _, err = crand.Read(s); err != nil {
 		return nil, err
 	}
+	fmt.Println("secret bits", s)
 
 	// act as receiver in baseOT to receive q^j
 	q := make([][]byte, o.k)
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
 		return nil, err
 	}
-	fmt.Println("received from Base OT - q", len(q), len(q[0]))
+
 	// transpose q to m x k matrix for easier row operations
 	q = util.TransposeByteMatrix(q)[:o.m]
-	fmt.Println("after transpose - q", len(q), len(q[0]))
 	// store oprf keys
 	// TODO is this the wrong number of keys?
 	keys = make([]Key, len(q))
@@ -96,6 +96,7 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 		keys[j] = Key{sk: sk, s: s, q: q[j]}
 	}
 
+	fmt.Println("q ", q[0])
 	return
 }
 
@@ -122,21 +123,18 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		fmt.Printf("Compute pseudorandom code on %d messages of %d bits each took: %v\n", o.m, o.k, time.Since(start))
 		tran := time.Now()
 		tr := util.TransposeByteMatrix(d)
-		fmt.Println("original size - d", len(d), len(d[0]))
-		fmt.Println("transposed size - tr", len(tr), len(tr[0]))
 		pseudorandomChan <- tr
 		fmt.Printf("Compute transpose took: %v\n", time.Since(tran))
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
 	t, err = util.SampleRandomBitMatrix(o.prng, o.k, o.m)
-	fmt.Println("sample matrix - t", len(t), len(t[0]))
 	if err != nil {
 		return nil, err
 	}
 
 	d := <-pseudorandomChan
-	fmt.Println("from pseudorandomChan - d (should be same as tr)", len(d), len(d[0]))
+
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, o.k)
 	for i := range baseMsgs {
@@ -154,8 +152,9 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
-	fmt.Printf("base OT of %d messages of %d bits each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 
-	fmt.Println("receive return matrix size", len(util.TransposeByteMatrix(t)[:o.m]), len(util.TransposeByteMatrix(t)[:o.m][0]))
+	fmt.Println("T: ", util.TransposeByteMatrix(t)[0])
+
+	fmt.Printf("base OT of %d messages of %d bytes each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 	return util.TransposeByteMatrix(t)[:o.m], nil
 }

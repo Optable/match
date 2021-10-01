@@ -29,6 +29,7 @@ func genChoiceString() [][]byte {
 	}
 	return choices
 }
+
 func initOPRFReceiver(oprf OPRF, choices [][]uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
