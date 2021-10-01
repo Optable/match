@@ -15,7 +15,7 @@ import (
 var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
-	baseCount = 511
+	baseCount = 512
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	choices   = genChoiceString()
 	k         = 512
@@ -24,7 +24,7 @@ var (
 func genChoiceString() [][]byte {
 	choices := make([][]byte, baseCount)
 	for i := range choices {
-		choices[i] = make([]byte, 65)
+		choices[i] = make([]byte, 64)
 		prng.Read(choices[i])
 	}
 	return choices

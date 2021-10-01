@@ -76,10 +76,14 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 
 	// sample choice bits for baseOT
 	s := make([]byte, o.k/8)
-	if _, err = crand.Read(s); err != nil {
+	for i := range s {
+		s[i] = 255
+	}
+	s[0] = 255
+	/*if _, err = crand.Read(s); err != nil {
 		return nil, err
 	}
-	fmt.Println("secret bits", s)
+	*/
 
 	// act as receiver in baseOT to receive q^j
 	q := make([][]byte, o.k)
@@ -95,8 +99,6 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	for j := range q {
 		keys[j] = Key{sk: sk, s: s, q: q[j]}
 	}
-
-	fmt.Println("q ", q[0])
 	return
 }
 
@@ -135,6 +137,9 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 
 	d := <-pseudorandomChan
 
+	fmt.Println("dim of sampled t: ", len(t), len(t[0]))
+	fmt.Println("dim of computed d: ", len(d), len(d[0]))
+
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, o.k)
 	for i := range baseMsgs {
@@ -153,7 +158,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		return nil, err
 	}
 
-	fmt.Println("T: ", util.TransposeByteMatrix(t)[0])
+	//fmt.Println("T: ", util.TransposeByteMatrix(t)[:o.m])
 
 	fmt.Printf("base OT of %d messages of %d bytes each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 	return util.TransposeByteMatrix(t)[:o.m], nil
