@@ -158,7 +158,9 @@ func TestNaorPinkasOT(t *testing.T) {
 		t.Fatalf("Error creating NaorPinkas OT: %s", err)
 	}
 
-	addr, err := initReceiver(ot, choices, msgBus, errs)
+	denseChoices := make([]byte, baseCount/8)
+	rand.Read(denseChoices)
+	addr, err := initReceiver(ot, denseChoices, msgBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,8 +206,9 @@ func TestNaorPinkasOT(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if !bytes.Equal(m, messages[i][choices[i]]) {
-			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
+		bit := util.TestBitSetInByte(denseChoices, i)
+		if !bytes.Equal(m, messages[i][bit]) {
+			t.Fatalf("OT failed got: %s, want %s", m, messages[i][bit])
 		}
 	}
 }

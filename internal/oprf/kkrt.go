@@ -47,7 +47,7 @@ func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = m + util.RowsToPad(m)
+		baseMsgLen[i] = (m + util.RowsToPad(m)) / 8
 	}
 
 	ot, err := ot.NewBaseOT(baseOT, ristretto, k, curve, baseMsgLen, cipherMode)
@@ -64,7 +64,7 @@ func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 // Send returns the OPRF keys
 func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
-	sk := make([]uint8, 16)
+	sk := make([]byte, 16)
 	if _, err = crand.Read(sk); err != nil {
 		return nil, nil
 	}
@@ -75,21 +75,22 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	// sample choice bits for baseOT
-	s := make([]uint8, o.k)
-	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
+	s := make([]byte, o.k/8)
+	if _, err = crand.Read(s); err != nil {
 		return nil, err
 	}
 
 	// act as receiver in baseOT to receive q^j
-	q := make([][]uint8, o.k)
+	q := make([][]byte, o.k)
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
 		return nil, err
 	}
-
+	fmt.Println("received from Base OT - q", len(q), len(q[0]))
 	// transpose q to m x k matrix for easier row operations
-	q = util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(q), 6))[:o.m]
-
+	q = util.TransposeByteMatrix(q)[:o.m]
+	fmt.Println("after transpose - q", len(q), len(q[0]))
 	// store oprf keys
+	// TODO is this the wrong number of keys?
 	keys = make([]Key, len(q))
 	for j := range q {
 		keys[j] = Key{sk: sk, s: s, q: q[j]}
@@ -120,24 +121,22 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		}
 		fmt.Printf("Compute pseudorandom code on %d messages of %d bits each took: %v\n", o.m, o.k, time.Since(start))
 		tran := time.Now()
-		// TODO number of rows of tr incorrect
 		tr := util.TransposeByteMatrix(d)
-		ttr := util.TransposeByteMatrix(tr)
-		fmt.Println("transposed size", len(tr), len(tr[0]))
-		fmt.Println("transposed size", len(ttr), len(ttr[0]))
+		fmt.Println("original size - d", len(d), len(d[0]))
+		fmt.Println("transposed size - tr", len(tr), len(tr[0]))
 		pseudorandomChan <- tr
 		fmt.Printf("Compute transpose took: %v\n", time.Since(tran))
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
 	t, err = util.SampleRandomBitMatrix(o.prng, o.k, o.m)
-	fmt.Println("sample matrix", len(t), len(t[0]))
+	fmt.Println("sample matrix - t", len(t), len(t[0]))
 	if err != nil {
 		return nil, err
 	}
 
 	d := <-pseudorandomChan
-
+	fmt.Println("from pseudorandomChan - d (should be same as tr)", len(d), len(d[0]))
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, o.k)
 	for i := range baseMsgs {
@@ -157,5 +156,6 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	}
 	fmt.Printf("base OT of %d messages of %d bits each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 
+	fmt.Println("receive return matrix size", len(util.TransposeByteMatrix(t)[:o.m]), len(util.TransposeByteMatrix(t)[:o.m][0]))
 	return util.TransposeByteMatrix(t)[:o.m], nil
 }

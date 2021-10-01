@@ -37,6 +37,24 @@ func sampleUint64Matrix(prng *rand.Rand, u [][]uint64) {
 	}
 }
 
+func TestTestBitSetInByte(t *testing.T) {
+	b := []byte{1}
+
+	for i := 0; i < 8; i++ {
+		//fmt.Printf("%08b\n", 128>>(i%8))
+		if i == 7 {
+			if TestBitSetInByte(b, i) != 1 {
+				t.Fatalf("bit extraction failed")
+			}
+		} else {
+			if TestBitSetInByte(b, i) != 0 {
+				t.Fatalf("bit extraction failed")
+			}
+		}
+
+	}
+}
+
 // Note the double conversion of bytes to uint64s to bytes does
 // result in added 0s.
 func TestSliceConversions(t *testing.T) {

@@ -73,6 +73,14 @@ func InPlaceAndBytes(a, dst []byte) error {
 	return nil
 }
 
+// TestBitSetInByte returns true if bit i is set in a byte slice.
+func TestBitSetInByte(b []byte, i int) byte {
+	if b[i/8]&(128>>(i%8)) > 0 {
+		return 1
+	}
+	return 0
+}
+
 func AndByte(a uint8, b []byte) []byte {
 	if a == 1 {
 		return b
@@ -120,11 +128,11 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
-		matrix[row] = make([]uint8, col+colsToPad(col))
+		matrix[row] = make([]uint8, (col+colsToPad(col))/8)
 	}
 
 	for row := range matrix {
-		if err := SampleBitSlice(prng, matrix[row]); err != nil {
+		if _, err := prng.Read(matrix[row]); err != nil {
 			return nil, err
 		}
 	}
