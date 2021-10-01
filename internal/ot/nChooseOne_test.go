@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/optable/match/internal/crypto"
 )
 
 var k = 512
@@ -143,7 +145,7 @@ func TestImprovedIKNPNCO(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedIKNPNCO(baseCount, k, tuple, Simplest, false, msgLen)
+	ot, err := NewImprovedIKNPNCO(baseCount, k, tuple, Simplest, crypto.AESCtrDrbg, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +164,7 @@ func TestImprovedIKNPNCO(t *testing.T) {
 			errs <- fmt.Errorf("Error creating improved IKNP NchooseOne OT extension: %s", err)
 		}
 
-		ot, err := NewImprovedIKNPNCO(baseCount, k, tuple, Simplest, false, msgLen)
+		ot, err := NewImprovedIKNPNCO(baseCount, k, tuple, Simplest, crypto.AESCtrDrbg, false, msgLen)
 		if err != nil {
 			errs <- err
 		}
@@ -225,7 +227,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedKKRT(baseCount, k, tuple, Simplest, false, msgLen)
+	ot, err := NewImprovedKKRT(baseCount, k, tuple, Simplest, crypto.AESCtrDrbg, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +246,7 @@ func TestImprovedKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating improved KKRT OT extension: %s", err)
 		}
 
-		ot, err := NewImprovedKKRT(baseCount, k, tuple, Simplest, false, msgLen)
+		ot, err := NewImprovedKKRT(baseCount, k, tuple, Simplest, crypto.AESCtrDrbg, false, msgLen)
 		if err != nil {
 			errs <- err
 		}

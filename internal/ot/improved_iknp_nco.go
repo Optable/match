@@ -1,15 +1,12 @@
 package ot
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
+	"crypto/rand"
 	"fmt"
 	"io"
-	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
-	"github.com/zeebo/blake3"
 )
 
 /*
@@ -30,11 +27,10 @@ type imprvIKNPNCO struct {
 	k      int
 	n      int
 	msgLen []int
-	prng   *mrand.Rand
-	g      *blake3.Hasher
+	drbg   int
 }
 
-func NewImprovedIKNPNCO(m, k, n, baseOt int, ristretto bool, msgLen []int) (imprvIKNPNCO, error) {
+func NewImprovedIKNPNCO(m, k, n, baseOt, drbg int, ristretto bool, msgLen []int) (imprvIKNPNCO, error) {
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -45,13 +41,8 @@ func NewImprovedIKNPNCO(m, k, n, baseOt int, ristretto bool, msgLen []int) (impr
 	if err != nil {
 		return imprvIKNPNCO{}, err
 	}
-	g := blake3.New()
 
-	// seed math rand with crypto/rand random number
-	var seed int64
-	binary.Read(crand.Reader, binary.BigEndian, &seed)
-	return imprvIKNPNCO{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen,
-		prng: mrand.New(mrand.NewSource(seed)), g: g}, nil
+	return imprvIKNPNCO{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, drbg: drbg}, nil
 }
 
 func (ext imprvIKNPNCO) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -66,7 +57,7 @@ func (ext imprvIKNPNCO) Send(messages [][][]byte, rw io.ReadWriter) (err error) 
 
 	// sample choice bits for baseOT
 	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
+	if err = util.SampleBitSlice(rand.Reader, s); err != nil {
 		return err
 	}
 
@@ -84,7 +75,10 @@ func (ext imprvIKNPNCO) Send(messages [][][]byte, rw io.ReadWriter) (err error) 
 			return err
 		}
 
-		q[col] = crypto.PseudorandomGeneratorWithBlake3(ext.g, seeds[col], ext.m)
+		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m)
+		if err != nil {
+			return err
+		}
 
 		if s[col] == 0 {
 			q[col], err = util.XorBytes(u, q[col])
@@ -131,7 +125,7 @@ func (ext imprvIKNPNCO) Receive(choices []uint8, messages [][]byte, rw io.ReadWr
 
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = crand.Read(sk); err != nil {
+	if _, err = rand.Read(sk); err != nil {
 		return nil
 	}
 
@@ -151,7 +145,7 @@ func (ext imprvIKNPNCO) Receive(choices []uint8, messages [][]byte, rw io.ReadWr
 
 	d = util.Transpose(d)
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(ext.prng, 2*ext.k, ext.k)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k)
 	if err != nil {
 		return err
 	}
@@ -173,11 +167,17 @@ func (ext imprvIKNPNCO) Receive(choices []uint8, messages [][]byte, rw io.ReadWr
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][1], ext.m)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m)
+		if err != nil {
+			return err
+		}
 
 		t[col], _ = util.XorBytes(d[col], u)
 
-		u = crypto.PseudorandomGeneratorWithBlake3(ext.g, baseMsgs[col][0], ext.m)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m)
+		if err != nil {
+			return err
+		}
 
 		u, _ = util.XorBytes(u, t[col])
 

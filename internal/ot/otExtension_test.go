@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/optable/match/internal/crypto"
 )
 
 func TestIKNP(t *testing.T) {
@@ -158,7 +160,7 @@ func TestAlsz(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOT, err := NewAlsz(baseCount, 128, Simplest, false, msgLen)
+	receiverOT, err := NewAlsz(baseCount, 128, Simplest, crypto.AESCtrDrbg, false, msgLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +179,7 @@ func TestAlsz(t *testing.T) {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		senderOT, err := NewAlsz(baseCount, 128, Simplest, false, msgLen)
+		senderOT, err := NewAlsz(baseCount, 128, Simplest, crypto.AESCtrDrbg, false, msgLen)
 		if err != nil {
 			errs <- err
 		}
