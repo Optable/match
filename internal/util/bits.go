@@ -76,7 +76,7 @@ func InPlaceAndBytes(a, dst []byte) error {
 
 // TestBitSetInByte returns true if bit i is set in a byte slice.
 func TestBitSetInByte(b []byte, i int) byte {
-	if b[i/8]&(128>>(i%8)) > 0 {
+	if b[i/8]&(1<<(i%8)) > 0 {
 		return 1
 	}
 	return 0
