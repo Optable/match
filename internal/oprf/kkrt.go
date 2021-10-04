@@ -79,7 +79,7 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	for i := range s {
 		s[i] = 255
 	}
-	s[0] = 255
+	s[0] = 1
 	/*if _, err = crand.Read(s); err != nil {
 		return nil, err
 	}
@@ -91,8 +91,14 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 		return nil, err
 	}
 
+	//fmt.Printf("Received q:\n%v", q)
 	// transpose q to m x k matrix for easier row operations
-	q = util.TransposeByteMatrix(q)[:o.m]
+	fmt.Println(q[:10])
+	fmt.Printf("Intermediate steps of transpose: ConcurrentTranspose(Uint64MatrixFromByte):\n%v", util.Uint64MatrixFromByte(q)[:10])
+	q = util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(q), 6))
+	//q = util.TransposeByteMatrix(q)[:o.m]
+	fmt.Printf("Transposed q:\n%v", q[:10])
+
 	// store oprf keys
 	// TODO is this the wrong number of keys?
 	keys = make([]Key, len(q))
@@ -140,13 +146,18 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	fmt.Println("dim of sampled t: ", len(t), len(t[0]))
 	fmt.Println("dim of computed d: ", len(d), len(d[0]))
 
+	t, _ = util.SampleZerosBitMatrix(o.prng, o.k, o.m)
+	d, _ = util.SampleOnesBitMatrix(o.prng, o.k, o.m)
+
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, o.k)
 	for i := range baseMsgs {
-		err = util.InPlaceXorBytes(t[i], d[i])
-		if err != nil {
-			return nil, err
-		}
+		/*
+			err = util.InPlaceXorBytes(t[i], d[i])
+			if err != nil {
+				return nil, err
+			}
+		*/
 		baseMsgs[i] = make([][]byte, 2)
 		baseMsgs[i][0] = t[i]
 		baseMsgs[i][1] = d[i]

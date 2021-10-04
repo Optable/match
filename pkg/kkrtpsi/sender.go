@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
@@ -94,7 +93,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err := oprf.NewImprovedKKRT(int(oprfInputSize), k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+		//oSender, err := oprf.NewImprovedKKRT(int(oprfInputSize), k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+		oSender, err := oprf.NewKKRT(int(oprfInputSize), k, ot.NaorPinkas, false)
 		if err != nil {
 			return err
 		}

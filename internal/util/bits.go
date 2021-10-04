@@ -73,8 +73,10 @@ func InPlaceAndBytes(a, dst []byte) error {
 }
 
 // TestBitSetInByte returns true if bit i is set in a byte slice.
+// it extracts bits from the least significant bit (i = 0) to the
+// most significant bit (i = 7)
 func TestBitSetInByte(b []byte, i int) byte {
-	if b[i/8]&(1<<(i%8)) > 0 {
+	if b[i/8]&(128>>(i%8)) > 0 {
 		return 1
 	}
 	return 0
@@ -133,6 +135,32 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	for row := range matrix {
 		if _, err := prng.Read(matrix[row]); err != nil {
 			return nil, err
+		}
+	}
+
+	return matrix, nil
+}
+
+func SampleZerosBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
+	// instantiate matrix
+	matrix := make([][]uint8, row)
+	for row := range matrix {
+		matrix[row] = make([]uint8, (col+RowsToPad(col))/8)
+	}
+
+	return matrix, nil
+}
+
+func SampleOnesBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
+	// instantiate matrix
+	matrix := make([][]uint8, row)
+	for row := range matrix {
+		matrix[row] = make([]uint8, (col+RowsToPad(col))/8)
+	}
+
+	for row := range matrix {
+		for col := range matrix[row] {
+			matrix[row][col] = byte(1)
 		}
 	}
 
@@ -242,13 +270,13 @@ func ByteSliceFromUint64(u []uint64) (b []byte) {
 	b = make([]byte, len(u)*8)
 
 	for i, e := range u {
-		binary.LittleEndian.PutUint64(b[i*8:], e)
+		binary.BigEndian.PutUint64(b[i*8:], e)
 	}
 
 	return b
 }
 
-// FromByteToUint64Matrix converts matrix of bytes to matrix of uint64s.
+// Uint64MatrixFromByte converts matrix of bytes to matrix of uint64s.
 // pad is number of rows containing 0s which will be added to end of matrix.
 // Assume each row contains 64 bytes (512 bits).
 func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
@@ -258,6 +286,7 @@ func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
 	for i := 0; i < len(b); i++ {
 		u[i] = Uint64SliceFromByte(b[i])
 	}
+
 	for j := 0; j < pad; j++ {
 		u[len(b)+j] = make([]uint64, len(u[0]))
 	}

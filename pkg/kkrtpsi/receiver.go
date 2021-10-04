@@ -7,7 +7,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
@@ -85,7 +84,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oReceiver, err := oprf.NewImprovedKKRT(int(oprfInputSize), k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+		//oReceiver, err := oprf.NewImprovedKKRT(int(oprfInputSize), k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+		oReceiver, err := oprf.NewKKRT(int(oprfInputSize), k, ot.NaorPinkas, false)
 		if err != nil {
 			return err
 		}
