@@ -32,14 +32,14 @@ func unravelWide(matrix [][]uint64, idx int) BitVect {
 	return BitVect{set}
 }
 
-// ravelTall reconstructs a subsection of a tall (mx8) matrix from a BitVect.
+// ravelToTall reconstructs a subsection of a tall (mx8) matrix from a BitVect.
 func (b BitVect) ravelToTall(matrix [][]uint64, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[(idx*512)+i][:], b.set[i*8:(i+1)*8])
 	}
 }
 
-// ravelWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
+// ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
 func (b BitVect) ravelToWide(matrix [][]uint64, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[i][idx*8:(idx+1)*8], b.set[(i*8):(i+1)*8])
@@ -672,7 +672,7 @@ func swap(a, b int, vect *BitVect, mask uint64, width int) {
 	vect.set[b] = vect.set[b] ^ (t >> width)
 }
 
-// unrolledTranspose64 performs a bitwise transpose on a 64x64 bit matrix which
+// transpose64 performs a bitwise transpose on a 64x64 bit matrix which
 // is held as a contiguous uint64 array in a BitVect. Instead of looping and
 // generating the mask with each loop, the unrolled version is fully declared
 // which boosts performance at the expense of verbosity.

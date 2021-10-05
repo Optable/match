@@ -76,7 +76,7 @@ func InPlaceAndBytes(a, dst []byte) error {
 // it extracts bits from the least significant bit (i = 0) to the
 // most significant bit (i = 7)
 func TestBitSetInByte(b []byte, i int) byte {
-	if b[i/8]&(128>>(i%8)) > 0 {
+	if b[i/8]&(1<<(i%8)) > 0 {
 		return 1
 	}
 	return 0
@@ -141,6 +141,8 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	return matrix, nil
 }
 
+// SampleZerosBitMatrix generates a matrix with row rows and col columns where
+// every bit is set to 0.
 func SampleZerosBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
@@ -151,6 +153,8 @@ func SampleZerosBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	return matrix, nil
 }
 
+// SampleOnesBitMatrix generates a matrix with row rows and col columns where
+// every bit is set to 1.
 func SampleOnesBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
@@ -160,7 +164,7 @@ func SampleOnesBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 
 	for row := range matrix {
 		for col := range matrix[row] {
-			matrix[row][col] = byte(1)
+			matrix[row][col] = byte(255)
 		}
 	}
 
@@ -294,7 +298,7 @@ func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
 	return u
 }
 
-// FromUint64ToByteMatrix converts matrix of uint64s to matrix of bytes.
+// ByteMatrixFromUint64 converts matrix of uint64s to matrix of bytes.
 // If any padding was added, it is left untouched.
 func ByteMatrixFromUint64(u [][]uint64) (b [][]byte) {
 	b = make([][]byte, len(u))
