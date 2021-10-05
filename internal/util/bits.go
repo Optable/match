@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"runtime"
 )
 
 var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for bit operations")
@@ -212,7 +213,7 @@ func PadTill512(m int) (pad int) {
 // converting from bytes to uint64 (and padding as needed), performing the transpose on the uint64
 // matrix and then converting back to bytes.
 func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
-	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), 6))
+	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), runtime.NumCPU()))
 }
 
 // Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.
