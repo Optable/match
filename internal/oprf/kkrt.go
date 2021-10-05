@@ -13,10 +13,8 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
+	"crypto/rand"
 	"io"
-	mrand "math/rand"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
@@ -31,9 +29,6 @@ var (
 type kkrt struct {
 	baseOT ot.OT // base OT under the hood
 	m      int   // number of message tuples
-	k      int   // width of base OT binary matrix as well as
-	// pseudorandom code output length
-	prng *mrand.Rand // source of randomness
 }
 
 // NewKKRT returns a KKRT OPRF
@@ -41,7 +36,7 @@ type kkrt struct {
 // k: width of OT extension binary matrix
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
-func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
+func newKKRT(m, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length (m (padded to multiple of 512) / 8) bytes
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -53,17 +48,14 @@ func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 		return kkrt{}, err
 	}
 
-	// seed math rand with crypto/rand random number
-	var seed int64
-	binary.Read(crand.Reader, binary.BigEndian, &seed)
-	return kkrt{baseOT: ot, m: m, k: k, prng: mrand.New(mrand.NewSource(seed))}, nil
+	return kkrt{baseOT: ot, m: m}, nil
 }
 
 // Send returns the OPRF keys
 func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]byte, 16)
-	if _, err = crand.Read(sk); err != nil {
+	if _, err = rand.Read(sk); err != nil {
 		return nil, nil
 	}
 
@@ -73,13 +65,13 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	// sample choice bits for baseOT
-	s := make([]byte, o.k/8)
-	if _, err = crand.Read(s); err != nil {
+	s := make([]byte, k/8)
+	if _, err = rand.Read(s); err != nil {
 		return nil, err
 	}
 
 	// act as receiver in baseOT to receive q^j
-	q := make([][]byte, o.k)
+	q := make([][]byte, k)
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
 		return nil, err
 	}
@@ -118,7 +110,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
-	t, err = util.SampleRandomDenseBitMatrix(o.prng, o.k, o.m)
+	t, err = util.SampleRandomDenseBitMatrix(rand.Reader, k, o.m)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +118,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	d := <-pseudorandomChan
 
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
-	baseMsgs := make([][][]byte, o.k)
+	baseMsgs := make([][][]byte, k)
 	for i := range baseMsgs {
 
 		err = util.InPlaceXorBytes(t[i], d[i])

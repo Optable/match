@@ -93,8 +93,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		//oSender, err := oprf.NewImprovedKKRT(int(oprfInputSize), k, ot.NaorPinkas, crypto.AESCtrDrbgDense, false)
-		oSender, err := oprf.NewKKRT(int(oprfInputSize), k, ot.NaorPinkas, false)
+		oSender, err := oprf.NewOPRF(oprf.KKRT, int(oprfInputSize), ot.NaorPinkas)
 		if err != nil {
 			return err
 		}

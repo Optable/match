@@ -1,6 +1,7 @@
 package oprf
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/optable/match/internal/crypto"
@@ -12,12 +13,29 @@ OPRF interface
 */
 
 const (
+	k = 512 // width of base OT binary matrix as well as
+	// pseudorandom code output length
 	KKRT = iota
+	ImprvKKRT
 )
+
+var ErrUnknownOPRF = fmt.Errorf("cannot create an OPRF that follows an unknown protocol")
 
 type OPRF interface {
 	Send(rw io.ReadWriter) ([]Key, error)
 	Receive(choices [][]uint8, rw io.ReadWriter) ([][]byte, error)
+}
+
+// NewOPRF returns an OPRF of type t
+func NewOPRF(t, m, baseOT int) (OPRF, error) {
+	switch t {
+	case KKRT:
+		return newKKRT(m, baseOT, false)
+	case ImprvKKRT:
+		return newImprovedKKRT(m, baseOT, crypto.AESCtrDrbgDense, false)
+	default:
+		return nil, ErrUnknownOPRF
+	}
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)

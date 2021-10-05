@@ -24,9 +24,7 @@ import (
 type imprvKKRT struct {
 	baseOT ot.OT // base OT under the hood
 	m      int   // number of message tuples
-	k      int   // width of base OT binary matrix as well as
-	// pseudorandom code output length
-	drbg int
+	drbg   int
 }
 
 // NewKKRT returns a KKRT OPRF
@@ -34,7 +32,7 @@ type imprvKKRT struct {
 // k: width of OT extension binary matrix
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
-func NewImprovedKKRT(m, k, baseOT, drbg int, ristretto bool) (OPRF, error) {
+func newImprovedKKRT(m, baseOT, drbg int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -46,7 +44,7 @@ func NewImprovedKKRT(m, k, baseOT, drbg int, ristretto bool) (OPRF, error) {
 		return imprvKKRT{}, err
 	}
 
-	return imprvKKRT{baseOT: ot, m: m, k: k, drbg: drbg}, nil
+	return imprvKKRT{baseOT: ot, m: m, drbg: drbg}, nil
 }
 
 // Send returns the OPRF keys
@@ -63,13 +61,13 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	// sample choice bits for baseOT
-	s := make([]byte, ext.k/8)
+	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
 		return nil, err
 	}
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
-	seeds := make([][]uint8, ext.k)
+	seeds := make([][]uint8, k)
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return nil, err
 	}
@@ -77,7 +75,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// receive masked columns u
 	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	u := make([]byte, paddedLen)
-	q := make([][]byte, ext.k)
+	q := make([][]byte, k)
 	for row := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return nil, err
@@ -127,12 +125,12 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	}()
 
 	// sample 2*k x k/8 byte matrix (2*k x k bit matrix)
-	seeds, err := util.SampleRandomDenseBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
+	seeds, err := util.SampleRandomDenseBitMatrix(rand.Reader, 2*k, k/8)
 	if err != nil {
 		return nil, err
 	}
 
-	baseMsgs := make([][][]byte, ext.k)
+	baseMsgs := make([][][]byte, k)
 	for j := range baseMsgs {
 		baseMsgs[j] = make([][]byte, 2)
 		baseMsgs[j][0] = seeds[2*j]
@@ -146,7 +144,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 
 	d := <-pseudorandomChan
 
-	t = make([][]byte, ext.k)
+	t = make([][]byte, k)
 	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
