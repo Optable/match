@@ -14,7 +14,6 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 
 import (
 	"crypto/rand"
-	"fmt"
 	"io"
 
 	"github.com/optable/match/internal/crypto"
@@ -74,7 +73,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return nil, err
 	}
-	fmt.Println("received")
+
 	// receive masked columns u
 	paddedLen := (ext.m + util.RowsToPad(ext.m)) / 8
 	u := make([]byte, paddedLen)
@@ -122,13 +121,13 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	go func() {
 		d := make([][]byte, ext.m)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(sk, choices[i])
+			d[i] = crypto.PseudorandomCodeDense(sk, choices[i])
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
+	seeds, err := util.SampleRandomDenseBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +143,6 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
-	fmt.Println("sent")
 
 	d := <-pseudorandomChan
 

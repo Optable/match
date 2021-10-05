@@ -125,7 +125,7 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 
 // SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
 // with pseudorandom bit values
-func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
+func SampleRandomDenseBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
@@ -134,6 +134,24 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 
 	for row := range matrix {
 		if _, err := prng.Read(matrix[row]); err != nil {
+			return nil, err
+		}
+	}
+
+	return matrix, nil
+}
+
+// SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
+// with pseudorandom bit values
+func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
+	// instantiate matrix
+	matrix := make([][]uint8, row)
+	for row := range matrix {
+		matrix[row] = make([]uint8, col)
+	}
+
+	for row := range matrix {
+		if err := SampleBitSlice(prng, matrix[row]); err != nil {
 			return nil, err
 		}
 	}
@@ -223,7 +241,6 @@ func SampleRandomWide(r *rand.Rand, n int) [][]uint64 {
 // if len(dst) < len(src) * 8, nothing will be done
 func ExtractBytesToBits(src, dst []byte) {
 	if len(dst) != len(src)*8 {
-		fmt.Println(len(dst), len(src))
 		return
 	}
 

@@ -32,17 +32,12 @@ type Key struct {
 // Encode computes and returns OPRF(k, in)
 func (k Key) Encode(in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCode(k.sk, in)
-	//fmt.Println("After pseudorandomCode", len(out), out)
+	out = crypto.PseudorandomCodeDense(k.sk, in)
 
 	if err = util.InPlaceAndBytes(k.s, out); err != nil {
 		return nil, err
 	}
 
-	//fmt.Println("After And", len(out), out)
 	err = util.InPlaceXorBytes(k.q, out)
-	//fmt.Println("After Xor", len(out), out)
-
-	//fmt.Println("q: ", k.q)
 	return
 }

@@ -14,6 +14,7 @@ import (
 const (
 	MrandDrbg = iota
 	AESCtrDrbg
+	AESCtrDrbgDense
 	HashDrbg
 	HmacDrbg
 )
@@ -29,6 +30,8 @@ func PseudorandomGenerate(drbg int, seed []byte, length int) ([]byte, error) {
 		return prgWithSeed(seed, length), nil
 	case AESCtrDrbg:
 		return aesCTRDrbg(seed, length), nil
+	case AESCtrDrbgDense:
+		return aesCTRDrbgDense(seed, length), nil
 	case HashDrbg:
 		return nil, ErrNotImplemented
 	case HmacDrbg:
@@ -82,4 +85,20 @@ func aesCTRDrbg(seed []byte, length int) (dst []byte) {
 	// extract pseudorandom bytes to bits
 	util.ExtractBytesToBits(tmp, dst)
 	return dst[:length]
+}
+
+func aesCTRDrbgDense(seed []byte, length int) (dst []byte) {
+	// need expand?
+	if length < len(seed) {
+		return seed[:length]
+	}
+
+	var newSeed [48]byte
+	copy(newSeed[:], seed)
+	drbg := NewDRBG(&newSeed)
+
+	dst = make([]byte, length)
+	drbg.Fill(dst)
+
+	return dst
 }

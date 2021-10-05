@@ -153,7 +153,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbgDense, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbgDense, false)
 	if err != nil {
 		t.Fatal(err)
 	}

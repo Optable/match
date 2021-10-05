@@ -114,7 +114,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		start := time.Now()
 		d := make([][]byte, o.m)
 		for i := 0; i < o.m; i++ {
-			d[i] = crypto.PseudorandomCode(sk, choices[i])
+			d[i] = crypto.PseudorandomCodeDense(sk, choices[i])
 		}
 		fmt.Printf("Compute pseudorandom code on %d messages of %d bits each took: %v\n", o.m, o.k, time.Since(start))
 		tran := time.Now()
@@ -124,7 +124,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
-	t, err = util.SampleRandomBitMatrix(o.prng, o.k, o.m)
+	t, err = util.SampleRandomDenseBitMatrix(o.prng, o.k, o.m)
 	if err != nil {
 		return nil, err
 	}
