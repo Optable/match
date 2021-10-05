@@ -280,48 +280,27 @@ func (b *BitVect) transpose() {
 	for blk := 0; blk < 8; blk++ {
 		for col := 0; col < 8; col++ {
 			//transpose64(b, blk, col)
-			unrolledTranspose64(b, blk, col)
+			transpose64(b, blk, col)
 		}
 	}
 }
 
-// transpose64 performs a bitwise transpose on a 64x64 bit matrix which is
-// held as a contiguous uint64 array in a BitVect. We want to access a column
-// of 64 uints ()
-func transpose64(vect *BitVect, vblock, col int) {
-	var width, k int = 32, 0
-	var mask, t uint64 = 0x00000000FFFFFFFF, 0
-	// each vertical block really jumps 64*8 elements (512)
-	jmp := vblock*(64*8) + col
-
-	for width != 0 {
-		for k = 0; k < 64; k = ((k | width) + 1) &^ width {
-			t = (vect.set[jmp+(k*64)] ^ (vect.set[jmp+(k|width)] >> width)) & mask
-			vect.set[jmp+k] = vect.set[jmp+k] ^ t
-			vect.set[jmp+(k|width)] = vect.set[jmp+(k|width)] ^ (t << width)
-		}
-
-		width >>= 1
-		mask ^= mask << width
-	}
-}
-
-// swap swaps two binary elements in a 64x64 bit matrix which is held as a
-// contiguous uint64 array in a BitVect.
+// swap swaps two rows of masked binary elements in a 64x64 bit matrix which is
+// held as a contiguous uint64 array in a BitVect.
 func swap(a, b int, vect *BitVect, mask uint64, width int) {
-	t := (vect.set[a] ^ (vect.set[b] >> width)) & mask
+	t := (vect.set[a] ^ (vect.set[b] << width)) & mask
 	vect.set[a] = vect.set[a] ^ t
-	vect.set[b] = vect.set[b] ^ (t << width)
+	vect.set[b] = vect.set[b] ^ (t >> width)
 }
 
 // unrolledTranspose64 performs a bitwise transpose on a 64x64 bit matrix which
 // is held as a contiguous uint64 array in a BitVect. Instead of looping and
 // generating the mask with each loop, the unrolled version is fully declared
 // which boosts performance at the expense of verbosity.
-func unrolledTranspose64(vect *BitVect, vblock, col int) {
+func transpose64(vect *BitVect, vblock, col int) {
 	jmp := vblock*(64*8) + col
 	// 32x32 swap
-	var mask uint64 = 0x00000000FFFFFFFF
+	var mask uint64 = 0xFFFFFFFF00000000
 	var width int = 32
 	swap(jmp+(8*0), jmp+(8*32), vect, mask, width)  // 0 and 32
 	swap(jmp+(8*1), jmp+(8*33), vect, mask, width)  // 1 and 33
@@ -356,7 +335,7 @@ func unrolledTranspose64(vect *BitVect, vblock, col int) {
 	swap(jmp+(8*30), jmp+(8*62), vect, mask, width) // 30 and 62
 	swap(jmp+(8*31), jmp+(8*63), vect, mask, width) // 31 and 63
 	// 16x16 swap
-	mask = 0x0000FFFF0000FFFF
+	mask = 0xFFFF0000FFFF0000
 	width = 16
 	swap(jmp+(8*0), jmp+(8*16), vect, mask, width)  // 0 and 16
 	swap(jmp+(8*1), jmp+(8*17), vect, mask, width)  // 1 and 17
@@ -392,7 +371,7 @@ func unrolledTranspose64(vect *BitVect, vblock, col int) {
 	swap(jmp+(8*46), jmp+(8*62), vect, mask, width) // 46 and 62
 	swap(jmp+(8*47), jmp+(8*63), vect, mask, width) // 47 and 63
 	// 8x8 swap
-	mask = 0x00FF00FF00FF00FF
+	mask = 0xFF00FF00FF00FF00
 	width = 8
 	swap(jmp+(8*0), jmp+(8*8), vect, mask, width)  // 0 and 8
 	swap(jmp+(8*1), jmp+(8*9), vect, mask, width)  // 1 and 9
@@ -430,7 +409,7 @@ func unrolledTranspose64(vect *BitVect, vblock, col int) {
 	swap(jmp+(8*54), jmp+(8*62), vect, mask, width) // 54 and 62
 	swap(jmp+(8*55), jmp+(8*63), vect, mask, width) // 55 and 63
 	// 4x4 swap
-	mask = 0x0F0F0F0F0F0F0F0F
+	mask = 0xF0F0F0F0F0F0F0F0
 	width = 4
 	swap(jmp+(8*0), jmp+(8*4), vect, mask, width) // 0 and 4
 	swap(jmp+(8*1), jmp+(8*5), vect, mask, width) // 1 and 5
@@ -472,7 +451,7 @@ func unrolledTranspose64(vect *BitVect, vblock, col int) {
 	swap(jmp+(8*58), jmp+(8*62), vect, mask, width) // 58 and 62
 	swap(jmp+(8*59), jmp+(8*63), vect, mask, width) // 59 and 63
 	// 2x2 swap
-	mask = 0x3333333333333333
+	mask = 0xcccccccccccccccc
 	width = 2
 	swap(jmp+(8*0), jmp+(8*2), vect, mask, width) // 0 and 2
 	swap(jmp+(8*1), jmp+(8*3), vect, mask, width) // 1 and 3
@@ -522,7 +501,7 @@ func unrolledTranspose64(vect *BitVect, vblock, col int) {
 	swap(jmp+(8*60), jmp+(8*62), vect, mask, width) // 60 and 62
 	swap(jmp+(8*61), jmp+(8*63), vect, mask, width) // 61 and 63
 	// 1x1 swap
-	mask = 0x5555555555555555
+	mask = 0xaaaaaaaaaaaaaaaa
 	width = 1
 	swap(jmp+(8*0), jmp+(8*1), vect, mask, width) // 0 and 1
 

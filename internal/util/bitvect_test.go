@@ -163,6 +163,33 @@ func TestTranspose512x512(t *testing.T) {
 	*/
 }
 
+func TestIfLittleEndianTranspose(t *testing.T) {
+	tr := genTranBlock()
+	// 0101....
+	// 0101....
+	// 0101....
+	//tr.printBits(64)
+	tr.transpose()
+	//tr.printBits(64)
+	// If Little Endian, we expect the resulting rows to be
+	// 1111....
+	// 0000....
+	// 1111....
+
+	// check if Little Endian
+	for i := 0; i < 512; i++ {
+		if i%2 == 1 { // odd
+			if tr.set[i*8] != 0 {
+				t.Fatalf("transpose appears to be Big Endian")
+			}
+		} else {
+			if tr.set[i*8] != 0xFFFFFFFFFFFFFFFF {
+				t.Fatalf("transpose appears to be Big Endian")
+			}
+		}
+	}
+}
+
 func TestConcurrentTranspose(t *testing.T) {
 	// TALL
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}

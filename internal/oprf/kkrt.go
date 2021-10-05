@@ -79,7 +79,7 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 	for i := range s {
 		s[i] = 255
 	}
-	s[0] = 1
+	s[5] = 1
 	/*if _, err = crand.Read(s); err != nil {
 		return nil, err
 	}
@@ -93,12 +93,22 @@ func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
 
 	//fmt.Printf("Received q:\n%v", q)
 	// transpose q to m x k matrix for easier row operations
-	fmt.Println(q[:10])
-	fmt.Printf("Intermediate steps of transpose: ConcurrentTranspose(Uint64MatrixFromByte):\n%v", util.Uint64MatrixFromByte(q)[:10])
-	q = util.ByteMatrixFromUint64(util.ConcurrentTranspose(util.Uint64MatrixFromByte(q), 6))
+	//fmt.Println(q[:10])
+	fmt.Println("Original q:\n------------")
+	for i, row := range q {
+		fmt.Println(i, " - ", row)
+	}
+	//fmt.Printf("Intermediate steps of transpose: ConcurrentTranspose(Uint64MatrixFromByte):\n%v", util.Uint64MatrixFromByte(q)[:10])
+	q = util.TransposeByteMatrix(q)
 	//q = util.TransposeByteMatrix(q)[:o.m]
-	fmt.Printf("Transposed q:\n%v", q[:10])
+	//fmt.Printf("Transposed q:\n%v", q[:10])
 
+	fmt.Println("Transposed q:\n------------")
+	for i, row := range q {
+		fmt.Println(i, " - ", row)
+	}
+	fmt.Println("Choice bytes:", s)
+	//fmt.Printf("Choice bits %064b\n", s)
 	// store oprf keys
 	// TODO is this the wrong number of keys?
 	keys = make([]Key, len(q))

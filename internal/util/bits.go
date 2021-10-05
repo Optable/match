@@ -248,7 +248,7 @@ func RowsToPad(m int) (pad int) {
 }
 
 // TransposeByteMatrix performs a concurrent cache-oblivious transpose on a byte matrix by first
-// converting from bytes to uint64 (and padding as needed), performing the tranpose on the uint64
+// converting from bytes to uint64 (and padding as needed), performing the transpose on the uint64
 // matrix and then converting back to bytes.
 func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
 	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), 6))
@@ -270,7 +270,7 @@ func ByteSliceFromUint64(u []uint64) (b []byte) {
 	b = make([]byte, len(u)*8)
 
 	for i, e := range u {
-		binary.BigEndian.PutUint64(b[i*8:], e)
+		binary.LittleEndian.PutUint64(b[i*8:], e)
 	}
 
 	return b
