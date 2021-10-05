@@ -116,7 +116,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// the corresponding ID is the value
 		var localEncodings [cuckoo.Nhash]map[uint64][]byte
 		for i := range localEncodings {
-			localEncodings[i] = make(map[uint64][]byte)
+			localEncodings[i] = make(map[uint64][]byte, n)
 		}
 		// hash local oprf output
 		hasher, _ := hash.New(hash.Highway, seeds[0])
