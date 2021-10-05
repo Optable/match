@@ -1,14 +1,14 @@
 package util
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
-	"sync"
 )
 
-var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations")
+var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for bit operations")
 
-// XorBytes xors each byte from a with b and returns dst
+// XorBytes XORS each byte from a with b and returns dst
 // if a and b are the same length
 func XorBytes(a, b []byte) (dst []byte, err error) {
 	var n = len(b)
@@ -25,7 +25,7 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// Inplace XorBytes xors each byte from a with b and returns dst
+// Inplace XorBytes XORS each byte from a with b and returns dst
 // if a and b are the same length
 func InPlaceXorBytes(a, dst []byte) error {
 	var n = len(dst)
@@ -40,7 +40,7 @@ func InPlaceXorBytes(a, dst []byte) error {
 	return nil
 }
 
-// AndBytes returns the binary and of each byte in a and b
+// AndBytes returns the binary AND of each byte in a and b
 // if a and b are the same length
 func AndBytes(a, b []byte) (dst []byte, err error) {
 	n := len(b)
@@ -57,20 +57,22 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InplaceAndBytes returns the binary and of each byte in a and b
-// if a and b are the same length
+// InplaceAndBytes replaces the bytes in dst with the binary AND of
+// each byte with the corresponding byte in a (if a and b are the
+// same length).
 func InPlaceAndBytes(a, dst []byte) error {
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
 	}
 
 	for i := range dst {
-		dst[i] &= a[i]
+		dst[i] = dst[i] & a[i]
 	}
 
 	return nil
 }
 
+// AndByte returns the binary AND of each byte in b with a.
 func AndByte(a uint8, b []byte) []byte {
 	if a == 1 {
 		return b
@@ -79,7 +81,17 @@ func AndByte(a uint8, b []byte) []byte {
 	return make([]byte, len(b))
 }
 
-// Transpose returns the transpose of a 2D slices of uint8
+// TestBitSetInByte returns 1 if bit i is set in a byte slice.
+// it extracts bits from the least significant bit (i = 0) to the
+// most significant bit (i = 7)
+func TestBitSetInByte(b []byte, i int) byte {
+	if b[i/8]&(1<<(i%8)) > 0 {
+		return 1
+	}
+	return 0
+}
+
+// Transpose returns the transpose of a 2D slices of bytes
 // from (m x k) to (k x m)
 func Transpose(matrix [][]uint8) [][]uint8 {
 	n := len(matrix)
@@ -94,7 +106,7 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// Transpose3D returns the transpose of a 3D slices of uint8
+// Transpose3D returns the transpose of a 3D slices of bytes
 // from (m x 2 x k) to (k x 2 x m)
 func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 	n := len(matrix)
@@ -112,13 +124,32 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 	return tr
 }
 
-// SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
-// with pseudorandom bit values
-func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
+// SampleRandomDenseBitMatrix fills each entry in the given 2D slices of bytes
+// with pseudorandom bit values but leaves them densely encoded unlike
+// SampleRandomBitMatrix.
+func SampleRandomDenseBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
-	matrix := make([][]uint8, m)
+	matrix := make([][]uint8, row)
 	for row := range matrix {
-		matrix[row] = make([]uint8, k)
+		matrix[row] = make([]uint8, (col+PadTill512(col))/8)
+	}
+
+	for row := range matrix {
+		if _, err := prng.Read(matrix[row]); err != nil {
+			return nil, err
+		}
+	}
+
+	return matrix, nil
+}
+
+// SampleRandomBitMatrix fills each entry in the given 2D slices of bytes
+// with pseudorandom bit values
+func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
+	// instantiate matrix
+	matrix := make([][]uint8, row)
+	for row := range matrix {
+		matrix[row] = make([]uint8, col)
 	}
 
 	for row := range matrix {
@@ -130,7 +161,7 @@ func SampleRandomBitMatrix(prng io.Reader, m, k int) ([][]uint8, error) {
 	return matrix, nil
 }
 
-// SampleBitSlice returns a slice of uint8 of pseudorandom bits
+// SampleBitSlice returns a slice of bytes of pseudorandom bits
 // prng is a reader from either crypto/rand.Reader
 // or math/rand.Rand
 func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
@@ -150,7 +181,6 @@ func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
 // if len(dst) < len(src) * 8, nothing will be done
 func ExtractBytesToBits(src, dst []byte) {
 	if len(dst) != len(src)*8 {
-		fmt.Println(len(dst), len(src))
 		return
 	}
 
@@ -168,83 +198,71 @@ func ExtractBytesToBits(src, dst []byte) {
 	}
 }
 
-// The major failing of my last attempt at concurrent transposition
-// was that each goroutine (and there were far too many) was accessing
-// the same shared array. This meant that the cache on each core had to
-// be constantly updated as each coroutine updated their cache-local
-// version. Instead this version splits everything by column. Each
-// goroutine reads from the same shared matrix, but since nothing is
-// is changed, the local cache shouldn't need an update. Then each
-// goroutine sends the transposed row back to a channel in an ordered set.
-// Once all transpositions are done, rows are recombined into a 2D matrix.
-func ConcurrentColumnarTranspose(matrix [][]uint8) [][]uint8 {
-	var wg sync.WaitGroup
-	m := len(matrix)
-	n := len(matrix[0])
-	tr := make([][]uint8, n)
+// PadTill512 returns the number of rows/columns to pad such that the number is a
+// multiple of 512.
+func PadTill512(m int) (pad int) {
+	pad = 512 - (m % 512)
+	if pad == 512 {
+		pad = 0
+	}
+	return pad
+}
 
-	// the optimal number of goroutines will likely vary due to
-	// hardware and array size
-	//nThreads := n // one thread per column (likely only efficient for huge matrix)
-	// nThreads := runtime.NumCPU()
-	// nThreads := runtime.NumCPU()*2
-	nThreads := 12
-	// add to quick check to ensure there are not more threads than columns
-	if n < nThreads {
-		nThreads = n
+// TransposeByteMatrix performs a concurrent cache-oblivious transpose on a byte matrix by first
+// converting from bytes to uint64 (and padding as needed), performing the transpose on the uint64
+// matrix and then converting back to bytes.
+func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
+	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), 6))
+}
+
+// Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.
+// There must be a multiple of 8 bytes so they can be packed nicely into uint64.
+func Uint64SliceFromByte(b []byte) (u []uint64) {
+	u = make([]uint64, len(b)/8)
+	for i := range u {
+		u[i] = binary.LittleEndian.Uint64(b[i*8:])
 	}
 
-	// number of columns for which each goroutine is responsible
-	nColumns := n / nThreads
+	return u
+}
 
-	// create ordered channels to store values from goroutines
-	// each channel is buffered to store the number of desired rows
-	channels := make([]chan []uint8, nThreads)
-	for i := 0; i < nThreads-1; i++ {
-		channels[i] = make(chan []uint8, nColumns)
-	}
-	// last one may have excess columns
-	channels[nThreads-1] = make(chan []uint8, nColumns+n%nThreads)
+// ByteSliceFromUint64 extracts a slice of bytes from a slice of uint64.
+func ByteSliceFromUint64(u []uint64) (b []byte) {
+	b = make([]byte, len(u)*8)
 
-	// goroutine
-	//wg.Add(nThreads)
-	for i := 0; i < nThreads; i++ {
-		wg.Add(1)
-		go func(i int) {
-			//	fmt.Println("goroutine", i, "created")
-			defer wg.Done()
-			// we need to handle excess columns which don't evenly divide among
-			// number of threads -> in this case, I just add to the last goroutine
-			// perhaps a more sophisticated division of labor would be more efficient
-			var extraColumns int
-			if i == nThreads-1 {
-				extraColumns = n % nThreads
-			}
-
-			for c := 0; c < (nColumns + extraColumns); c++ {
-				row := make([]uint8, m)
-				for r := 0; r < m; r++ {
-					row[r] = matrix[r][(i*nColumns)+c]
-				}
-
-				channels[i] <- row
-			}
-
-			close(channels[i])
-		}(i)
+	for i, e := range u {
+		binary.LittleEndian.PutUint64(b[i*8:], e)
 	}
 
-	// Wait until all goroutines have finished
-	wg.Wait()
+	return b
+}
 
-	// Reconstruct a transposed matrix from the channels
-	for i, channel := range channels {
-		var j int
-		for row := range channel {
-			tr[(i*nColumns)+j] = row
-			j++
-		}
+// Uint64MatrixFromByte converts matrix of bytes to matrix of uint64s.
+// pad is number of rows containing 0s which will be added to end of matrix.
+// Assume each row contains 64 bytes (512 bits).
+func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
+	pad := PadTill512(len(b))
+	u = make([][]uint64, len(b)+pad)
+
+	for i := 0; i < len(b); i++ {
+		u[i] = Uint64SliceFromByte(b[i])
 	}
 
-	return tr
+	for j := 0; j < pad; j++ {
+		u[len(b)+j] = make([]uint64, len(u[0]))
+	}
+
+	return u
+}
+
+// ByteMatrixFromUint64 converts matrix of uint64s to matrix of bytes.
+// If any padding was added, it is left untouched.
+func ByteMatrixFromUint64(u [][]uint64) (b [][]byte) {
+	b = make([][]byte, len(u))
+
+	for i, e := range u {
+		b[i] = ByteSliceFromUint64(e)
+	}
+
+	return b
 }

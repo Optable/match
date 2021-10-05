@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
@@ -16,20 +15,20 @@ import (
 var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
-	baseCount = 1000
+	baseCount = 512
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	choices   = genChoiceString()
-	k         = 512
 )
 
 func genChoiceString() [][]byte {
 	choices := make([][]byte, baseCount)
 	for i := range choices {
-		choices[i] = make([]byte, 65)
+		choices[i] = make([]byte, 64)
 		prng.Read(choices[i])
 	}
 	return choices
 }
+
 func initOPRFReceiver(oprf OPRF, choices [][]uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
@@ -67,7 +66,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewKKRT(baseCount, k, ot.NaorPinkas, false)
+	receiverOPRF, err := NewOPRF(KKRT, baseCount, ot.NaorPinkas)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +76,7 @@ func TestKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewKKRT(baseCount, k, ot.NaorPinkas, false)
+	senderOPRF, err := NewOPRF(KKRT, baseCount, ot.NaorPinkas)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +151,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	receiverOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+	receiverOPRF, err := NewOPRF(ImprvKKRT, baseCount, ot.NaorPinkas)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +161,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewImprovedKKRT(baseCount, k, ot.NaorPinkas, crypto.AESCtrDrbg, false)
+	senderOPRF, err := NewOPRF(ImprvKKRT, baseCount, ot.NaorPinkas)
 	if err != nil {
 		t.Fatal(err)
 	}

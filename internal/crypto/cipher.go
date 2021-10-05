@@ -21,12 +21,31 @@ const (
 	nonceSize = 12 //aesgcm NonceSize
 )
 
-// PseudorandomCode is implemented as follows:
+// PseudorandomCodeDense is implemented as follows:
 // C(x) = AES(1||x) || AES(2||x) || AES(3||x) || AES(4||X)
-// extracted in bits for the KKRT n choose 1 OPRF
 // secretKey is a 16 byte slice for AES-128
 // k is the desired number of bytes
 // on success, pseudorandomCode returns a byte slice of length k.
+func PseudorandomCodeDense(secretKey, src []byte) (dst []byte) {
+	aesBlock, _ := aes.NewCipher(secretKey)
+	dst = make([]byte, aes.BlockSize*4)
+
+	// pad src
+	input := pad(src)
+	input[0] = 1
+
+	// encrypt
+	aesBlock.Encrypt(dst[:aes.BlockSize], input)
+	input[0] = 2
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], input)
+	input[0] = 3
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], input)
+	input[0] = 4
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], input)
+
+	return dst
+}
+
 func PseudorandomCode(secretKey, src []byte) (dst []byte) {
 	aesBlock, _ := aes.NewCipher(secretKey)
 	dst = make([]byte, aes.BlockSize*4*9)
