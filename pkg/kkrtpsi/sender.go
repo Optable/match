@@ -1,6 +1,7 @@
 package kkrtpsi
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -120,9 +121,14 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		localEncodings := EncodeAndHashAllParallel(oprfKeys, hasher, hashedIds)
+
+		// Add a buffer of 64k to amortize syscalls cost
+		var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
+		defer bufferedWriter.Flush()
+
 		for hashedEncodings := range localEncodings {
 			// send all 3 encoding at once
-			if err := EncodesWrite(s.rw, hashedEncodings); err != nil {
+			if err := EncodesWrite(bufferedWriter, hashedEncodings); err != nil {
 				return fmt.Errorf("stage3: %v", err)
 			}
 		}
