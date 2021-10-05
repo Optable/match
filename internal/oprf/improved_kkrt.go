@@ -35,7 +35,7 @@ type imprvKKRT struct {
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
 func NewImprovedKKRT(m, k, baseOT, drbg int, ristretto bool) (OPRF, error) {
-	// send k columns of messages of length k
+	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = k / 8 // 64 bytes
@@ -126,7 +126,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
-	// sample k x k bit mtrix
+	// sample 2*k x k/8 byte matrix (2*k x k bit matrix)
 	seeds, err := util.SampleRandomDenseBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
 	if err != nil {
 		return nil, err

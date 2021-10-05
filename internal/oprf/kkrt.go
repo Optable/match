@@ -15,10 +15,8 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 import (
 	crand "crypto/rand"
 	"encoding/binary"
-	"fmt"
 	"io"
 	mrand "math/rand"
-	"time"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/ot"
@@ -44,7 +42,7 @@ type kkrt struct {
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
 func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
-	// send k columns of messages of length m
+	// send k columns of messages of length (m (padded to multiple of 512) / 8) bytes
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = (m + util.RowsToPad(m)) / 8
@@ -111,16 +109,12 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	// compute code word using pseudorandom code on choice stirng r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
-		start := time.Now()
 		d := make([][]byte, o.m)
 		for i := 0; i < o.m; i++ {
 			d[i] = crypto.PseudorandomCodeDense(sk, choices[i])
 		}
-		fmt.Printf("Compute pseudorandom code on %d messages of %d bits each took: %v\n", o.m, o.k, time.Since(start))
-		tran := time.Now()
 		tr := util.TransposeByteMatrix(d)
 		pseudorandomChan <- tr
-		fmt.Printf("Compute transpose took: %v\n", time.Since(tran))
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
@@ -145,12 +139,10 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		baseMsgs[i][1] = d[i]
 	}
 
-	start := time.Now()
 	// act as sender in baseOT to send k columns
 	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("base OT of %d messages of %d bytes each took: %v\n", len(baseMsgs), len(baseMsgs[0][0]), time.Since(start))
 	return util.TransposeByteMatrix(t)[:o.m], nil
 }

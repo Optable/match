@@ -103,52 +103,6 @@ func TestSliceConversions(t *testing.T) {
 	}
 }
 
-func TestXorUint64(t *testing.T) {
-	lengths := []int{1, 7, 8, 9, 100, 1000}
-	for _, l := range lengths {
-		u := make([]uint64, l)
-		sampleUint64Slice(prng, u)
-		c := make([]uint64, l)
-		copy(c, u) // make a copy to check later
-		// create set to do XOR
-		x := make([]uint64, l)
-		for i := range x {
-			x[i] = 0x5555555555555555 // 01010...01
-		}
-		XorUint64Slice(u, x)
-		XorUint64Slice(u, x)
-		// test
-		for i, e := range c {
-			if e != u[i] {
-				t.Errorf("Doubly-XORed slice not identical to original")
-			}
-		}
-	}
-}
-
-func TestAndUint64(t *testing.T) {
-	lengths := []int{1, 7, 8, 9, 100, 1000}
-	for _, l := range lengths {
-		u := make([]uint64, l)
-		sampleUint64Slice(prng, u)
-		c := make([]uint64, l)
-		copy(c, u) // make a copy to check later
-		// create set to do AND
-		x := make([]uint64, l)
-		for i := range x {
-			x[i] = 0x5555555555555555 // 01010...01
-		}
-		AndUint64Slice(u, x)
-		AndUint64Slice(x, c)
-		// test
-		for i, e := range u {
-			if e != x[i] {
-				t.Errorf("Duplicate AND slices not identical")
-			}
-		}
-	}
-}
-
 func TestTranspose3D(t *testing.T) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([][][]byte, 4)

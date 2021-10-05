@@ -4,11 +4,12 @@ import (
 	"testing"
 )
 
-var nmsg = 1024
-var nworkers = 6
-var uintBlock = SampleRandomTall(prng, nmsg)
-var randomBlock = unravelTall(uintBlock, 0)
 var (
+	nmsg        = 1024
+	nworkers    = 6
+	uintBlock   = SampleRandomTall(prng, nmsg)
+	randomBlock = unravelTall(uintBlock, 0)
+
 	oneMil         = 1000000
 	fiveMil        = 5000000
 	tenMil         = 10000000
@@ -64,30 +65,6 @@ func genProbeBlock() BitVect {
 	}
 	return unravelTall(probeBlock2D, 0)
 }
-
-/* TODO - CheckTransposed not working
-// test the tester
-func TestCheckTransposed(t *testing.T) {
-
-	fmt.Println("orig to tran")
-	if !genOrigBlock().CheckTranspose(genTranBlock()) {
-		t.Fatalf("Original block is transposed of transposed block but CheckTransposed doesn't identify as such.")
-	}
-
-	fmt.Println("tran to orig")
-	if !genTranBlock().CheckTranspose(genOrigBlock()) {
-		t.Fatalf("Original block is transposed of transposed block but CheckTransposed doesn't identify as such.")
-	}
-	fmt.Println("ones to ones")
-	if !genOnesBlock().CheckTranspose(genOnesBlock()) {
-		t.Fatalf("Ones block is transposed of itself but CheckTransposed doesn't identify as such.")
-	}
-	fmt.Println("orig to orig")
-	if genOrigBlock().CheckTranspose(genOrigBlock()) {
-		t.Fatalf("Original block is NOT transposed of itself but CheckTransposed doesn't identify as such.")
-	}
-}
-*/
 
 func TestUnReRavelingTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
@@ -234,17 +211,6 @@ func BenchmarkTranspose512x512(b *testing.B) {
 	}
 }
 
-/*
-func BenchmarkJustTransposeBitVects(b *testing.B) {
-	m, _ := unravelMatrix(uintBlock)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, blk := range m {
-			blk.transpose()
-		}
-	}
-}
-*/
 // Test transpose with the added overhead of creating the blocks
 // and writing to an output transpose matrix.
 func BenchmarkTranspose(b *testing.B) {
