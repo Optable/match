@@ -1,6 +1,7 @@
 package kkrtpsi
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -115,7 +116,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// the corresponding ID is the value
 		var localEncodings [cuckoo.Nhash]map[uint64][]byte
 		for i := range localEncodings {
-			localEncodings[i] = make(map[uint64][]byte)
+			localEncodings[i] = make(map[uint64][]byte, n)
 		}
 		// hash local oprf output
 		hasher, _ := hash.New(hash.Highway, seeds[0])
@@ -133,11 +134,14 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
+		// Add a buffer of 64k to amortize syscalls cost
+		var bufferedReader = bufio.NewReaderSize(r.rw, 64*1024)
+
 		// read remote encodings and intersect
 		var remoteEncodings [cuckoo.Nhash]uint64
 		for i := int64(0); i < remoteN; i++ {
 			// read 3 possible encodings
-			if err := EncodesRead(r.rw, &remoteEncodings); err != nil {
+			if err := EncodesRead(bufferedReader, &remoteEncodings); err != nil {
 				return err
 			}
 
