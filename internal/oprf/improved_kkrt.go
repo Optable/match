@@ -14,6 +14,7 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 
 	"github.com/optable/match/internal/crypto"
@@ -35,10 +36,10 @@ type imprvKKRT struct {
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
 func NewImprovedKKRT(m, k, baseOT, drbg int, ristretto bool) (OPRF, error) {
-	// send k columns of messages of length m
+	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = k
+		baseMsgLen[i] = k / 8 // 64 bytes
 	}
 
 	ot, err := ot.NewBaseOT(baseOT, ristretto, k, curve, baseMsgLen, cipherMode)
@@ -52,7 +53,7 @@ func NewImprovedKKRT(m, k, baseOT, drbg int, ristretto bool) (OPRF, error) {
 // Send returns the OPRF keys
 func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	// sample random 16 byte secret key for AES-128
-	sk := make([]uint8, 16)
+	sk := make([]byte, 16)
 	if _, err = rand.Read(sk); err != nil {
 		return nil, err
 	}
@@ -64,41 +65,36 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 
 	// sample choice bits for baseOT
 	s := make([]byte, ext.k/8)
-	for i := range s {
-		s[i] = 255
-	}
-	s[0] = 255
-	/*if _, err = crand.Read(s); err != nil {
+	if _, err = rand.Read(s); err != nil {
 		return nil, err
 	}
-	*/
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
-	seeds := make([][]uint8, ext.k/8)
+	seeds := make([][]uint8, ext.k)
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return nil, err
 	}
-
+	fmt.Println("received")
 	// receive masked columns u
-	paddedLen := (util.RowsToPad(ext.m) + ext.m) / 8
+	paddedLen := (ext.m + util.RowsToPad(ext.m)) / 8
 	u := make([]byte, paddedLen)
 	q := make([][]byte, ext.k)
-	for col := range q {
+	for row := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return nil, err
 		}
 
-		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], paddedLen)
+		q[row], err = crypto.PseudorandomGenerate(ext.drbg, seeds[row], paddedLen)
 		if err != nil {
 			return nil, err
 		}
-		err = util.InPlaceXorBytes(util.AndByte(s[col], u), q[col])
+		err = util.InPlaceXorBytes(util.AndByte(util.TestBitSetInByte(s, row), u), q[row])
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	q = util.Transpose(q)[:ext.m]
+	q = util.TransposeByteMatrix(q)[:ext.m]
 
 	// store oprf keys
 	keys = make([]Key, len(q))
@@ -132,7 +128,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	}()
 
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
 	if err != nil {
 		return nil, err
 	}
@@ -148,20 +144,22 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
+	fmt.Println("sent")
 
 	d := <-pseudorandomChan
 
 	t = make([][]byte, ext.k)
-	var u = make([]byte, ext.m)
+	paddedLen := (ext.m + util.RowsToPad(ext.m)) / 8
+	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m)
+		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
 		if err != nil {
 			return nil, err
 		}
 
-		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
 		if err != nil {
 			return nil, err
 		}
@@ -181,5 +179,5 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		}
 	}
 
-	return util.Transpose(t), nil
+	return util.TransposeByteMatrix(t)[:ext.m], nil
 }

@@ -131,9 +131,6 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 
 	d := <-pseudorandomChan
 
-	fmt.Println("dim of sampled t: ", len(t), len(t[0]))
-	fmt.Println("dim of computed d: ", len(d), len(d[0]))
-
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, o.k)
 	for i := range baseMsgs {
