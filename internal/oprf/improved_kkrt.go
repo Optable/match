@@ -75,7 +75,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	}
 
 	// receive masked columns u
-	paddedLen := (ext.m + util.RowsToPad(ext.m)) / 8
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	u := make([]byte, paddedLen)
 	q := make([][]byte, ext.k)
 	for row := range q {
@@ -147,7 +147,7 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	d := <-pseudorandomChan
 
 	t = make([][]byte, ext.k)
-	paddedLen := (ext.m + util.RowsToPad(ext.m)) / 8
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i

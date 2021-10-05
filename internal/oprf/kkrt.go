@@ -45,7 +45,7 @@ func NewKKRT(m, k, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length (m (padded to multiple of 512) / 8) bytes
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = (m + util.RowsToPad(m)) / 8
+		baseMsgLen[i] = (m + util.PadTill512(m)) / 8
 	}
 
 	ot, err := ot.NewBaseOT(baseOT, ristretto, k, curve, baseMsgLen, cipherMode)

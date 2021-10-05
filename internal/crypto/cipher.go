@@ -23,7 +23,6 @@ const (
 
 // PseudorandomCodeDense is implemented as follows:
 // C(x) = AES(1||x) || AES(2||x) || AES(3||x) || AES(4||X)
-// extracted in bits for the KKRT n choose 1 OPRF
 // secretKey is a 16 byte slice for AES-128
 // k is the desired number of bytes
 // on success, pseudorandomCode returns a byte slice of length k.

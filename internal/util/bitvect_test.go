@@ -1,13 +1,14 @@
 package util
 
 import (
+	"math/rand"
 	"testing"
 )
 
 var (
 	nmsg        = 1024
 	nworkers    = 6
-	uintBlock   = SampleRandomTall(prng, nmsg)
+	uintBlock   = sampleRandomTall(prng, nmsg)
 	randomBlock = unravelTall(uintBlock, 0)
 
 	oneMil         = 1000000
@@ -66,10 +67,42 @@ func genProbeBlock() BitVect {
 	return unravelTall(probeBlock2D, 0)
 }
 
+// sampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
+// pseudorandom uint64.
+func sampleRandomTall(r *rand.Rand, m int) [][]uint64 {
+	// instantiate matrix
+	matrix := make([][]uint64, m)
+
+	for row := range matrix {
+		matrix[row] = make([]uint64, 8)
+		for c := 0; c < 8; c++ {
+			matrix[row][c] = r.Uint64()
+		}
+	}
+
+	return matrix
+}
+
+// sampleRandomWide fills a 512 by n uint64 matrix (512 bits tall) with
+// pseudorandom uint64.
+func sampleRandomWide(r *rand.Rand, n int) [][]uint64 {
+	// instantiate matrix
+	matrix := make([][]uint64, 512)
+
+	for row := range matrix {
+		matrix[row] = make([]uint64, n)
+		for c := 0; c < n; c++ {
+			matrix[row][c] = r.Uint64()
+		}
+	}
+
+	return matrix
+}
+
 func TestUnReRavelingTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, a := range trange {
-		matrix := SampleRandomTall(prng, a)
+		matrix := sampleRandomTall(prng, a)
 		// TALL m x 8
 		// determine number of blocks to split original matrix
 		nblks := len(matrix) / 512
@@ -98,7 +131,7 @@ func TestUnReRavelingTall(t *testing.T) {
 func TestUnReRavelingWide(t *testing.T) {
 	trange := []int{8, 16, 24, 32, 40}
 	for _, a := range trange {
-		matrix := SampleRandomWide(prng, a)
+		matrix := sampleRandomWide(prng, a)
 		// WIDE 512 x n
 		// determine number of blocks to split original matrix
 		nblks := len(matrix[0]) / 8
@@ -171,7 +204,7 @@ func TestConcurrentTranspose(t *testing.T) {
 	// TALL
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, m := range trange {
-		orig := SampleRandomTall(prng, m)
+		orig := sampleRandomTall(prng, m)
 		tr := ConcurrentTranspose(orig, nworkers)
 		dtr := ConcurrentTranspose(tr, nworkers)
 		// test
@@ -188,7 +221,7 @@ func TestConcurrentTranspose(t *testing.T) {
 	// WIDE
 	trange = []int{8, 16, 24, 32, 40}
 	for _, m := range trange {
-		orig := SampleRandomWide(prng, m)
+		orig := sampleRandomWide(prng, m)
 		tr := ConcurrentTranspose(orig, nworkers)
 		dtr := ConcurrentTranspose(tr, nworkers)
 		//test

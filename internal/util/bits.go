@@ -4,12 +4,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/rand"
 )
 
-var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for XOR operations")
+var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for bit operations")
 
-// XorBytes xors each byte from a with b and returns dst
+// XorBytes XORS each byte from a with b and returns dst
 // if a and b are the same length
 func XorBytes(a, b []byte) (dst []byte, err error) {
 	var n = len(b)
@@ -26,7 +25,7 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// Inplace XorBytes xors each byte from a with b and returns dst
+// Inplace XorBytes XORS each byte from a with b and returns dst
 // if a and b are the same length
 func InPlaceXorBytes(a, dst []byte) error {
 	var n = len(dst)
@@ -41,7 +40,7 @@ func InPlaceXorBytes(a, dst []byte) error {
 	return nil
 }
 
-// AndBytes returns the binary and of each byte in a and b
+// AndBytes returns the binary AND of each byte in a and b
 // if a and b are the same length
 func AndBytes(a, b []byte) (dst []byte, err error) {
 	n := len(b)
@@ -58,8 +57,9 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InplaceAndBytes returns the binary and of each byte in a and b
-// if a and b are the same length
+// InplaceAndBytes replaces the bytes in dst with the binary AND of
+// each byte with the corresponding byte in a (if a and b are the
+// same length).
 func InPlaceAndBytes(a, dst []byte) error {
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
@@ -72,7 +72,16 @@ func InPlaceAndBytes(a, dst []byte) error {
 	return nil
 }
 
-// TestBitSetInByte returns true if bit i is set in a byte slice.
+// AndByte returns the binary AND of each byte in b with a.
+func AndByte(a uint8, b []byte) []byte {
+	if a == 1 {
+		return b
+	}
+
+	return make([]byte, len(b))
+}
+
+// TestBitSetInByte returns 1 if bit i is set in a byte slice.
 // it extracts bits from the least significant bit (i = 0) to the
 // most significant bit (i = 7)
 func TestBitSetInByte(b []byte, i int) byte {
@@ -82,15 +91,7 @@ func TestBitSetInByte(b []byte, i int) byte {
 	return 0
 }
 
-func AndByte(a uint8, b []byte) []byte {
-	if a == 1 {
-		return b
-	}
-
-	return make([]byte, len(b))
-}
-
-// Transpose returns the transpose of a 2D slices of uint8
+// Transpose returns the transpose of a 2D slices of bytes
 // from (m x k) to (k x m)
 func Transpose(matrix [][]uint8) [][]uint8 {
 	n := len(matrix)
@@ -105,7 +106,7 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// Transpose3D returns the transpose of a 3D slices of uint8
+// Transpose3D returns the transpose of a 3D slices of bytes
 // from (m x 2 x k) to (k x 2 x m)
 func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 	n := len(matrix)
@@ -123,13 +124,14 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 	return tr
 }
 
-// SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
-// with pseudorandom bit values
+// SampleRandomDenseBitMatrix fills each entry in the given 2D slices of bytes
+// with pseudorandom bit values but leaves them densely encoded unlike
+// SampleRandomBitMatrix.
 func SampleRandomDenseBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
-		matrix[row] = make([]uint8, (col+RowsToPad(col))/8)
+		matrix[row] = make([]uint8, (col+PadTill512(col))/8)
 	}
 
 	for row := range matrix {
@@ -141,7 +143,7 @@ func SampleRandomDenseBitMatrix(prng io.Reader, row, col int) ([][]uint8, error)
 	return matrix, nil
 }
 
-// SampleRandomBitMatrix fills each entry in the given 2D slices of uint8
+// SampleRandomBitMatrix fills each entry in the given 2D slices of bytes
 // with pseudorandom bit values
 func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
@@ -159,37 +161,7 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	return matrix, nil
 }
 
-// SampleZerosBitMatrix generates a matrix with row rows and col columns where
-// every bit is set to 0.
-func SampleZerosBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
-	// instantiate matrix
-	matrix := make([][]uint8, row)
-	for row := range matrix {
-		matrix[row] = make([]uint8, (col+RowsToPad(col))/8)
-	}
-
-	return matrix, nil
-}
-
-// SampleOnesBitMatrix generates a matrix with row rows and col columns where
-// every bit is set to 1.
-func SampleOnesBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
-	// instantiate matrix
-	matrix := make([][]uint8, row)
-	for row := range matrix {
-		matrix[row] = make([]uint8, (col+RowsToPad(col))/8)
-	}
-
-	for row := range matrix {
-		for col := range matrix[row] {
-			matrix[row][col] = byte(255)
-		}
-	}
-
-	return matrix, nil
-}
-
-// SampleBitSlice returns a slice of uint8 of pseudorandom bits
+// SampleBitSlice returns a slice of bytes of pseudorandom bits
 // prng is a reader from either crypto/rand.Reader
 // or math/rand.Rand
 func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
@@ -203,38 +175,6 @@ func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
 	ExtractBytesToBits(t, b)
 
 	return nil
-}
-
-// sampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
-// pseudorandom uint64.
-func SampleRandomTall(r *rand.Rand, m int) [][]uint64 {
-	// instantiate matrix
-	matrix := make([][]uint64, m)
-
-	for row := range matrix {
-		matrix[row] = make([]uint64, 8)
-		for c := 0; c < 8; c++ {
-			matrix[row][c] = r.Uint64()
-		}
-	}
-
-	return matrix
-}
-
-// SampleRandomWide fills a 512 by n uint64 matrix (512 bits tall) with
-// pseudorandom uint64.
-func SampleRandomWide(r *rand.Rand, n int) [][]uint64 {
-	// instantiate matrix
-	matrix := make([][]uint64, 512)
-
-	for row := range matrix {
-		matrix[row] = make([]uint64, n)
-		for c := 0; c < n; c++ {
-			matrix[row][c] = r.Uint64()
-		}
-	}
-
-	return matrix
 }
 
 // ExtractBytesToBits returns a byte array of bits from src
@@ -258,9 +198,9 @@ func ExtractBytesToBits(src, dst []byte) {
 	}
 }
 
-// RowsToPad returns the number of rows to pad such that the number of rows is
-// a multiple of 512.
-func RowsToPad(m int) (pad int) {
+// PadTill512 returns the number of rows/columns to pad such that the number is a
+// multiple of 512.
+func PadTill512(m int) (pad int) {
 	pad = 512 - (m % 512)
 	if pad == 512 {
 		pad = 0
@@ -301,7 +241,7 @@ func ByteSliceFromUint64(u []uint64) (b []byte) {
 // pad is number of rows containing 0s which will be added to end of matrix.
 // Assume each row contains 64 bytes (512 bits).
 func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
-	pad := RowsToPad(len(b))
+	pad := PadTill512(len(b))
 	u = make([][]uint64, len(b)+pad)
 
 	for i := 0; i < len(b); i++ {
