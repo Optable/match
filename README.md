@@ -27,6 +27,10 @@ The [bloomfilter](https://en.wikipedia.org/wiki/Bloom_filter) based PSI: an *ins
 
 A complete test suite for all PSIs is present [here](test/psi). Don't hesitate to take a look and help us improve the quality of the testing by reporting problems and observations!
 
+# benchmarks
+
+See runtime benchmarks of the different PSI protocols [here](benchmark/README.md).
+
 # examples
 
 You can find a simple example implementation of both a match sender and receiver in the [examples documentation](examples/README.md).

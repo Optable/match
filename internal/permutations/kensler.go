@@ -1,5 +1,5 @@
-// Andrew Kensler, a researcher at Pixar, introduced an interesting technique for generating the permutation of an array
-// in his 2013 paper, Correlated Multi-Jittered Sampling.
+// Package permutations implements an interesting technique for generating the permutation of an array.
+// This method was developed by Andrew Kensler, a researcher at Pixar, in his 2013 paper, Correlated Multi-Jittered Sampling.
 //
 // reference:             https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf
 // further comments from: https://afnan.io/posts/2019-04-05-explaining-the-hashed-permutation/
