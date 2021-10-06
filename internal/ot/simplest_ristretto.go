@@ -6,6 +6,7 @@ import (
 
 	gr "github.com/bwesterb/go-ristretto"
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -91,7 +92,7 @@ func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err erro
 }
 
 func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != s.baseCount {
+	if len(choices)*8 != len(messages) || len(choices)*8 != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
@@ -116,19 +117,16 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point B and send it
-		switch choices[i] {
-		case 0:
+		if util.TestBitSetInByte(choices, i) == 0 {
 			if err := w.write(&B); err != nil {
 				return err
 			}
-		case 1:
+		} else {
 			// B = A + bG
 			B.Add(&A, &B)
 			if err := w.write(&B); err != nil {
 				return err
 			}
-		default:
-			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
@@ -154,7 +152,8 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		}
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = crypto.Decrypt(s.cipherMode, key, choices[i], e[choices[i]])
+		bit := util.TestBitSetInByte(choices, i)
+		messages[i], err = crypto.Decrypt(s.cipherMode, key, bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

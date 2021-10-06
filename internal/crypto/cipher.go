@@ -21,12 +21,12 @@ const (
 	nonceSize = 12 //aesgcm NonceSize
 )
 
-// PseudorandomCodeDense is implemented as follows:
+// PseudorandomCode is implemented as follows:
 // C(x) = AES(1||x) || AES(2||x) || AES(3||x) || AES(4||X)
 // secretKey is a 16 byte slice for AES-128
 // k is the desired number of bytes
 // on success, pseudorandomCode returns a byte slice of length k.
-func PseudorandomCodeDense(secretKey, src []byte) (dst []byte) {
+func PseudorandomCode(secretKey, src []byte) (dst []byte) {
 	aesBlock, _ := aes.NewCipher(secretKey)
 	dst = make([]byte, aes.BlockSize*4)
 
@@ -44,28 +44,6 @@ func PseudorandomCodeDense(secretKey, src []byte) (dst []byte) {
 	aesBlock.Encrypt(dst[aes.BlockSize*3:], input)
 
 	return dst
-}
-
-func PseudorandomCode(secretKey, src []byte) (dst []byte) {
-	aesBlock, _ := aes.NewCipher(secretKey)
-	dst = make([]byte, aes.BlockSize*4*9)
-
-	// pad src
-	input := pad(src)
-	input[0] = 1
-
-	// encrypt
-	aesBlock.Encrypt(dst[aes.BlockSize*32:aes.BlockSize*33], input)
-	input[0] = 2
-	aesBlock.Encrypt(dst[aes.BlockSize*33:aes.BlockSize*34], input)
-	input[0] = 3
-	aesBlock.Encrypt(dst[aes.BlockSize*34:aes.BlockSize*35], input)
-	input[0] = 4
-	aesBlock.Encrypt(dst[aes.BlockSize*35:], input)
-
-	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(dst[aes.BlockSize*32:], dst[:aes.BlockSize*32])
-	return dst[:aes.BlockSize*32]
 }
 
 // pad aes block, with the first byte reserved for PseudorandomCode

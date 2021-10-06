@@ -6,6 +6,7 @@ import (
 
 	gr "github.com/bwesterb/go-ristretto"
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -97,7 +98,7 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 }
 
 func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != n.baseCount {
+	if len(choices)*8 != len(messages) || len(choices)*8 != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
@@ -128,22 +129,19 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
-		switch choices[i] {
-		case 0:
+		if util.TestBitSetInByte(choices, i) == 0 {
 			// K0 = Kc = B
 			// K1 = K1-c = A - B
 			if err := writer.write(&B); err != nil {
 				return err
 			}
-		case 1:
+		} else {
 			// K1 = Kc = B
 			// K0 = K1-c = A - B
 			B.Sub(&A, &B)
 			if err := writer.write(&B); err != nil {
 				return err
 			}
-		default:
-			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
@@ -170,7 +168,8 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		}
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = crypto.Decrypt(n.cipherMode, key, choices[i], e[choices[i]])
+		bit := util.TestBitSetInByte(choices, i)
+		messages[i], err = crypto.Decrypt(n.cipherMode, key, bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

@@ -23,10 +23,12 @@ type imprvKKRT struct {
 }
 
 func NewImprovedKKRT(m, k, n, baseOt, drbg int, ristretto bool, msgLen []int) (imprvKKRT, error) {
+	k = k + util.PadTill8(k)
+
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = k
+		baseMsgLen[i] = k / 8
 	}
 
 	ot, err := NewBaseOT(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
@@ -34,7 +36,7 @@ func NewImprovedKKRT(m, k, n, baseOt, drbg int, ristretto bool, msgLen []int) (i
 		return imprvKKRT{}, err
 	}
 
-	return imprvKKRT{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, drbg: drbg}, nil
+	return imprvKKRT{baseOT: ot, m: m + util.PadTill8(m), k: k, n: n, msgLen: msgLen, drbg: drbg}, nil
 }
 
 func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -50,8 +52,8 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// sample choice bits for baseOT
-	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(rand.Reader, s); err != nil {
+	s := make([]uint8, ext.k/8)
+	if _, err = rand.Read(s); err != nil {
 		return err
 	}
 
@@ -62,22 +64,22 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// receive masked columns u
-	u := make([]byte, ext.m)
+	u := make([]byte, ext.m/8)
 	q := make([][]byte, ext.k)
 	for col := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return err
 		}
 
-		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m)
+		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m/8)
 		if err != nil {
 			return err
 		}
 
-		q[col], _ = util.XorBytes(util.AndByte(s[col], u), q[col])
+		q[col], _ = util.XorBytes(util.AndByte(util.TestBitSetInByte(s, col), u), q[col])
 	}
 
-	q = util.Transpose(q)
+	q = util.TransposeByteMatrix(q)
 
 	// encrypt messages and send them
 	var key, ciphertext []byte
@@ -88,7 +90,7 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			util.InPlaceAndBytes(s, key)
 			util.InPlaceXorBytes(q[i], key)
 
-			ciphertext, err = crypto.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -115,14 +117,18 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	}
 
 	// compute code word using pseudorandom code on choice stirng r
-	d := make([][]byte, ext.m)
-	for row := range d {
-		d[row] = crypto.PseudorandomCode(sk, []byte{choices[row]})
-	}
+	var pseudorandomChan = make(chan [][]byte)
+	go func() {
+		d := make([][]byte, ext.m)
+		for i := 0; i < ext.m; i++ {
+			d[i] = crypto.PseudorandomCode(sk, []byte{choices[i]})
+		}
+		tr := util.TransposeByteMatrix(d)
+		pseudorandomChan <- tr
+	}()
 
-	d = util.Transpose(d)
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
 	if err != nil {
 		return err
 	}
@@ -139,17 +145,18 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		return err
 	}
 
+	d := <-pseudorandomChan
 	var t = make([][]byte, ext.k)
-	var u = make([]byte, ext.m)
+	var u = make([]byte, ext.m/8)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m)
+		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m/8)
 		if err != nil {
 			return err
 		}
 
-		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m/8)
 		if err != nil {
 			return err
 		}
@@ -168,7 +175,7 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		}
 	}
 
-	t = util.Transpose(t)
+	t = util.TransposeByteMatrix(t)
 
 	// receive encrypted messages.
 	e := make([][]byte, ext.n)
@@ -184,7 +191,7 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = crypto.Decrypt(kkrtCipherMode, t[i], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

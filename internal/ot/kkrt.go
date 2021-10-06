@@ -12,12 +12,9 @@ Reference:	https://eprint.iacr.org/2013/491.pdf (Improved IKNP)
 */
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
+	"crypto/rand"
 	"fmt"
 	"io"
-	mrand "math/rand"
-	"sync"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -34,14 +31,15 @@ type kkrt struct {
 	k      int
 	n      int
 	msgLen []int
-	prng   *mrand.Rand
 }
 
 func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
-	// send k columns of messages of length m
+	m = m + util.PadTill8(m)
+
+	// send k columns of m bit messages
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = m
+		baseMsgLen[i] = m / 8
 	}
 
 	ot, err := NewBaseOT(baseOT, ristretto, k, kkrtCurve, baseMsgLen, kkrtCipherMode)
@@ -49,16 +47,13 @@ func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
 		return kkrt{}, err
 	}
 
-	// seed math rand with crypto/rand random number
-	var seed int64
-	binary.Read(crand.Reader, binary.BigEndian, &seed)
-	return kkrt{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, prng: mrand.New(mrand.NewSource(seed))}, nil
+	return kkrt{baseOT: ot, m: m, k: k + util.PadTill8(k), n: n, msgLen: msgLen}, nil
 }
 
 func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]uint8, 16)
-	if _, err = crand.Read(sk); err != nil {
+	if _, err = rand.Read(sk); err != nil {
 		return nil
 	}
 
@@ -68,8 +63,8 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// sample choice bits for baseOT
-	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(crand.Reader, s); err != nil {
+	s := make([]uint8, ext.k/8)
+	if _, err = rand.Read(s); err != nil {
 		return err
 	}
 
@@ -80,7 +75,7 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// transpose q to m x k matrix for easier row operations
-	q = util.Transpose(q)
+	q = util.TransposeByteMatrix(q)
 
 	var key, ciphertext []byte
 	// encrypt messages and send them
@@ -118,51 +113,45 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		return err
 	}
 
-	t, err := util.SampleRandomBitMatrix(ext.prng, ext.m, ext.k)
+	// compute code word using pseudorandom code on choice stirng r in a separate thread
+	var pseudorandomChan = make(chan [][]byte)
+	go func() {
+		d := make([][]byte, ext.m)
+		for i := 0; i < ext.m; i++ {
+			d[i] = crypto.PseudorandomCode(sk, []byte{choices[i]})
+		}
+		tr := util.TransposeByteMatrix(d)
+		pseudorandomChan <- tr
+	}()
+
+	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
+	t, err := util.SampleRandomBitMatrix(rand.Reader, ext.k, ext.m/8)
 	if err != nil {
 		return err
 	}
 
-	var errBus = make(chan error)
-	var msg = make(chan []byte)
-	var wg sync.WaitGroup
-	// make m pairs of k bytes baseOT messages: {t_i, t_i xor C(choices[i])}
-	baseMsgs := make([][][]byte, ext.m)
+	d := <-pseudorandomChan
+
+	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
+	baseMsgs := make([][][]byte, ext.k)
 	for i := range baseMsgs {
-		wg.Add(1)
-		go func(i int, msg chan<- []byte) {
-			defer wg.Done()
-			msg <- t[i]
 
-			m2, err := util.XorBytes(t[i], crypto.PseudorandomCode(sk, []byte{choices[i]}))
-			msg <- m2
-			if err != nil {
-				errBus <- err
-			}
-		}(i, msg)
-
-		baseMsgs[i] = make([][]byte, 2)
-		baseMsgs[i][0] = <-msg
-		baseMsgs[i][1] = <-msg
-	}
-
-	// wait for all operation to be done
-	go func() {
-		wg.Wait()
-		close(errBus)
-		close(msg)
-	}()
-	//errors?
-	for err := range errBus {
+		err = util.InPlaceXorBytes(t[i], d[i])
 		if err != nil {
 			return err
 		}
+
+		baseMsgs[i] = make([][]byte, 2)
+		baseMsgs[i][0] = t[i]
+		baseMsgs[i][1] = d[i]
 	}
 
 	// act as sender in baseOT to send k columns
-	if err = ext.baseOT.Send(util.Transpose3D(baseMsgs), rw); err != nil {
+	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
 		return err
 	}
+
+	t = util.TransposeByteMatrix(t)
 
 	e := make([][]byte, ext.n)
 	for i := range choices {

@@ -39,6 +39,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
+	fmt.Println("NaorPinkas Send check pass: ", len(messages), n.baseCount)
 
 	// Instantiate Reader, Writer
 	reader := newReader(rw, n.curve, n.encodeLen)
@@ -113,6 +114,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	if len(choices)*8 != len(messages) || len(choices)*8 != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
+	fmt.Println("NaorPinkas receive pass check", len(choices), len(messages), n.baseCount)
 
 	// instantiate Reader, Writer
 	reader := newReader(rw, n.curve, n.encodeLen)

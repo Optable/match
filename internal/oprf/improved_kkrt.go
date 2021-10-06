@@ -119,13 +119,13 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	go func() {
 		d := make([][]byte, ext.m)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCodeDense(sk, choices[i])
+			d[i] = crypto.PseudorandomCode(sk, choices[i])
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
 	// sample 2*k x k/8 byte matrix (2*k x k bit matrix)
-	seeds, err := util.SampleRandomDenseBitMatrix(rand.Reader, 2*k, k/8)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*k, k/8)
 	if err != nil {
 		return nil, err
 	}

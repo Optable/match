@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -100,7 +101,7 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 }
 
 func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != s.baseCount {
+	if len(choices)*8 != len(messages) || len(choices)*8 != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
@@ -132,19 +133,16 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point B and send it
-		switch choices[i] {
-		case 0:
+		if util.TestBitSetInByte(choices, i) == 0 {
 			// B
 			if err := writer.write(B); err != nil {
 				return err
 			}
-		case 1:
+		} else {
 			// B = A + B
 			if err := writer.write(A.add(B)); err != nil {
 				return err
 			}
-		default:
-			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
@@ -167,7 +165,8 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		K = A.scalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = crypto.Decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
+		bit := util.TestBitSetInByte(choices, i)
+		messages[i], err = crypto.Decrypt(s.cipherMode, K.deriveKey(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

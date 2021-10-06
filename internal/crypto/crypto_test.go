@@ -166,7 +166,7 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 
 func BenchmarkPseudorandomCode(b *testing.B) {
 	in := make([]byte, 64)
-	util.SampleBitSlice(prng, in)
+	prng.Read(in)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		PseudorandomCode(aesKey, in)

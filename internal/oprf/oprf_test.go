@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/optable/match/internal/ot"
-	"github.com/optable/match/internal/util"
 )
 
 var (
@@ -233,9 +232,9 @@ func BenchmarkEncode(b *testing.B) {
 	sk := make([]byte, 16)
 	s := make([]byte, 64)
 	q := make([]byte, 64)
-	util.SampleBitSlice(prng, sk)
-	util.SampleBitSlice(prng, s)
-	util.SampleBitSlice(prng, q)
+	prng.Read(sk)
+	prng.Read(s)
+	prng.Read(q)
 	key := Key{sk: sk, s: s, q: q}
 
 	b.ResetTimer()

@@ -32,7 +32,7 @@ func NewOPRF(t, m, baseOT int) (OPRF, error) {
 	case KKRT:
 		return newKKRT(m, baseOT, false)
 	case ImprvKKRT:
-		return newImprovedKKRT(m, baseOT, crypto.AESCtrDrbgDense, false)
+		return newImprovedKKRT(m, baseOT, crypto.AESCtrDrbg, false)
 	default:
 		return nil, ErrUnknownOPRF
 	}
@@ -50,7 +50,7 @@ type Key struct {
 // Encode computes and returns OPRF(k, in)
 func (k Key) Encode(in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCodeDense(k.sk, in)
+	out = crypto.PseudorandomCode(k.sk, in)
 
 	if err = util.InPlaceAndBytes(k.s, out); err != nil {
 		return nil, err
