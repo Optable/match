@@ -31,7 +31,7 @@ func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode int
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
-	curve, encodeLen := initCurve(curveName)
+	curve, encodeLen := crypto.InitCurve(curveName)
 	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
@@ -46,13 +46,13 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	writer := newWriter(rw, n.curve)
 
 	// generate sender point A w/o secret, since a is never used.
-	_, A, err := generateKeyWithPoints(n.curve)
+	_, A, err := crypto.GenerateKeyWithPoints(n.curve)
 	if err != nil {
 		return err
 	}
 
 	// generate sender secret public key pairs  used for encryption.
-	r, R, err := generateKeyWithPoints(n.curve)
+	r, R, err := crypto.GenerateKeyWithPoints(n.curve)
 	if err != nil {
 		return err
 	}
@@ -67,35 +67,30 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// precompute A = rA
-	A = A.scalarMult(r)
+	A = A.ScalarMult(r)
 
 	// make a slice of points to receive K0.
-	pointK0 := make([]points, n.baseCount)
+	pointK0 := make([]crypto.Points, n.baseCount)
 	for i := range pointK0 {
-		pointK0[i] = newPoints(n.curve, new(big.Int), new(big.Int))
+		pointK0[i] = crypto.NewPoints(n.curve, new(big.Int), new(big.Int))
 		if err := reader.read(pointK0[i]); err != nil {
 			return err
 		}
 	}
 
-	K := make([]points, 2)
+	K := make([]crypto.Points, 2)
 	var ciphertext []byte
 	// encrypt plaintext messages and send them.
 	for i := 0; i < n.baseCount; i++ {
-		// sanity check
-		if !pointK0[i].isOnCurve() {
-			return fmt.Errorf("point A received from sender is not on curve: %s", n.curve.Params().Name)
-		}
-
 		// compute K0 = rK0
-		K[0] = pointK0[i].scalarMult(r)
+		K[0] = pointK0[i].ScalarMult(r)
 		// compute K1 = rA - rK0
-		K[1] = A.sub(K[0])
+		K[1] = A.Sub(K[0])
 
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			ciphertext, err = crypto.Encrypt(n.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(n.cipherMode, K[choice].DeriveKey(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -121,29 +116,24 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	writer := newWriter(rw, n.curve)
 
 	// receive point A from sender
-	A := newPoints(n.curve, new(big.Int), new(big.Int))
+	A := crypto.NewPoints(n.curve, new(big.Int), new(big.Int))
 	if err := reader.read(A); err != nil {
 		return err
 	}
 
 	// recieve point R from sender
-	R := newPoints(n.curve, new(big.Int), new(big.Int))
+	R := crypto.NewPoints(n.curve, new(big.Int), new(big.Int))
 	if err := reader.read(R); err != nil {
 		return err
 	}
 
-	// sanity check
-	if !A.isOnCurve() || !R.isOnCurve() {
-		return fmt.Errorf("points received from sender is not on curve: %s", n.curve.Params().Name)
-	}
-
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, n.baseCount)
-	var B points
+	var B crypto.Points
 	var b []byte
 	for i := 0; i < n.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		b, B, err = generateKeyWithPoints(n.curve)
+		b, B, err = crypto.GenerateKeyWithPoints(n.curve)
 		if err != nil {
 			return err
 		}
@@ -158,14 +148,14 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		} else {
 			// K1 = Kc = B
 			// K0 = K1-c = A - B
-			if err := writer.write(A.sub(B)); err != nil {
+			if err := writer.write(A.Sub(B)); err != nil {
 				return err
 			}
 		}
 	}
 
 	e := make([][]byte, 2)
-	var K points
+	var K crypto.Points
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
@@ -180,11 +170,11 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 
 		// build keys for decryption
 		// K = bR
-		K = R.scalarMult(bSecrets[i])
+		K = R.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
 		bit := util.TestBitSetInByte(choices, i)
-		messages[i], err = crypto.Decrypt(n.cipherMode, K.deriveKey(), bit, e[bit])
+		messages[i], err = crypto.Decrypt(n.cipherMode, K.DeriveKey(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
