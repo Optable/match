@@ -3,6 +3,7 @@ package crypto
 import (
 	"crypto/elliptic"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 
 	"github.com/zeebo/blake3"
@@ -56,8 +57,21 @@ func (p Points) SetY(newY *big.Int) Points {
 	return p
 }
 
-func (p Points) Marshal(curve elliptic.Curve) []byte {
-	return elliptic.Marshal(curve, p.x, p.y)
+func (p Points) Marshal() []byte {
+	return elliptic.Marshal(p.curve, p.x, p.y)
+}
+
+func (p Points) Unmarshal(marshaledPoint []byte) error {
+	x, y := elliptic.Unmarshal(p.curve, marshaledPoint)
+
+	// on error of unmarshal, x is nil
+	if x == nil {
+		return fmt.Errorf("error unmarshal elliptic curve point")
+	}
+
+	p.x.Set(x)
+	p.y.Set(y)
+	return nil
 }
 
 func (p Points) Add(q Points) Points {

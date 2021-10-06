@@ -32,7 +32,7 @@ func initKKRTReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- 
 func kkrtReceiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
 	defer close(msgBus)
 
-	msg := make([][]byte, baseCount)
+	msg := make([][]byte, otExtensionCount)
 	err := ot.Receive(choices, msg, conn)
 	if err != nil {
 		errs <- err
@@ -44,18 +44,15 @@ func kkrtReceiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []b
 }
 
 func TestKKRT(t *testing.T) {
-	// sample n tupples of messages
-	tuple := 10
-	mm := genMsg(baseCount, tuple)
-
 	// sample integer choices
-	cc := make([]byte, baseCount)
+	cc := make([]byte, otExtensionCount)
 	for i := range cc {
 		cc[i] = byte(r.Intn(tuple))
 	}
 
-	for i, m := range mm {
-		msgLen[i] = len(m[0])
+	mLen := make([]int, otExtensionCount)
+	for i, m := range nchooseOneMessages {
+		mLen[i] = len(m[0])
 	}
 
 	msgBus := make(chan []byte)
@@ -63,7 +60,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewKKRT(baseCount, k, tuple, NaorPinkas, false, msgLen)
+	ot, err := NewKKRT(otExtensionCount, k, tuple, NaorPinkas, false, mLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,12 +79,12 @@ func TestKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
 		}
 
-		ot, err := NewKKRT(baseCount, k, tuple, NaorPinkas, false, msgLen)
+		ot, err := NewKKRT(otExtensionCount, k, tuple, NaorPinkas, false, mLen)
 		if err != nil {
 			errs <- err
 		}
 
-		err = ot.Send(mm, conn)
+		err = ot.Send(nchooseOneMessages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -110,7 +107,7 @@ func TestKKRT(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for KKRT OT of %d OTs is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for KKRT OT of %d OTs is: %v\n", otExtensionCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {
@@ -118,26 +115,23 @@ func TestKKRT(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if !bytes.Equal(m, mm[i][cc[i]]) {
-			t.Logf("choice[%d]=%d\nmessages=%v\n", i, cc[i], mm[i])
-			t.Fatalf("KKRT OT at msg %d, failed got: %v, want %v", i, m, mm[i][cc[i]])
+		if !bytes.Equal(m, nchooseOneMessages[i][cc[i]]) {
+			t.Logf("choice[%d]=%d\nmessages=%v\n", i, cc[i], nchooseOneMessages[i])
+			t.Fatalf("KKRT OT at msg %d, failed got: %v, want %v", i, m, nchooseOneMessages[i][cc[i]])
 		}
 	}
 }
 
 func TestImprovedKKRT(t *testing.T) {
-	// sample n tupples of messages
-	tuple := 10
-	mm := genMsg(baseCount, tuple)
-
 	// sample integer choices
-	cc := make([]byte, baseCount)
+	cc := make([]byte, otExtensionCount)
 	for i := range cc {
 		cc[i] = byte(r.Intn(tuple))
 	}
 
-	for i, m := range mm {
-		msgLen[i] = len(m[0])
+	mLen := make([]int, otExtensionCount)
+	for i, m := range nchooseOneMessages {
+		mLen[i] = len(m[0])
 	}
 
 	msgBus := make(chan []byte)
@@ -145,7 +139,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedKKRT(baseCount, k, tuple, NaorPinkas, crypto.AESCtrDrbg, false, msgLen)
+	ot, err := NewImprovedKKRT(otExtensionCount, k, tuple, NaorPinkas, crypto.AESCtrDrbg, false, mLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,12 +158,12 @@ func TestImprovedKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating improved KKRT OT extension: %s", err)
 		}
 
-		ot, err := NewImprovedKKRT(baseCount, k, tuple, NaorPinkas, crypto.AESCtrDrbg, false, msgLen)
+		ot, err := NewImprovedKKRT(otExtensionCount, k, tuple, NaorPinkas, crypto.AESCtrDrbg, false, mLen)
 		if err != nil {
 			errs <- err
 		}
 
-		err = ot.Send(mm, conn)
+		err = ot.Send(nchooseOneMessages, conn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
@@ -192,7 +186,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for improved KKRT OT extension of %d OTs is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for improved KKRT OT extension of %d OTs is: %v\n", otExtensionCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(msg) == 0 {
@@ -200,9 +194,9 @@ func TestImprovedKKRT(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		if !bytes.Equal(m, mm[i][cc[i]]) {
-			t.Logf("choice[%d]=%d\nmessages=%v\n", i, cc[i], mm[i])
-			t.Fatalf("improved KKRT OT extension at msg %d, failed got: %v, want %v", i, m, mm[i][cc[i]])
+		if !bytes.Equal(m, nchooseOneMessages[i][cc[i]]) {
+			t.Logf("choice[%d]=%d\nmessages=%v\n", i, cc[i], nchooseOneMessages[i])
+			t.Fatalf("improved KKRT OT extension at msg %d, failed got: %v, want %v", i, m, nchooseOneMessages[i][cc[i]])
 		}
 	}
 }

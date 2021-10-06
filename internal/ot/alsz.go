@@ -29,7 +29,6 @@ type alsz struct {
 
 func NewALSZ(m, k, baseOt, drbg int, ristretto bool, msgLen []int) (alsz, error) {
 	// send k columns of messages of length k
-	k = k + util.PadTill8(k)
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = k / 8
@@ -40,7 +39,7 @@ func NewALSZ(m, k, baseOt, drbg int, ristretto bool, msgLen []int) (alsz, error)
 		return alsz{}, err
 	}
 
-	return alsz{baseOT: ot, m: m + util.PadTill8(m), k: k, drbg: drbg, msgLen: msgLen}, nil
+	return alsz{baseOT: ot, m: m, k: k, drbg: drbg, msgLen: msgLen}, nil
 }
 
 func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -57,14 +56,15 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// receive masked columns u
-	u := make([]byte, ext.m/8)
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
+	u := make([]byte, paddedLen)
 	q := make([][]byte, ext.k)
 	for col := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return err
 		}
 
-		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m/8)
+		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], paddedLen)
 		if err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k)
 	if err != nil {
 		return err
 	}
@@ -127,17 +127,23 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		return err
 	}
 
+	// pad choice to the right, the extra information will always end up in the bottom
+	// once the matrix is transposed, and will never be used by both sender and receiver.
+	paddedChoice := make([]byte, (ext.m+util.PadTill512(ext.m))/8)
+	copy(paddedChoice, choices)
+
 	var t = make([][]byte, ext.k)
-	var u = make([]byte, ext.m/8)
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
+	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range t {
-		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m/8)
+		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
 		if err != nil {
 			return err
 		}
 
-		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m/8)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
 		if err != nil {
 			return err
 		}
@@ -147,7 +153,7 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 			return err
 		}
 
-		u, err = util.XorBytes(u, choices)
+		u, err = util.XorBytes(u, paddedChoice)
 		if err != nil {
 			return err
 		}

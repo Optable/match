@@ -39,11 +39,10 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if len(messages) != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
-	fmt.Println("NaorPinkas Send check pass: ", len(messages), n.baseCount)
 
 	// Instantiate Reader, Writer
-	reader := newReader(rw, n.curve, n.encodeLen)
-	writer := newWriter(rw, n.curve)
+	reader := newReader(rw, n.encodeLen)
+	writer := newWriter(rw)
 
 	// generate sender point A w/o secret, since a is never used.
 	_, A, err := crypto.GenerateKeyWithPoints(n.curve)
@@ -109,11 +108,10 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	if len(choices)*8 != len(messages) || len(choices)*8 != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
-	fmt.Println("NaorPinkas receive pass check", len(choices), len(messages), n.baseCount)
 
 	// instantiate Reader, Writer
-	reader := newReader(rw, n.curve, n.encodeLen)
-	writer := newWriter(rw, n.curve)
+	reader := newReader(rw, n.encodeLen)
+	writer := newWriter(rw)
 
 	// receive point A from sender
 	A := crypto.NewPoints(n.curve, new(big.Int), new(big.Int))

@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/elliptic"
 	"fmt"
 	"io"
 
@@ -48,27 +47,25 @@ func NewBaseOT(t int, ristretto bool, baseCount int, curveName string, msgLen []
 }
 
 type writer struct {
-	w     io.Writer
-	curve elliptic.Curve
+	w io.Writer
 }
 
 type reader struct {
 	r         io.Reader
-	curve     elliptic.Curve
 	encodeLen int
 }
 
-func newWriter(w io.Writer, c elliptic.Curve) *writer {
-	return &writer{w: w, curve: c}
+func newWriter(w io.Writer) *writer {
+	return &writer{w: w}
 }
 
-func newReader(r io.Reader, c elliptic.Curve, l int) *reader {
-	return &reader{r: r, curve: c, encodeLen: l}
+func newReader(r io.Reader, l int) *reader {
+	return &reader{r: r, encodeLen: l}
 }
 
 // Write writes the marshalled elliptic curve point to writer
 func (w *writer) write(p crypto.Points) (err error) {
-	if _, err = w.w.Write(p.Marshal(w.curve)); err != nil {
+	if _, err = w.w.Write(p.Marshal()); err != nil {
 		return err
 	}
 	return
@@ -81,9 +78,5 @@ func (r *reader) read(p crypto.Points) (err error) {
 		return err
 	}
 
-	px, py := elliptic.Unmarshal(r.curve, pt)
-
-	p.SetX(px)
-	p.SetY(py)
-	return
+	return p.Unmarshal(pt)
 }

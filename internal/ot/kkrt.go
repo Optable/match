@@ -34,12 +34,10 @@ type kkrt struct {
 }
 
 func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
-	m = m + util.PadTill8(m)
-
 	// send k columns of m bit messages
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = m / 8
+		baseMsgLen[i] = (m + util.PadTill512(m)) / 8
 	}
 
 	ot, err := NewBaseOT(baseOT, ristretto, k, kkrtCurve, baseMsgLen, kkrtCipherMode)
@@ -47,7 +45,7 @@ func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
 		return kkrt{}, err
 	}
 
-	return kkrt{baseOT: ot, m: m, k: k + util.PadTill8(k), n: n, msgLen: msgLen}, nil
+	return kkrt{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen}, nil
 }
 
 func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -125,7 +123,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
-	t, err := util.SampleRandomBitMatrix(rand.Reader, ext.k, ext.m/8)
+	t, err := util.SampleRandomBitMatrix(rand.Reader, ext.k, ext.m)
 	if err != nil {
 		return err
 	}

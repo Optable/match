@@ -42,8 +42,8 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// Instantiate Reader, Writer
-	reader := newReader(rw, s.curve, s.encodeLen)
-	writer := newWriter(rw, s.curve)
+	reader := newReader(rw, s.encodeLen)
+	writer := newWriter(rw)
 
 	// generate sender secret public key pairs
 	a, A, err := crypto.GenerateKeyWithPoints(s.curve)
@@ -101,8 +101,8 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 	}
 
 	// instantiate Reader, Writer
-	reader := newReader(rw, s.curve, s.encodeLen)
-	writer := newWriter(rw, s.curve)
+	reader := newReader(rw, s.encodeLen)
+	writer := newWriter(rw)
 
 	// Receive marshalled point A from sender
 	A := crypto.NewPoints(s.curve, new(big.Int), new(big.Int))

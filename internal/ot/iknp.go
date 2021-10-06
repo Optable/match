@@ -34,7 +34,7 @@ func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = (m + util.PadTill8(m)) / 8
+		baseMsgLen[i] = (m + util.PadTill512(m)) / 8
 	}
 
 	ot, err := NewBaseOT(baseOT, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
@@ -42,7 +42,7 @@ func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 		return iknp{}, err
 	}
 
-	return iknp{baseOT: ot, m: m + util.PadTill8(m), k: k + util.PadTill8(k), msgLen: msgLen}, nil
+	return iknp{baseOT: ot, m: m, k: k, msgLen: msgLen}, nil
 }
 
 func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -94,17 +94,22 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// Sample k x m matrix T
-	t, err := util.SampleRandomBitMatrix(rand.Reader, ext.k, ext.m/8)
+	t, err := util.SampleRandomBitMatrix(rand.Reader, ext.k, ext.m)
 	if err != nil {
 		return err
 	}
+
+	// pad choice to the right, the extra information will always end up in the bottom
+	// once the matrix is transposed, and will never be used by both sender and receiver.
+	paddedChoice := make([]byte, (ext.m+util.PadTill512(ext.m))/8)
+	copy(paddedChoice, choices)
 
 	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
 	baseMsgs := make([][][]byte, ext.k)
 	for i := range baseMsgs {
 		baseMsgs[i] = make([][]byte, 2)
 		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], choices)
+		baseMsgs[i][1], err = util.XorBytes(t[i], paddedChoice)
 		if err != nil {
 			return err
 		}

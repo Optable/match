@@ -23,8 +23,6 @@ type imprvKKRT struct {
 }
 
 func NewImprovedKKRT(m, k, n, baseOt, drbg int, ristretto bool, msgLen []int) (imprvKKRT, error) {
-	k = k + util.PadTill8(k)
-
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -36,7 +34,7 @@ func NewImprovedKKRT(m, k, n, baseOt, drbg int, ristretto bool, msgLen []int) (i
 		return imprvKKRT{}, err
 	}
 
-	return imprvKKRT{baseOT: ot, m: m + util.PadTill8(m), k: k, n: n, msgLen: msgLen, drbg: drbg}, nil
+	return imprvKKRT{baseOT: ot, m: m, k: k, n: n, msgLen: msgLen, drbg: drbg}, nil
 }
 
 func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -64,14 +62,15 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// receive masked columns u
-	u := make([]byte, ext.m/8)
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
+	u := make([]byte, paddedLen)
 	q := make([][]byte, ext.k)
 	for col := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return err
 		}
 
-		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m/8)
+		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], paddedLen)
 		if err != nil {
 			return err
 		}
@@ -128,7 +127,7 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	}()
 
 	// sample k x k bit mtrix
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k/8)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*ext.k, ext.k)
 	if err != nil {
 		return err
 	}
@@ -146,17 +145,18 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 	}
 
 	d := <-pseudorandomChan
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	var t = make([][]byte, ext.k)
-	var u = make([]byte, ext.m/8)
+	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range d {
-		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m/8)
+		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
 		if err != nil {
 			return err
 		}
 
-		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m/8)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
 		if err != nil {
 			return err
 		}

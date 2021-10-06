@@ -124,8 +124,8 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
-	// sample 2*k x k/8 byte matrix (2*k x k bit matrix)
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*k, k/8)
+	// sample 2*k x k byte matrix (2*k x k bit matrix)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*k, k)
 	if err != nil {
 		return nil, err
 	}

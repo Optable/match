@@ -13,15 +13,20 @@ import (
 )
 
 var (
-	network    = "tcp"
-	address    = "127.0.0.1:"
-	curve      = "P256"
-	cipherMode = crypto.XORBlake3
-	baseCount  = 512
-	messages   = genMsg(baseCount, 2)
-	msgLen     = make([]int, len(messages))
-	choices    = genChoiceBits(baseCount / 8)
-	r          = rand.New(rand.NewSource(time.Now().UnixNano()))
+	network             = "tcp"
+	address             = "127.0.0.1:"
+	curve               = "P256"
+	cipherMode          = crypto.XORBlake3
+	baseCount           = 512
+	otExtensionCount    = 1400
+	tuple               = 10
+	messages            = genMsg(baseCount, 2)
+	otExtensionMessages = genMsg(otExtensionCount, 2)
+	nchooseOneMessages  = genMsg(otExtensionCount, tuple)
+	msgLen              = make([]int, len(messages))
+	choices             = genChoiceBits(baseCount / 8)
+	otExtensionChoices  = genChoiceBits(otExtensionCount / 8)
+	r                   = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func genMsg(n, t int) [][][]byte {
@@ -29,7 +34,7 @@ func genMsg(n, t int) [][][]byte {
 	for i := 0; i < n; i++ {
 		data[i] = make([][]byte, t)
 		for j := range data[i] {
-			data[i][j] = make([]byte, 512)
+			data[i][j] = make([]byte, otExtensionCount)
 			r.Read(data[i][j])
 		}
 	}

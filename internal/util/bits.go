@@ -154,16 +154,6 @@ func PadTill512(m int) (pad int) {
 	return pad
 }
 
-// PadTill8 returns the number of rows/columns to pad such that the number is a
-// multiple of 8.
-func PadTill8(m int) (pad int) {
-	pad = 8 - (m % 8)
-	if pad == 8 {
-		pad = 0
-	}
-	return pad
-}
-
 // TransposeByteMatrix performs a concurrent cache-oblivious transpose on a byte matrix by first
 // converting from bytes to uint64 (and padding as needed), performing the transpose on the uint64
 // matrix and then converting back to bytes.
