@@ -49,7 +49,7 @@ type Hasher interface {
 	Hash64([]byte) uint64
 }
 
-// NewHasher creates a hasher of type t
+// New creates a hasher of type t
 func New(t int, salt []byte) (Hasher, error) {
 	switch t {
 	case SIP:
@@ -72,7 +72,7 @@ type siphash64 struct {
 	key0, key1 uint64
 }
 
-// NewSipHash returns a SIP hasher
+// NewSIPHasher returns a SIP hasher
 // that uses the salt as a key
 func NewSIPHasher(salt []byte) (siphash64, error) {
 	if len(salt) != SaltLength {
@@ -97,7 +97,7 @@ type murmur64 struct {
 	salt []byte
 }
 
-// NewMurmur3 returns a Murmur3 hasher
+// NewMurmur3Hasher returns a Murmur3 hasher
 // that uses salt as a prefix to the
 // bytes being summed
 func NewMurmur3Hasher(salt []byte) (murmur64, error) {

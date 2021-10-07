@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/optable/match/internal/util"
+	"github.com/zeebo/blake3"
 )
 
 // pseudorandom generator (PRG) using deterministic random bit generator (DRBG)
@@ -14,9 +14,9 @@ import (
 const (
 	MrandDrbg = iota
 	AESCtrDrbg
-	AESCtrDrbgDense
 	HashDrbg
 	HmacDrbg
+	HashXOF
 )
 
 var (
@@ -30,14 +30,14 @@ func PseudorandomGenerate(drbg int, seed []byte, length int) ([]byte, error) {
 		return prgWithSeed(seed, length), nil
 	case AESCtrDrbg:
 		return aesCTRDrbg(seed, length), nil
-	case AESCtrDrbgDense:
-		return aesCTRDrbgDense(seed, length), nil
 	case HashDrbg:
 		return nil, ErrNotImplemented
 	case HmacDrbg:
 		// tried oasis Hmac drpg, which is 6 times slower than that of AES and math rand prg
 		// so we are dropping this
 		return nil, ErrNotImplemented
+	case HashXOF:
+		return blake3XOF(seed, length)
 	}
 
 	return nil, ErrUnknownPRG
@@ -48,9 +48,7 @@ func prgWithSeed(seed []byte, length int) (dst []byte) {
 	if length < len(seed) {
 		return seed[:length]
 	}
-
-	tmp := make([]byte, (length+7)/8)
-	dst = make([]byte, len(tmp)*8)
+	dst = make([]byte, length)
 	var source int64
 	for i := 0; i < len(seed)/64; i++ {
 		var s int64
@@ -61,33 +59,12 @@ func prgWithSeed(seed []byte, length int) (dst []byte) {
 	}
 
 	r := rand.New(rand.NewSource(source))
-	r.Read(tmp)
+	r.Read(dst)
 
-	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(tmp, dst)
-	return dst[:length]
+	return dst
 }
 
 func aesCTRDrbg(seed []byte, length int) (dst []byte) {
-	// need expand?
-	if length < len(seed) {
-		return seed[:length]
-	}
-
-	var newSeed [48]byte
-	copy(newSeed[:], seed)
-	drbg := NewDRBG(&newSeed)
-
-	tmp := make([]byte, (length+7)/8)
-	dst = make([]byte, len(tmp)*8)
-	drbg.Fill(tmp)
-
-	// extract pseudorandom bytes to bits
-	util.ExtractBytesToBits(tmp, dst)
-	return dst[:length]
-}
-
-func aesCTRDrbgDense(seed []byte, length int) (dst []byte) {
 	// need expand?
 	if length < len(seed) {
 		return seed[:length]
@@ -101,4 +78,20 @@ func aesCTRDrbgDense(seed []byte, length int) (dst []byte) {
 	drbg.Fill(dst)
 
 	return dst
+}
+
+func blake3XOF(seed []byte, length int) (dst []byte, err error) {
+	// need expand?
+	if length < len(seed) {
+		return seed[:length], nil
+	}
+
+	h := blake3.New()
+	h.Write(seed)
+	drbg := h.Digest()
+
+	dst = make([]byte, length)
+	_, err = drbg.Read(dst)
+
+	return dst, err
 }

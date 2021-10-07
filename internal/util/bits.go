@@ -128,7 +128,7 @@ func Transpose3D(matrix [][][]uint8) [][][]uint8 {
 // SampleRandomDenseBitMatrix fills each entry in the given 2D slices of bytes
 // with pseudorandom bit values but leaves them densely encoded unlike
 // SampleRandomBitMatrix.
-func SampleRandomDenseBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
+func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
@@ -142,61 +142,6 @@ func SampleRandomDenseBitMatrix(prng io.Reader, row, col int) ([][]uint8, error)
 	}
 
 	return matrix, nil
-}
-
-// SampleRandomBitMatrix fills each entry in the given 2D slices of bytes
-// with pseudorandom bit values
-func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
-	// instantiate matrix
-	matrix := make([][]uint8, row)
-	for row := range matrix {
-		matrix[row] = make([]uint8, col)
-	}
-
-	for row := range matrix {
-		if err := SampleBitSlice(prng, matrix[row]); err != nil {
-			return nil, err
-		}
-	}
-
-	return matrix, nil
-}
-
-// SampleBitSlice returns a slice of bytes of pseudorandom bits
-// prng is a reader from either crypto/rand.Reader
-// or math/rand.Rand
-func SampleBitSlice(prng io.Reader, b []uint8) (err error) {
-	// read up to len(b) + 1 pseudorandom bits
-	t := make([]byte, len(b)/8)
-	if _, err = prng.Read(t); err != nil {
-		return nil
-	}
-
-	// extract all bits into b
-	ExtractBytesToBits(t, b)
-
-	return nil
-}
-
-// ExtractBytesToBits returns a byte array of bits from src
-// if len(dst) < len(src) * 8, nothing will be done
-func ExtractBytesToBits(src, dst []byte) {
-	if len(dst) != len(src)*8 {
-		return
-	}
-
-	var i int
-	for _, _byte := range src {
-		dst[i] = uint8(_byte & 0x01)
-		dst[i+1] = uint8((_byte >> 1) & 0x01)
-		dst[i+2] = uint8((_byte >> 2) & 0x01)
-		dst[i+3] = uint8((_byte >> 3) & 0x01)
-		dst[i+4] = uint8((_byte >> 4) & 0x01)
-		dst[i+5] = uint8((_byte >> 5) & 0x01)
-		dst[i+6] = uint8((_byte >> 6) & 0x01)
-		dst[i+7] = uint8((_byte >> 7) & 0x01)
-		i += 8
-	}
 }
 
 // PadTill512 returns the number of rows/columns to pad such that the number is a

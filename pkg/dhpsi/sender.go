@@ -45,44 +45,44 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 	gr, _ := NewRistretto(RistrettoTypeR255)
 	// stage1 : writes the permutated identifiers to the receiver
 	stage1 := func() error {
-		if writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr); err != nil {
+		writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr)
+		if err != nil {
 			return err
-		} else {
-			// read N matchables from r
-			// and write them to stage1
-			// shuffle will error out if more than N
-			// are read from identifiers
-			for identifier := range identifiers {
-				if err := writer.Shuffle(identifier); err != nil {
-					return err
-				}
-			}
-			return nil
 		}
+		// read N matchables from r
+		// and write them to stage1
+		// shuffle will error out if more than N
+		// are read from identifiers
+		for identifier := range identifiers {
+			if err := writer.Shuffle(identifier); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
-	// stage2 : reads the identifiers from the receiver, encrypt them and send them back
+	// stage2 : reads the identifiers from the receiver, encrypts them and sends them back
 	stage2 := func() error {
 		reader, err := NewMultiplyParallelReader(s.rw, gr)
 		if err != nil {
 			return err
 		}
-		if writer, err := NewWriter(s.rw, reader.Max()); err != nil {
+		writer, err := NewWriter(s.rw, reader.Max())
+		if err != nil {
 			return err
-		} else {
-			for i := int64(0); i < reader.Max(); i++ {
-				var p [EncodedLen]byte
-				if err := reader.Read(&p); err != nil {
-					if err != io.EOF {
-						return err
-					}
-				}
-				if err := writer.Write(p); err != nil {
-					return fmt.Errorf("stage2: %v", err)
+		}
+		for i := int64(0); i < reader.Max(); i++ {
+			var p [EncodedLen]byte
+			if err := reader.Read(&p); err != nil {
+				if err != io.EOF {
+					return err
 				}
 			}
-			return nil
+			if err := writer.Write(p); err != nil {
+				return fmt.Errorf("stage2: %v", err)
+			}
 		}
+		return nil
 	}
 
 	// run stage1

@@ -119,6 +119,8 @@ func (enc *DeriveMultiplyParallelShuffler) Permutations() permutations.Permutati
 // up the buffers and block on submitting
 // the work
 
+// A MultiplyParallelReader is a reader that sits on the other end of a DeriveMultiplyShuffler
+// or a Writer and reads encoded ristretto hashes and multiplies them using gr.
 type MultiplyParallelReader struct {
 	r   *Reader
 	seq int64
@@ -232,7 +234,7 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 		for b := range batches {
 			// if this is the current batch, write it out
 			if sent == b.n {
-				copy_out(b, c, closed)
+				copyOut(b, c, closed)
 				sent++
 			} else {
 				// buffer it
@@ -241,7 +243,7 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 			// check if buffered
 			if b, ok := ring[sent]; ok {
 				// do we have it buffered?
-				copy_out(b, c, closed)
+				copyOut(b, c, closed)
 				delete(ring, sent)
 				sent++
 			}
@@ -250,14 +252,14 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 		// flush out the rest of the buffer
 		for i := 0; i < len(ring); i++ {
 			b := ring[sent+i]
-			copy_out(b, c, closed)
+			copyOut(b, c, closed)
 		}
 	}()
 
 	return c
 }
 
-func copy_out(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
+func copyOut(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
 	for _, point := range b.points {
 		select {
 		case c <- point:
@@ -269,8 +271,8 @@ func copy_out(b mBatch, c chan [EncodedLen]byte, done chan bool) (n int64) {
 	return
 }
 
-// Read reads a point from the underyling reader, multiply it with ristretto
-// and write it into point. Returns io.EOF when
+// Read reads a point from the underlying reader, multiplies it with ristretto
+// and writes it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (dec *MultiplyParallelReader) Read(point *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size

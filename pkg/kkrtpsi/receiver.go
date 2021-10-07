@@ -85,7 +85,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oReceiver, err := oprf.NewOPRF(oprf.KKRT, int(oprfInputSize), ot.NaorPinkas)
+		oReceiver, err := oprf.NewOPRF(oprf.ImprvKKRT, int(oprfInputSize), ot.NaorPinkas)
 		if err != nil {
 			return err
 		}
