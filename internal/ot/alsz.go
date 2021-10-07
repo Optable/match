@@ -13,7 +13,7 @@ import (
 1 out of 2 IKNP OT extension
 from the paper: More Efficient Oblivious Transfer Extensions
 by Gilad Asharov, Yehuda Lindell, Thomas Schneider, and Michael Zohner in 2017.
-source: https://dl.acm.org/doi/10.1007/s00145-016-9236-6
+source: https://link.springer.com/content/pdf/10.1007/s00145-016-9236-6.pdf
 
 The improvement from normal IKNP is to use pseudorandom generators
 to send short OT messages instead of the full encrypted messages.

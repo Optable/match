@@ -26,7 +26,7 @@ var (
 //
 
 // DeriveMultiplyShuffler contains the necessary
-// machineries to derive identifiers into ristretto point
+// machineries to derive identifiers into ristretto point,
 // multiply them with secret key and permute them.
 type DeriveMultiplyShuffler struct {
 	w              io.Writer

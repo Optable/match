@@ -61,7 +61,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		return nil
 	}
 
-	// stage2 : reads the identifiers from the receiver, encrypt them and send them back
+	// stage2 : reads the identifiers from the receiver, encrypts them and sends them back
 	stage2 := func() error {
 		reader, err := NewMultiplyParallelReader(s.rw, gr)
 		if err != nil {

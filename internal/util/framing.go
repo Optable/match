@@ -45,8 +45,8 @@ func Exhaust(n int64, r io.Reader) <-chan []byte {
 	return identifiers
 }
 
-// Exhaust2 scans for identifiers in r,
-// It expects that each indentifier is line separated with \n
+// Exhaust2 scans for identifiers in r.
+// It expects that each identifier is line separated with \n
 // at the end of each line.
 func Exhaust2(n int64, r io.Reader) <-chan []byte {
 	// make the output channel

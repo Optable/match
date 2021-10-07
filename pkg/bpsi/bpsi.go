@@ -84,7 +84,7 @@ func (bf devopsfaith) WriteTo(rw io.Writer) (int64, error) {
 	return int64(n), err
 }
 
-// Add an identifier to a bitsAndBloom bloomfilter
+// Add an identifier to a BitsAndBlooms bloomfilter
 func (bf bitsAndBloom) Add(identifier []byte) {
 	bf.bf.Add(identifier)
 }

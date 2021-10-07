@@ -60,7 +60,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// pick a ristretto implementation
 	gr, _ := NewRistretto(RistrettoTypeR255)
-	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
+	// step1 : reads the identifiers from the sender, encrypts them and indexes the encoded ristretto point in a map
 	stage1 := func() error {
 		reader, err := NewMultiplyParallelReader(s.rw, gr)
 		if err != nil {
