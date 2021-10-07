@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -31,7 +32,7 @@ func newSimplest(baseCount int, curveName string, msgLen []int, cipherMode int) 
 	if len(msgLen) != baseCount {
 		return simplest{}, ErrBaseCountMissMatch
 	}
-	curve, encodeLen := initCurve(curveName)
+	curve, encodeLen := crypto.InitCurve(curveName)
 	return simplest{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
 }
 
@@ -41,11 +42,11 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// Instantiate Reader, Writer
-	reader := newReader(rw, s.curve, s.encodeLen)
-	writer := newWriter(rw, s.curve)
+	reader := newReader(rw, s.encodeLen)
+	writer := newWriter(rw)
 
 	// generate sender secret public key pairs
-	a, A, err := generateKeyWithPoints(s.curve)
+	a, A, err := crypto.GenerateKeyWithPoints(s.curve)
 	if err != nil {
 		return err
 	}
@@ -56,35 +57,30 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// Precompute A = aA
-	A = A.scalarMult(a)
+	A = A.ScalarMult(a)
 
 	// make a slice of point B, 1 for each OT, and receive them
-	B := make([]points, s.baseCount)
+	B := make([]crypto.Points, s.baseCount)
 	for i := range B {
-		B[i] = newPoints(s.curve, new(big.Int), new(big.Int))
+		B[i] = crypto.NewPoints(s.curve, new(big.Int), new(big.Int))
 		if err := reader.read(B[i]); err != nil {
 			return err
 		}
 	}
 
-	K := make([]points, 2)
+	K := make([]crypto.Points, 2)
 	var ciphertext []byte
 	// encrypt plaintext messages and send it.
 	for i := 0; i < s.baseCount; i++ {
-		// sanity check
-		if !B[i].isOnCurve() {
-			return fmt.Errorf("point A received from sender is not on curve: %s", s.curve.Params().Name)
-		}
-
 		// k0 = aB
-		K[0] = B[i].scalarMult(a)
+		K[0] = B[i].ScalarMult(a)
 		//k1 = a(B - A) = aB - aA
-		K[1] = K[0].sub(A)
+		K[1] = K[0].Sub(A)
 
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
 			// encrypt plaintext using aes GCM mode
-			ciphertext, err = crypto.Encrypt(s.cipherMode, K[choice].deriveKey(), uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(s.cipherMode, K[choice].DeriveKey(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -100,56 +96,48 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 }
 
 func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != s.baseCount {
+	if len(choices)*8 != len(messages) || len(choices)*8 != s.baseCount {
 		return ErrBaseCountMissMatch
 	}
 
 	// instantiate Reader, Writer
-	reader := newReader(rw, s.curve, s.encodeLen)
-	writer := newWriter(rw, s.curve)
+	reader := newReader(rw, s.encodeLen)
+	writer := newWriter(rw)
 
 	// Receive marshalled point A from sender
-	A := newPoints(s.curve, new(big.Int), new(big.Int))
+	A := crypto.NewPoints(s.curve, new(big.Int), new(big.Int))
 	if err := reader.read(A); err != nil {
 		return err
 	}
 
-	// sanity check
-	if !A.isOnCurve() {
-		return fmt.Errorf("point A received from sender is not on curve: %s", s.curve.Params().Name)
-	}
-
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, s.baseCount)
-	var B points
+	var B crypto.Points
 	var b []byte
 	for i := 0; i < s.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		b, B, err = generateKeyWithPoints(s.curve)
+		b, B, err = crypto.GenerateKeyWithPoints(s.curve)
 		if err != nil {
 			return err
 		}
 		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point B and send it
-		switch choices[i] {
-		case 0:
+		if util.TestBitSetInByte(choices, i) == 0 {
 			// B
 			if err := writer.write(B); err != nil {
 				return err
 			}
-		case 1:
+		} else {
 			// B = A + B
-			if err := writer.write(A.add(B)); err != nil {
+			if err := writer.write(A.Add(B)); err != nil {
 				return err
 			}
-		default:
-			return fmt.Errorf("choice bits should be binary, got %v", choices[i])
 		}
 	}
 
 	e := make([][]byte, 2)
-	var K points
+	var K crypto.Points
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < s.baseCount; i++ {
 		// compute # of bytes to be read.
@@ -164,10 +152,11 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		}
 
 		// build keys for decrypting choice messages
-		K = A.scalarMult(bSecrets[i])
+		K = A.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		messages[i], err = crypto.Decrypt(s.cipherMode, K.deriveKey(), choices[i], e[choices[i]])
+		bit := util.TestBitSetInByte(choices, i)
+		messages[i], err = crypto.Decrypt(s.cipherMode, K.DeriveKey(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

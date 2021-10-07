@@ -13,6 +13,7 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 */
 
 import (
+	"crypto/aes"
 	"crypto/rand"
 	"io"
 
@@ -118,14 +119,15 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		d := make([][]byte, ext.m)
+		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCodeDense(sk, choices[i])
+			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
-	// sample 2*k x k/8 byte matrix (2*k x k bit matrix)
-	seeds, err := util.SampleRandomDenseBitMatrix(rand.Reader, 2*k, k/8)
+	// sample 2*k x k byte matrix (2*k x k bit matrix)
+	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*k, k)
 	if err != nil {
 		return nil, err
 	}

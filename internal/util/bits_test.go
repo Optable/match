@@ -110,8 +110,8 @@ func TestTranspose3D(t *testing.T) {
 		b[m] = make([][]byte, 2)
 		b[m][0] = make([]byte, 8)
 		b[m][1] = make([]byte, 8)
-		SampleBitSlice(prng, b[m][0])
-		SampleBitSlice(prng, b[m][1])
+		prng.Read(b[m][0])
+		prng.Read(b[m][1])
 	}
 
 	for m := range b {
@@ -130,7 +130,7 @@ func TestOldTranspose(t *testing.T) {
 	b := make([][]byte, 4)
 	for m := range b {
 		b[m] = make([]byte, 8)
-		SampleBitSlice(prng, b[m])
+		prng.Read(b[m])
 	}
 
 	for m := range b {
@@ -237,7 +237,7 @@ func BenchmarkSampleBitMatrix(b *testing.B) {
 
 func BenchmarkXorBytes(b *testing.B) {
 	a := make([]byte, 10000)
-	SampleBitSlice(prng, a)
+	prng.Read(a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		XorBytes(a, a)

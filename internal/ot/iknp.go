@@ -1,11 +1,9 @@
 package ot
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
-	"math/rand"
-	"sync"
-	"time"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -30,14 +28,13 @@ type iknp struct {
 	m      int
 	k      int
 	msgLen []int
-	prng   *rand.Rand
 }
 
 func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 	// send k columns of messages of length m
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = m
+		baseMsgLen[i] = (m + util.PadTill512(m)) / 8
 	}
 
 	ot, err := NewBaseOT(baseOT, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
@@ -45,13 +42,13 @@ func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 		return iknp{}, err
 	}
 
-	return iknp{baseOT: ot, m: m, k: k, msgLen: msgLen, prng: rand.New(rand.NewSource(time.Now().UnixNano()))}, nil
+	return iknp{baseOT: ot, m: m, k: k, msgLen: msgLen}, nil
 }
 
 func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
-	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(ext.prng, s); err != nil {
+	s := make([]uint8, ext.k/8)
+	if _, err = rand.Read(s); err != nil {
 		return err
 	}
 
@@ -62,7 +59,7 @@ func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// transpose q to m x k matrix for easier row operations
-	q = util.Transpose(q)
+	q = util.TransposeByteMatrix(q)
 
 	var key, ciphertext []byte
 	// encrypt messages and send them
@@ -92,46 +89,27 @@ func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 }
 
 func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != ext.m {
+	if len(choices)*8 != len(messages) || len(messages) != ext.m {
 		return ErrBaseCountMissMatch
 	}
 
 	// Sample k x m matrix T
-	t, err := util.SampleRandomBitMatrix(ext.prng, ext.k, ext.m)
+	t, err := util.SampleRandomBitMatrix(rand.Reader, ext.k, ext.m)
 	if err != nil {
 		return err
 	}
 
-	var errBus = make(chan error)
-	var msg = make(chan []byte)
-	var wg sync.WaitGroup
+	// pad choice to the right, the extra information will always end up in the bottom
+	// once the matrix is transposed, and will never be used by both sender and receiver.
+	paddedChoice := make([]byte, (ext.m+util.PadTill512(ext.m))/8)
+	copy(paddedChoice, choices)
+
 	// make k pairs of m bytes baseOT messages: {t^j, t^j xor choices}
 	baseMsgs := make([][][]byte, ext.k)
 	for i := range baseMsgs {
-		wg.Add(1)
-		go func(i int, msg chan<- []byte) {
-			defer wg.Done()
-			msg <- t[i]
-			m2, err := util.XorBytes(t[i], choices)
-			msg <- m2
-			if err != nil {
-				errBus <- err
-			}
-		}(i, msg)
-
 		baseMsgs[i] = make([][]byte, 2)
-		baseMsgs[i][0] = <-msg
-		baseMsgs[i][1] = <-msg
-	}
-
-	// wait for all operation to be done
-	go func() {
-		wg.Wait()
-		close(errBus)
-		close(msg)
-	}()
-	//errors?
-	for err := range errBus {
+		baseMsgs[i][0] = t[i]
+		baseMsgs[i][1], err = util.XorBytes(t[i], paddedChoice)
 		if err != nil {
 			return err
 		}
@@ -143,10 +121,11 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// compute m x k transpose to access columns easier
-	t = util.Transpose(t)
+	t = util.TransposeByteMatrix(t)
 
 	e := make([][]byte, 2)
-	for i := range choices {
+	for i := 0; i < ext.m; i++ {
+		choiceBit := util.TestBitSetInByte(choices, i)
 		// compute # of bytes to be read
 		l := crypto.EncryptLen(iknpCipherMode, ext.msgLen[i])
 		// read both msg
@@ -158,7 +137,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choiceBit, e[choiceBit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

@@ -1,6 +1,8 @@
 package oprf
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"fmt"
 	"io"
 
@@ -13,8 +15,8 @@ OPRF interface
 */
 
 const (
-	k = 512 // width of base OT binary matrix as well as
-	// pseudorandom code output length
+	k = 512 // width of base OT binary matrix as well as the pseudorandom code output length
+
 	KKRT = iota
 	ImprvKKRT
 )
@@ -32,7 +34,7 @@ func NewOPRF(t, m, baseOT int) (OPRF, error) {
 	case KKRT:
 		return newKKRT(m, baseOT, false)
 	case ImprvKKRT:
-		return newImprovedKKRT(m, baseOT, crypto.AESCtrDrbgDense, false)
+		return newImprovedKKRT(m, baseOT, crypto.HashXOF, false)
 	default:
 		return nil, ErrUnknownOPRF
 	}
@@ -48,9 +50,9 @@ type Key struct {
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(in []byte) (out []byte, err error) {
+func (k Key) Encode(aesBlock cipher.Block, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCodeDense(k.sk, in)
+	out = crypto.PseudorandomCode(aesBlock, in)
 
 	if err = util.ConcurrentInPlaceAndBytes(out, k.s); err != nil {
 		return nil, err
@@ -58,4 +60,8 @@ func (k Key) Encode(in []byte) (out []byte, err error) {
 
 	err = util.ConcurrentInPlaceXorBytes(out, k.q)
 	return
+}
+
+func GetAesBlock(k Key) (cipher.Block, error) {
+	return aes.NewCipher(k.sk)
 }

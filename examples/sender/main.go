@@ -43,16 +43,16 @@ func main() {
 	}
 
 	// validate protocol
-	var psi_type psi.Protocol
+	var psiType psi.Protocol
 	switch *protocol {
 	case "bpsi":
-		psi_type = psi.BPSI
+		psiType = psi.BPSI
 	case "npsi":
-		psi_type = psi.NPSI
+		psiType = psi.NPSI
 	case "dhpsi":
-		psi_type = psi.DHPSI
+		psiType = psi.DHPSI
 	case "kkrt":
-		psi_type = psi.KKRTPSI
+		psiType = psi.KKRTPSI
 	default:
 		log.Printf("unsupported protocol %s", *protocol)
 		showUsageAndExit(0)
@@ -87,7 +87,7 @@ func main() {
 	case *net.TCPConn:
 		v.SetNoDelay(false)
 	}
-	s, _ := psi.NewSender(psi_type, c)
+	s, _ := psi.NewSender(psiType, c)
 	ids := util.Exhaust(n, f)
 	err = s.Send(context.Background(), n, ids)
 	if err != nil {

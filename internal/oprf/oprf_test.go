@@ -2,6 +2,7 @@ package oprf
 
 import (
 	"bytes"
+	"crypto/aes"
 	"fmt"
 	"math/rand"
 	"net"
@@ -9,13 +10,12 @@ import (
 	"time"
 
 	"github.com/optable/match/internal/ot"
-	"github.com/optable/match/internal/util"
 )
 
 var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
-	baseCount = 10000000
+	baseCount = 14000
 	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	choices   = genChoiceString()
 )
@@ -130,9 +130,10 @@ func TestKKRT(t *testing.T) {
 		t.Fatal("KKRT OT failed, did not receive any messages")
 	}
 
+	aesBlock, _ := aes.NewCipher(keys[0].sk)
 	for i, o := range out {
 		// encode choice with key
-		enc, err := keys[i].Encode(choices[i])
+		enc, err := keys[i].Encode(aesBlock, choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -215,9 +216,10 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal("Improved KKRT OT failed, did not receive any messages")
 	}
 
+	aesBlock, _ := aes.NewCipher(keys[0].sk)
 	for i, o := range out {
 		// encode choice with key
-		enc, err := keys[i].Encode(choices[i])
+		enc, err := keys[i].Encode(aesBlock, choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -233,13 +235,14 @@ func BenchmarkEncode(b *testing.B) {
 	sk := make([]byte, 16)
 	s := make([]byte, 64)
 	q := make([]byte, 64)
-	util.SampleBitSlice(prng, sk)
-	util.SampleBitSlice(prng, s)
-	util.SampleBitSlice(prng, q)
+	prng.Read(sk)
+	prng.Read(s)
+	prng.Read(q)
 	key := Key{sk: sk, s: s, q: q}
 
 	b.ResetTimer()
+	aesBlock, _ := aes.NewCipher(sk)
 	for i := 0; i < b.N; i++ {
-		key.Encode(q)
+		key.Encode(aesBlock, q)
 	}
 }

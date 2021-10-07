@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/aes"
 	"crypto/sha256"
 	"math/rand"
 	"testing"
@@ -166,10 +167,11 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 
 func BenchmarkPseudorandomCode(b *testing.B) {
 	in := make([]byte, 64)
-	util.SampleBitSlice(prng, in)
+	prng.Read(in)
 	b.ResetTimer()
+	aesBlock, _ := aes.NewCipher(aesKey)
 	for i := 0; i < b.N; i++ {
-		PseudorandomCode(aesKey, in)
+		PseudorandomCode(aesBlock, in)
 	}
 }
 

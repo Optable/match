@@ -1,6 +1,7 @@
 package kkrtpsi
 
 import (
+	"crypto/cipher"
 	"encoding/binary"
 	"io"
 	"runtime"
@@ -14,29 +15,6 @@ import (
 const (
 	batchSize = 2048
 )
-
-// findK returns the number of base OT for OPRF
-// these numbers are from the paper: Efficient Batched Oblivious PRF with Applications to Private Set Intersection
-// by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016.
-// Reference:	http://dx.doi.org/10.1145/2976749.2978381 (KKRT)
-func findK(n int64) int {
-	switch {
-	// 2^8
-	case n > 0 && n <= 256:
-		return 424
-	// 2^12
-	case n > 256 && n <= 4096:
-		return 432
-	// 2^16
-	case n > 4096 && n <= 65536:
-		return 440
-	// 2^20
-	case n > 65536:
-		return 448
-	default:
-		return 128
-	}
-}
 
 // HashRead reads one hash
 func EncodesRead(r io.Reader, u *[cuckoo.Nhash]uint64) (err error) {
@@ -63,9 +41,9 @@ func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEnc
 		execute:     f}
 }
 
-func (id hashable) encodeAndHash(oprfKeys []oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
+func (id hashable) encodeAndHash(oprfKeys []oprf.Key, hasher hash.Hasher, aesBlock cipher.Block) (hashes [cuckoo.Nhash]uint64) {
 	for hIdx, bucketIdx := range id.bucketIdx {
-		encoded, _ := oprfKeys[bucketIdx].Encode(append(id.identifier, uint8(hIdx)))
+		encoded, _ := oprfKeys[bucketIdx].Encode(aesBlock, append(id.identifier, uint8(hIdx)))
 		hashes[hIdx] = hasher.Hash64(encoded)
 	}
 
@@ -82,10 +60,11 @@ func EncodeAndHashAllParallel(oprfKeys []oprf.Key, hasher hash.Hasher, identifie
 	// work on the jobPool
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		go func() {
+			aesBlock, _ := oprf.GetAesBlock(oprfKeys[0])
 			for job := range jobPool {
 				var hashed = make([][cuckoo.Nhash]uint64, job.batchSize)
 				for i := 0; i < job.batchSize; i++ {
-					hashed[i] = job.identifiers[i].encodeAndHash(oprfKeys, hasher)
+					hashed[i] = job.identifiers[i].encodeAndHash(oprfKeys, hasher, aesBlock)
 				}
 				job.hashed = hashed
 				job.execute(job)

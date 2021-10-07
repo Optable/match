@@ -13,7 +13,7 @@ import (
 const (
 	// EncodedLen is the length of an encoded ristretto point
 	EncodedLen = 32
-	// PrefixedLen is the length of a prefixed email identifier
+	// EmailPrefixedLen is the length of a prefixed email identifier
 	EmailPrefixedLen = 66
 )
 
@@ -25,8 +25,8 @@ var (
 // Writers
 //
 
-// DeriveMultiplyParallelShuffler contains the necessary
-// machineries to derive identifiers into ristretto point
+// DeriveMultiplyShuffler contains the necessary
+// machineries to derive identifiers into ristretto point,
 // multiply them with secret key and permute them.
 type DeriveMultiplyShuffler struct {
 	w              io.Writer
@@ -155,30 +155,29 @@ type Reader struct {
 // of the DeriveMultiplyShuffler or the Writer and reads encoded ristretto hashes and
 // multiplies them using gr.
 func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
-	if r, err := NewReader(r); err != nil {
+	rr, err := NewReader(r)
+	if err != nil {
 		return nil, err
-	} else {
-		return &MultiplyReader{r: r, gr: gr}, nil
 	}
+	return &MultiplyReader{r: rr, gr: gr}, nil
 }
 
-// Read reads a point from the underyling reader, multiply it with ristretto
-// and write it into point. Returns io.EOF when
+// Read reads a point from the underlying reader, multiplies it with ristretto
+// and writes it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
 	var b [EncodedLen]byte
 	if err := r.r.Read(&b); err != nil {
 		return err
-	} else {
-		r.gr.Multiply(point, b)
-		return nil
 	}
+	r.gr.Multiply(point, b)
+	return nil
 }
 
 // Max returns the expected number of matchable
 // this decoder will receive
-func (dec *MultiplyReader) Max() int64 {
-	return dec.r.max
+func (r *MultiplyReader) Max() int64 {
+	return r.r.max
 }
 
 // NewReader makes a simple reader that sits on the other end
@@ -192,8 +191,8 @@ func NewReader(r io.Reader) (*Reader, error) {
 	return &Reader{r: r, max: max}, nil
 }
 
-// Read reads a point from the underyling reader and
-// write it into p. Returns io.EOF when
+// Read reads a point from the underlying reader and
+// writes it into p. Returns io.EOF when
 // the sequence has been completely read.
 func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size
@@ -211,8 +210,8 @@ func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 
 // Max returns the expected number of matchable
 // this decoder will receive
-func (dec *Reader) Max() int64 {
-	return dec.max
+func (r *Reader) Max() int64 {
+	return r.max
 }
 
 // init the permutations slice matrix
@@ -221,11 +220,11 @@ func initP(n int64) []int64 {
 	var max = big.NewInt(n - 1)
 	// Chooses a uniform random int64
 	choose := func() int64 {
-		if i, err := rand.Int(rand.Reader, max); err == nil {
-			return i.Int64()
-		} else {
+		i, err := rand.Int(rand.Reader, max)
+		if err != nil {
 			return 0
 		}
+		return i.Int64()
 	}
 	// Initialize a trivial permutation
 	for i := int64(0); i < n; i++ {

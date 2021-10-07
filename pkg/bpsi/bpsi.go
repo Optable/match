@@ -72,19 +72,19 @@ func (bf devopsfaith) Check(identifier []byte) bool {
 
 // WriteTo marshals the entire bloomfilter to rw
 func (bf devopsfaith) WriteTo(rw io.Writer) (int64, error) {
-	if b, err := bf.bf.MarshalBinary(); err == nil {
-		l := int64(len(b))
-		if err := binary.Write(rw, binary.BigEndian, l); err != nil {
-			return 0, err
-		}
-		n, err := rw.Write(b)
-		return int64(n), err
-	} else {
+	b, err := bf.bf.MarshalBinary()
+	if err != nil {
 		return 0, err
 	}
+	l := int64(len(b))
+	if err := binary.Write(rw, binary.BigEndian, l); err != nil {
+		return 0, err
+	}
+	n, err := rw.Write(b)
+	return int64(n), err
 }
 
-// Add an identifier to a bitsAndBloom bloomfilter
+// Add an identifier to a BitsAndBlooms bloomfilter
 func (bf bitsAndBloom) Add(identifier []byte) {
 	bf.bf.Add(identifier)
 }

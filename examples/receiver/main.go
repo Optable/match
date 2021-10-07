@@ -52,16 +52,16 @@ func main() {
 	}
 
 	// validate protocol
-	var psi_type psi.Protocol
+	var psiType psi.Protocol
 	switch *protocol {
 	case "bpsi":
-		psi_type = psi.BPSI
+		psiType = psi.BPSI
 	case "npsi":
-		psi_type = psi.NPSI
+		psiType = psi.NPSI
 	case "dhpsi":
-		psi_type = psi.DHPSI
+		psiType = psi.DHPSI
 	case "kkrt":
-		psi_type = psi.KKRTPSI
+		psiType = psi.KKRTPSI
 	default:
 		log.Printf("unsupported protocol %s", *protocol)
 		showUsageAndExit(0)
@@ -108,7 +108,7 @@ func main() {
 				v.SetNoDelay(false)
 			}
 			// make the receiver
-			receiver, _ := psi.NewReceiver(psi_type, c)
+			receiver, _ := psi.NewReceiver(psiType, c)
 			// and hand it off
 			wg.Add(1)
 			go func() {

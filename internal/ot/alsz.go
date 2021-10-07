@@ -11,9 +11,9 @@ import (
 
 /*
 1 out of 2 IKNP OT extension
-from the paper: Extending Oblivious Transfers Efficiently
-by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
-reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
+from the paper: More Efficient Oblivious Transfer Extensions
+by Gilad Asharov, Yehuda Lindell, Thomas Schneider, and Michael Zohner in 2017.
+source: https://link.springer.com/content/pdf/10.1007/s00145-016-9236-6.pdf
 
 The improvement from normal IKNP is to use pseudorandom generators
 to send short OT messages instead of the full encrypted messages.
@@ -27,11 +27,11 @@ type alsz struct {
 	drbg   int
 }
 
-func NewAlsz(m, k, baseOt, drbg int, ristretto bool, msgLen []int) (alsz, error) {
+func NewALSZ(m, k, baseOt, drbg int, ristretto bool, msgLen []int) (alsz, error) {
 	// send k columns of messages of length k
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
-		baseMsgLen[i] = k
+		baseMsgLen[i] = k / 8
 	}
 
 	ot, err := NewBaseOT(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
@@ -44,37 +44,38 @@ func NewAlsz(m, k, baseOt, drbg int, ristretto bool, msgLen []int) (alsz, error)
 
 func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// sample choice bits for baseOT
-	s := make([]uint8, ext.k)
-	if err = util.SampleBitSlice(rand.Reader, s); err != nil {
+	s := make([]uint8, ext.k/8)
+	if _, err = rand.Read(s); err != nil {
 		return err
 	}
 
-	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
+	// act as receiver in baseOT to receive k x k bits seeds for the pseudorandom generator
 	seeds := make([][]uint8, ext.k)
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return err
 	}
 
 	// receive masked columns u
-	u := make([]byte, ext.m)
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
+	u := make([]byte, paddedLen)
 	q := make([][]byte, ext.k)
 	for col := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return err
 		}
 
-		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], ext.m)
+		q[col], err = crypto.PseudorandomGenerate(ext.drbg, seeds[col], paddedLen)
 		if err != nil {
 			return err
 		}
 
-		q[col], err = util.XorBytes(util.AndByte(s[col], u), q[col])
+		q[col], err = util.XorBytes(util.AndByte(util.TestBitSetInByte(s, col), u), q[col])
 		if err != nil {
 			return err
 		}
 	}
 
-	q = util.Transpose(q)
+	q = util.TransposeByteMatrix(q)
 
 	// encrypt messages and send them
 	var key, ciphertext []byte
@@ -104,7 +105,7 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 }
 
 func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices) != len(messages) || len(choices) != ext.m {
+	if len(choices)*8 != len(messages) || len(choices)*8 != ext.m {
 		return ErrBaseCountMissMatch
 	}
 
@@ -126,17 +127,23 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		return err
 	}
 
+	// pad choice to the right, the extra information will always end up in the bottom
+	// once the matrix is transposed, and will never be used by both sender and receiver.
+	paddedChoice := make([]byte, (ext.m+util.PadTill512(ext.m))/8)
+	copy(paddedChoice, choices)
+
 	var t = make([][]byte, ext.k)
-	var u = make([]byte, ext.m)
+	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
+	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	for col := range t {
-		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], ext.m)
+		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
 		if err != nil {
 			return err
 		}
 
-		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], ext.m)
+		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
 		if err != nil {
 			return err
 		}
@@ -146,7 +153,7 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 			return err
 		}
 
-		u, err = util.XorBytes(u, choices)
+		u, err = util.XorBytes(u, paddedChoice)
 		if err != nil {
 			return err
 		}
@@ -158,11 +165,12 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	}
 
 	// transpose t to m x k for easier row operations
-	t = util.Transpose(t)
+	t = util.TransposeByteMatrix(t)
 
 	// receive encrypted messages.
 	e := make([][]byte, 2)
-	for i := range choices {
+	for i := 0; i < ext.m; i++ {
+		choiceBit := util.TestBitSetInByte(choices, i)
 		// compute nb of bytes to be read
 		l := crypto.EncryptLen(iknpCipherMode, ext.msgLen[i])
 		// read both msg
@@ -174,7 +182,7 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choiceBit, e[choiceBit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

@@ -15,11 +15,11 @@ func NewNaive(n int64) (naive, error) {
 	var max = big.NewInt(n - 1)
 	// Chooses a uniform random int64
 	choose := func() (int64, error) {
-		if i, err := rand.Int(rand.Reader, max); err == nil {
-			return i.Int64(), nil
-		} else {
+		i, err := rand.Int(rand.Reader, max)
+		if err != nil {
 			return 0, err
 		}
+		return i.Int64(), nil
 	}
 	// Initialize a trivial permutation
 	for i := int64(0); i < n; i++ {
