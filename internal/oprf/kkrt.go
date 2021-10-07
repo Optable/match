@@ -121,7 +121,7 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 	baseMsgs := make([][][]byte, k)
 	for i := range baseMsgs {
 
-		err = util.InPlaceXorBytes(t[i], d[i])
+		err = util.InPlaceXorBytes(d[i], t[i])
 		if err != nil {
 			return nil, err
 		}

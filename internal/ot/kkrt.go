@@ -90,7 +90,7 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			// compute q_i ^ (C(r) & s)
 			key = crypto.PseudorandomCode(sk, []byte{byte(choice)})
 			util.InPlaceAndBytes(s, key)
-			util.InPlaceXorBytes(q[i], key)
+			util.InPlaceXorBytes(key, q[i])
 
 			ciphertext, err = crypto.Encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
 			if err != nil {

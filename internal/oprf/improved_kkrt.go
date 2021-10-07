@@ -85,7 +85,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 		if err != nil {
 			return nil, err
 		}
-		err = util.InPlaceXorBytes(util.AndByte(util.TestBitSetInByte(s, row), u), q[row])
+		err = util.InPlaceXorBytes(q[row], util.AndByte(util.TestBitSetInByte(s, row), u))
 		if err != nil {
 			return nil, err
 		}
@@ -160,11 +160,11 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 			return nil, err
 		}
 
-		err = util.InPlaceXorBytes(t[col], u)
+		err = util.InPlaceXorBytes(u, t[col])
 		if err != nil {
 			return nil, err
 		}
-		err = util.InPlaceXorBytes(d[col], u)
+		err = util.InPlaceXorBytes(u, d[col])
 		if err != nil {
 			return nil, err
 		}

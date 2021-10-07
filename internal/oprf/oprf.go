@@ -56,6 +56,6 @@ func (k Key) Encode(in []byte) (out []byte, err error) {
 		return nil, err
 	}
 
-	err = util.InPlaceXorBytes(k.q, out)
+	err = util.InPlaceXorBytes(out, k.q)
 	return
 }
