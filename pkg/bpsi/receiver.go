@@ -30,18 +30,13 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // returning the matching intersection, using the NPSI protocol.
 // The format of an indentifier is
 //  string
-func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) (intersected [][]byte, err error) {
 	var bf bloomfilter
-	var intersected [][]byte
 
 	// stage 1: read the bloomfilter from the remote side
 	stage1 := func() error {
-		_bf, _, err := ReadFrom(r.rw)
-		if err != nil {
-			return err
-		}
-		bf = _bf
-		return nil
+		bf, _, err = ReadFrom(r.rw)
+		return err
 	}
 
 	// stage 2: read local IDs and compare with the remote bloomfilter
