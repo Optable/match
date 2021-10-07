@@ -162,8 +162,8 @@ func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
 	return &MultiplyReader{r: rr, gr: gr}, nil
 }
 
-// Read reads a point from the underlying reader, multiply it with ristretto
-// and write it into point. Returns io.EOF when
+// Read reads a point from the underlying reader, multiplies it with ristretto
+// and writes it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
 	var b [EncodedLen]byte
@@ -192,7 +192,7 @@ func NewReader(r io.Reader) (*Reader, error) {
 }
 
 // Read reads a point from the underlying reader and
-// write it into p. Returns io.EOF when
+// writes it into p. Returns io.EOF when
 // the sequence has been completely read.
 func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size

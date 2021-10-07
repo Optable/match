@@ -23,6 +23,6 @@ This package implements the following OT, and OT-extensions.
 
 [3] Y. Ishai, J. Kilian, K. Nissim, E. Petrank. "Extending oblivious transfers efficiently." In Annual International Cryptology Conference (pp. 145-161). Springer, Berlin, Heidelberg, 2003. Paper available here: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
 
-[4] V. Kolesnikov, R. Kumaresan, M. Rosulek, N.Trieu. "Efficient Batched Oblivious PRF with Applications to Private Set Intersection." In Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security (pp. 818-829),2016. Paper available here: https://dl.acm.org/doi/pdf/10.1145/2976749.2978381.
+[4] V. Kolesnikov, R. Kumaresan, M. Rosulek, N.Trieu. "Efficient Batched Oblivious PRF with Applications to Private Set Intersection." In Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security (pp. 818-829),2016. Paper available here: https://dl.acm.org/doi/pdf/10.1145/2976749.2978381
 
 [5] G. Asharov, Y. Lindell, T. Schneider, M. Zohner. "More Efficient Oblivious Transfer Extensions". Source: https://dl.acm.org/doi/10.1007/s00145-016-9236-6
