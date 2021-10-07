@@ -26,8 +26,7 @@ const (
 // secretKey is a 16 byte slice for AES-128
 // k is the desired number of bytes
 // on success, pseudorandomCode returns a byte slice of length k.
-func PseudorandomCode(secretKey, src []byte) (dst []byte) {
-	aesBlock, _ := aes.NewCipher(secretKey)
+func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	dst = make([]byte, aes.BlockSize*4)
 
 	// pad src

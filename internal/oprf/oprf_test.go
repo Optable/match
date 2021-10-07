@@ -2,6 +2,7 @@ package oprf
 
 import (
 	"bytes"
+	"crypto/aes"
 	"fmt"
 	"math/rand"
 	"net"
@@ -129,9 +130,10 @@ func TestKKRT(t *testing.T) {
 		t.Fatal("KKRT OT failed, did not receive any messages")
 	}
 
+	aesBlock, _ := aes.NewCipher(keys[0].sk)
 	for i, o := range out {
 		// encode choice with key
-		enc, err := keys[i].Encode(choices[i])
+		enc, err := keys[i].Encode(aesBlock, choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -214,9 +216,10 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal("Improved KKRT OT failed, did not receive any messages")
 	}
 
+	aesBlock, _ := aes.NewCipher(keys[0].sk)
 	for i, o := range out {
 		// encode choice with key
-		enc, err := keys[i].Encode(choices[i])
+		enc, err := keys[i].Encode(aesBlock, choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -238,7 +241,8 @@ func BenchmarkEncode(b *testing.B) {
 	key := Key{sk: sk, s: s, q: q}
 
 	b.ResetTimer()
+	aesBlock, _ := aes.NewCipher(sk)
 	for i := 0; i < b.N; i++ {
-		key.Encode(q)
+		key.Encode(aesBlock, q)
 	}
 }

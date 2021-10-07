@@ -1,6 +1,7 @@
 package kkrtpsi
 
 import (
+	"crypto/cipher"
 	"encoding/binary"
 	"io"
 	"runtime"
@@ -40,9 +41,9 @@ func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEnc
 		execute:     f}
 }
 
-func (id hashable) encodeAndHash(oprfKeys []oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
+func (id hashable) encodeAndHash(oprfKeys []oprf.Key, hasher hash.Hasher, aesBlock cipher.Block) (hashes [cuckoo.Nhash]uint64) {
 	for hIdx, bucketIdx := range id.bucketIdx {
-		encoded, _ := oprfKeys[bucketIdx].Encode(append(id.identifier, uint8(hIdx)))
+		encoded, _ := oprfKeys[bucketIdx].Encode(aesBlock, append(id.identifier, uint8(hIdx)))
 		hashes[hIdx] = hasher.Hash64(encoded)
 	}
 
@@ -59,10 +60,11 @@ func EncodeAndHashAllParallel(oprfKeys []oprf.Key, hasher hash.Hasher, identifie
 	// work on the jobPool
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		go func() {
+			aesBlock, _ := oprf.GetAesBlock(oprfKeys[0])
 			for job := range jobPool {
 				var hashed = make([][cuckoo.Nhash]uint64, job.batchSize)
 				for i := 0; i < job.batchSize; i++ {
-					hashed[i] = job.identifiers[i].encodeAndHash(oprfKeys, hasher)
+					hashed[i] = job.identifiers[i].encodeAndHash(oprfKeys, hasher, aesBlock)
 				}
 				job.hashed = hashed
 				job.execute(job)

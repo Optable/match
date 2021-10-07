@@ -12,6 +12,7 @@ Reference:	https://eprint.iacr.org/2013/491.pdf (Improved IKNP)
 */
 
 import (
+	"crypto/aes"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -76,12 +77,13 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	q = util.TransposeByteMatrix(q)
 
 	var key, ciphertext []byte
+	aesBlock, _ := aes.NewCipher(sk)
 	// encrypt messages and send them
 	for i := range messages {
 		// proof of concept, suppose we have n messages, and the choice string is an integer in [1, ..., n]
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
-			key = crypto.PseudorandomCode(sk, []byte{byte(choice)})
+			key = crypto.PseudorandomCode(aesBlock, []byte{byte(choice)})
 			util.InPlaceAndBytes(s, key)
 			util.InPlaceXorBytes(q[i], key)
 
@@ -115,8 +117,9 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		d := make([][]byte, ext.m)
+		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(sk, []byte{choices[i]})
+			d[i] = crypto.PseudorandomCode(aesBlock, []byte{choices[i]})
 		}
 		tr := util.TransposeByteMatrix(d)
 		pseudorandomChan <- tr

@@ -3,6 +3,8 @@ package crypto
 import (
 	"fmt"
 	"math/rand"
+
+	"github.com/zeebo/blake3"
 )
 
 // pseudorandom generator (PRG) using deterministic random bit generator (DRBG)
@@ -14,6 +16,7 @@ const (
 	AESCtrDrbg
 	HashDrbg
 	HmacDrbg
+	HashXOF
 )
 
 var (
@@ -33,6 +36,8 @@ func PseudorandomGenerate(drbg int, seed []byte, length int) ([]byte, error) {
 		// tried oasis Hmac drpg, which is 6 times slower than that of AES and math rand prg
 		// so we are dropping this
 		return nil, ErrNotImplemented
+	case HashXOF:
+		return blake3XOF(seed, length)
 	}
 
 	return nil, ErrUnknownPRG
@@ -73,4 +78,20 @@ func aesCTRDrbg(seed []byte, length int) (dst []byte) {
 	drbg.Fill(dst)
 
 	return dst
+}
+
+func blake3XOF(seed []byte, length int) (dst []byte, err error) {
+	// need expand?
+	if length < len(seed) {
+		return seed[:length], nil
+	}
+
+	h := blake3.New()
+	h.Write(seed)
+	drbg := h.Digest()
+
+	dst = make([]byte, length)
+	_, err = drbg.Read(dst)
+
+	return dst, err
 }
