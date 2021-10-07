@@ -190,6 +190,42 @@ func TestConcurrentInPlaceXorBytes(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestConcurrentInPlaceAndBytes(t *testing.T) {
+	for _, l := range []int{10, 16384, 10000000} {
+		// XOR with itself
+		a := make([]byte, l)
+		b := make([]byte, l)
+		if _, err := prng.Read(a); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		copy(b, a)
+		ConcurrentInPlaceAndBytes(a, a)
+		for i := range a {
+			if a[i] != b[i] {
+				t.Fatalf("AND operation was not performed correctly")
+			}
+		}
+		// AND same original slice with concurrent and non-concurrent versions and then compare output
+		f := make([]byte, l)
+		g := make([]byte, l)
+		h := make([]byte, l)
+		if _, err := prng.Read(f); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		if _, err := prng.Read(h); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		copy(g, f)
+		ConcurrentInPlaceAndBytes(f, h)
+		InPlaceAndBytes(g, h)
+		for i := range f {
+			if f[i] != g[i] {
+				t.Fatalf("result of concurrent AND operation did not match with result of non-concurrent equivalent")
+			}
+		}
+	}
 
 }
 
@@ -227,5 +263,26 @@ func BenchmarkConcurrentInPlaceXorBytes(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentInPlaceXorBytes(a, a)
+	}
+}
+func BenchmarkInPlaceAndBytes(b *testing.B) {
+	a := make([]byte, 10000000)
+	if _, err := prng.Read(a); err != nil {
+		b.Fatalf("error generating random bytes")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		InPlaceAndBytes(a, a)
+	}
+}
+
+func BenchmarkConcurrentInPlaceAndBytes(b *testing.B) {
+	a := make([]byte, 10000000)
+	if _, err := prng.Read(a); err != nil {
+		b.Fatalf("error generating random bytes")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ConcurrentInPlaceAndBytes(a, a)
 	}
 }

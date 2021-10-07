@@ -27,7 +27,7 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// Inplace XorBytes XORS each byte from a with b and returns dst
+// InplaceXorBytes XORS each byte from a with b and returns dst
 // if a and b are the same length
 func InPlaceXorBytes(dst, a []byte) error {
 	var n = len(dst)
@@ -42,6 +42,8 @@ func InPlaceXorBytes(dst, a []byte) error {
 	return nil
 }
 
+// ConcurrentInplaceXorBytes XORS each byte from a with b and returns dst
+// if a and b are the same length
 func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.NumCPU()
@@ -108,10 +110,10 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InplaceAndBytes replaces the bytes in dst with the binary AND of
+// InPlaceAndBytes replaces the bytes in dst with the binary AND of
 // each byte with the corresponding byte in a (if a and b are the
 // same length).
-func InPlaceAndBytes(a, dst []byte) error {
+func InPlaceAndBytes(dst, a []byte) error {
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
 	}
@@ -119,6 +121,58 @@ func InPlaceAndBytes(a, dst []byte) error {
 	for i := range dst {
 		dst[i] = dst[i] & a[i]
 	}
+
+	return nil
+}
+
+// ConcurrentInPlaceAndBytes replaces the bytes in dst with the binary
+// AND of each byte with the corresponding byte in a (if a and b are the
+// same length).
+func ConcurrentInPlaceAndBytes(dst, a []byte) error {
+	const blockSize int = 16384 // half of what L2 cache can hold
+	nworkers := runtime.NumCPU()
+	var n = len(dst)
+	if n != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	if n < blockSize {
+		return InPlaceAndBytes(dst, a)
+	}
+
+	// determine number of blocks to split original matrix
+	nblks := n / blockSize
+	if n%blockSize != 0 {
+		nblks += 1
+	}
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			for blk := range ch {
+				step := blockSize * blk
+				if blk == nblks-1 { // last block
+					for i := step; i < n; i++ {
+						dst[i] &= a[i]
+					}
+				} else {
+					for i := step; i < step+blockSize; i++ {
+						dst[i] &= a[i]
+					}
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
 
 	return nil
 }
