@@ -54,11 +54,11 @@ func (k Key) Encode(aesBlock cipher.Block, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
 	out = crypto.PseudorandomCode(aesBlock, in)
 
-	if err = util.InPlaceAndBytes(k.s, out); err != nil {
+	if err = util.ConcurrentInPlaceAndBytes(out, k.s); err != nil {
 		return nil, err
 	}
 
-	err = util.InPlaceXorBytes(k.q, out)
+	err = util.ConcurrentInPlaceXorBytes(out, k.q)
 	return
 }
 
