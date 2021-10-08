@@ -18,6 +18,7 @@ const (
 	// with the item being reinserted, and then reinsert the kicked off egg
 	ReinsertLimit = 200
 	Factor        = 1.4
+	dummyValue    = 255
 )
 
 func init() {
@@ -28,12 +29,29 @@ func init() {
 // the hash function used to compute which bucket index
 // the item is inserted in.
 type value struct {
-	hIdx uint8
 	item []byte
 }
 
-func (v value) Empty() bool {
-	return len(v.item) == 0 && v.hIdx == 0
+// put inserts x and hashIdx in value by copying x to v.item and appends the hash index to the end
+func putValue(hIdx uint8, x []byte) value {
+	v := make([]byte, len(x)+1)
+	copy(v, x)
+	v[len(v)-1] = uint8(hIdx)
+	return value{v}
+}
+
+// GetItem returns the item in value
+func (v value) GetItem() []byte {
+	return v.item[:len(v.item)-1]
+}
+
+// GetHashIdx returns the hashIndex in value
+func (v value) GetHashIdx() uint8 {
+	return v.item[len(v.item)-1]
+}
+
+func (v value) empty() bool {
+	return len(v.item) == 0
 }
 
 // A Cuckoo represents a 3-way Cuckoo hash table data structure
@@ -90,31 +108,10 @@ func FindBucketSize(size uint64) float64 {
 	return (40 - b) / float64(a)
 }
 
-// hash returns the result of h0(item), h1(item), h2(item)
-func (c *Cuckoo) hash(item []byte) [Nhash]uint64 {
-	var hashes [Nhash]uint64
-
-	for i := range hashes {
-		hashes[i] = doHash(item, c.hashers[i])
-	}
-
-	return hashes
-}
-
-// doHash returns the hash of an item given a hash function
-func doHash(item []byte, hasher hash.Hasher) uint64 {
-	return hasher.Hash64(item)
-}
-
-// bucketIndex computes the bucket index
-func (c *Cuckoo) bucketIndex(hash uint64) uint64 {
-	return hash % c.bucketSize
-}
-
 // bucketIndices returns the 3 possible bucket indices of an item
 func (c *Cuckoo) BucketIndices(item []byte) (idx [Nhash]uint64) {
-	for i, h := range c.hash(item) {
-		idx[i] = c.bucketIndex(h)
+	for i := range idx {
+		idx[i] = c.hashers[i].Hash64(item) % c.bucketSize
 	}
 
 	return idx
@@ -123,8 +120,6 @@ func (c *Cuckoo) BucketIndices(item []byte) (idx [Nhash]uint64) {
 // Insert tries to insert a given item to the bucket
 // in available slots, otherwise, it evicts a random occupied slot,
 // and reinserts evicted item.
-// as a last resort, after ReinsertLim number of reinsetion,
-// it pushes the evicted item onto the stash
 // returns an error msg if all failed.
 func (c *Cuckoo) Insert(item []byte) error {
 	bucketIndices := c.BucketIndices(item)
@@ -145,7 +140,6 @@ func (c *Cuckoo) Insert(item []byte) error {
 	} else {
 		return fmt.Errorf("failed to Insert item: %s", string(homeLessItem[:]))
 	}
-
 }
 
 // tryAdd finds a free slot and inserts the item
@@ -156,9 +150,9 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 			continue
 		}
 
-		if c.buckets[bIdx].Empty() {
-			// this is a free slot
-			c.buckets[bIdx] = value{uint8(hIdx), item}
+		// this is a free slot
+		if c.buckets[bIdx].empty() {
+			c.buckets[bIdx] = putValue(uint8(hIdx), item)
 			return true
 		}
 	}
@@ -173,19 +167,19 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 		// select a random slot to be evicted
 		evictedHIdx := rand.Int31n(Nhash)
 		evictedBIdx := bucketIndices[evictedHIdx]
-		evictedItem := c.buckets[evictedBIdx]
+		evictedItem := c.buckets[evictedBIdx].GetItem()
 		// insert the item in the evicted slot
-		c.buckets[evictedBIdx] = value{uint8(evictedHIdx), item}
+		c.buckets[evictedBIdx] = putValue(uint8(evictedHIdx), item)
 
-		evictedBucketIndices := c.BucketIndices(evictedItem.item)
+		evictedBucketIndices := c.BucketIndices(evictedItem)
 		// try to reinsert the evicted items
 		// ignore the evictedBIdx since we newly inserted the item there
-		if c.tryAdd(evictedItem.item, evictedBucketIndices, true, evictedBIdx) {
+		if c.tryAdd(evictedItem, evictedBucketIndices, true, evictedBIdx) {
 			return nil, true
 		}
 
 		// insert evicted item not successful, recurse
-		item = evictedItem.item
+		item = evictedItem
 		bucketIndices = evictedBucketIndices
 	}
 
@@ -207,14 +201,14 @@ func (c *Cuckoo) onBucket(item []byte, bucketIndices [Nhash]uint64) (found bool)
 
 func (c *Cuckoo) onBucketAtIndex(item []byte, bucketIndices [Nhash]uint64) (uint8, bool) {
 	for _, bIdx := range bucketIndices {
-		if !c.buckets[bIdx].Empty() && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
+		if !c.buckets[bIdx].empty() && bytes.Equal(c.buckets[bIdx].GetItem(), item) {
 			// the index for hash function is the same as the
 			// index for the bucketIndices
-			return c.buckets[bIdx].hIdx, true
+			return c.buckets[bIdx].GetHashIdx(), true
 		}
 	}
 
-	return uint8(255), false
+	return uint8(dummyValue), false
 }
 
 // Exists returns true if an item is inserted in cuckoo, false otherwise
@@ -226,7 +220,7 @@ func (c *Cuckoo) Exists(item []byte, bucketIndices [Nhash]uint64) (found bool) {
 func (c *Cuckoo) LoadFactor() (factor float64) {
 	occupation := 0
 	for _, v := range c.buckets {
-		if !v.Empty() {
+		if !v.empty() {
 			occupation += 1
 		}
 	}
@@ -240,25 +234,21 @@ func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize
 }
 
-func (v *value) oprfInput() []byte {
-	// no item inserted, return dummy value
-	if v.Empty() {
-		return []byte{255}
-	}
-
-	return append(v.item, v.hIdx)
-}
-
 // OPRFInput returns the OPRF input for KKRT Receiver
 // if the identifier is in the bucket, it appends the hash index
 // if the identifier is on stash, it returns just the id
 // if the bucket has nothing it in, it returns a dummy value: 255
-func (c *Cuckoo) OPRFInput() [][]byte {
-	var inputs = make([][]byte, c.bucketSize)
+func (c *Cuckoo) OPRFInput() (input [][]byte) {
+	input = make([][]byte, c.bucketSize)
 	for i, b := range c.buckets {
-		inputs[i] = b.oprfInput()
+		if b.empty() {
+			input[i] = []byte{dummyValue}
+		} else {
+			input[i] = b.item
+		}
 	}
-	return inputs
+
+	return input
 }
 
 func max(a, b uint64) uint64 {
