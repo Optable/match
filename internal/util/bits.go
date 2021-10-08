@@ -20,6 +20,7 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 
 	dst = make([]byte, n)
 
+	_ = a[n-1]
 	for i := 0; i < n; i++ {
 		dst[i] = a[i] ^ b[i]
 	}
@@ -35,6 +36,8 @@ func InPlaceXorBytes(dst, a []byte) error {
 		return ErrByteLengthMissMatch
 	}
 
+	_ = dst[n-1]
+	_ = a[n-1]
 	for i := 0; i < n; i++ {
 		dst[i] ^= a[i]
 	}
@@ -103,6 +106,7 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 
 	dst = make([]byte, n)
 
+	_ = a[n-1]
 	for i := 0; i < n; i++ {
 		dst[i] = a[i] & b[i]
 	}
@@ -114,10 +118,13 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 // each byte with the corresponding byte in a (if a and b are the
 // same length).
 func InPlaceAndBytes(dst, a []byte) error {
-	if len(dst) != len(a) {
+	n := len(dst)
+	if n != len(a) {
 		return ErrByteLengthMissMatch
 	}
 
+	_ = dst[n-1]
+	_ = a[n-1]
 	for i := range dst {
 		dst[i] = dst[i] & a[i]
 	}
@@ -250,12 +257,13 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 
 // PadTill512 returns the number of rows/columns to pad such that the number is a
 // multiple of 512.
-func PadTill512(m int) (pad int) {
-	pad = 512 - (m % 512)
-	if pad == 512 {
-		pad = 0
+func PadTill512(m int) int {
+	n := m % 512
+	if n == 0 {
+		return 0
 	}
-	return pad
+
+	return 512 - n
 }
 
 // TransposeByteMatrix performs a concurrent cache-oblivious transpose on a byte matrix by first
