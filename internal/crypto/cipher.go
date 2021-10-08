@@ -30,7 +30,9 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	dst = make([]byte, aes.BlockSize*4)
 
 	// pad src
-	input := pad(src)
+	input := make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
+	copy(input[1:], src)
+
 	input[0] = 1
 
 	// encrypt
@@ -43,13 +45,6 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	aesBlock.Encrypt(dst[aes.BlockSize*3:], input)
 
 	return dst
-}
-
-// pad aes block, with the first byte reserved for PseudorandomCode
-func pad(src []byte) (tmp []byte) {
-	tmp = make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
-	copy(tmp[1:], src)
-	return
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.
