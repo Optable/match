@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// A BitVect is a matrix of 512 by 512 bits encoded into uint64 elements.
+// A BitVect is a matrix of 512 by 512 bits encoded into a slice of uint64 elements.
 type BitVect struct {
 	set [512 * 8]uint64
 }
