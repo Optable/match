@@ -16,7 +16,7 @@ const (
 	// Maximum number of reinsertons.
 	// Each reinsertion kicked off 1 egg (item) and replace it
 	// with the item being reinserted, and then reinsert the kicked off egg
-	ReinsertLimit = 200
+	ReInsertLimit = 200
 	Factor        = 1.4
 )
 
@@ -51,7 +51,6 @@ type Cuckoo struct {
 // a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
-	//bSize := max(1, uint64(FindBucketSize(size)*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
 		hashers[i], _ = hash.New(hash.Highway, s)
@@ -67,7 +66,6 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 // Dummy cuckoo that does not allocate buckets.
 func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
-	//bSize := max(1, uint64(FindBucketSize(size)*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
 		hashers[i], _ = hash.New(hash.Highway, s)
@@ -90,31 +88,10 @@ func FindBucketSize(size uint64) float64 {
 	return (40 - b) / float64(a)
 }
 
-// hash returns the result of h0(item), h1(item), h2(item)
-func (c *Cuckoo) hash(item []byte) [Nhash]uint64 {
-	var hashes [Nhash]uint64
-
-	for i := range hashes {
-		hashes[i] = doHash(item, c.hashers[i])
-	}
-
-	return hashes
-}
-
-// doHash returns the hash of an item given a hash function
-func doHash(item []byte, hasher hash.Hasher) uint64 {
-	return hasher.Hash64(item)
-}
-
-// bucketIndex computes the bucket index
-func (c *Cuckoo) bucketIndex(hash uint64) uint64 {
-	return hash % c.bucketSize
-}
-
 // bucketIndices returns the 3 possible bucket indices of an item
 func (c *Cuckoo) BucketIndices(item []byte) (idx [Nhash]uint64) {
-	for i, h := range c.hash(item) {
-		idx[i] = c.bucketIndex(h)
+	for i := range idx {
+		idx[i] = c.hashers[i].Hash64(item) % c.bucketSize
 	}
 
 	return idx
@@ -123,8 +100,6 @@ func (c *Cuckoo) BucketIndices(item []byte) (idx [Nhash]uint64) {
 // Insert tries to insert a given item to the bucket
 // in available slots, otherwise, it evicts a random occupied slot,
 // and reinserts evicted item.
-// as a last resort, after ReinsertLim number of reinsetion,
-// it pushes the evicted item onto the stash
 // returns an error msg if all failed.
 func (c *Cuckoo) Insert(item []byte) error {
 	bucketIndices := c.BucketIndices(item)
@@ -143,13 +118,13 @@ func (c *Cuckoo) Insert(item []byte) error {
 	if homeLessItem, added := c.tryGreedyAdd(item, bucketIndices); added {
 		return nil
 	} else {
-		return fmt.Errorf("failed to Insert item: %s", string(homeLessItem[:]))
+		return fmt.Errorf("failed to Insert item: %v", homeLessItem)
 	}
 
 }
 
 // tryAdd finds a free slot and inserts the item
-// if ignore is true, cannot insert into exceptBIdx
+// if ignore is true, it will not insert into exceptBIdx
 func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, exceptBIdx uint64) (added bool) {
 	for hIdx, bIdx := range bucketIndices {
 		if ignore && exceptBIdx == bIdx {
@@ -167,9 +142,9 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 
 // tryGreedyAdd evicts a random occupied slots, inserts the item to the evicted slot
 // and reinserts the evicted item
-// return false and the last evicted item, if reinsertions failed
+// return false and the last evicted item, if reinsertions failed after ReInsertLimit of tries.
 func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLessItem []byte, added bool) {
-	for i := 1; i < ReinsertLimit; i++ {
+	for i := 1; i < ReInsertLimit; i++ {
 		// select a random slot to be evicted
 		evictedHIdx := rand.Int31n(Nhash)
 		evictedBIdx := bucketIndices[evictedHIdx]
