@@ -90,16 +90,6 @@ func TestSub(t *testing.T) {
 	}
 }
 
-func TestIsOnCurve(t *testing.T) {
-	newC, _ := InitCurve("P521")
-	q := NewPoints(c, newC.Params().Gx, newC.Params().Gy)
-	r := NewPoints(newC, newC.Params().Gx, newC.Params().Gy)
-
-	if q.IsOnCurve() || !r.IsOnCurve() {
-		t.Fatal("Error in points isOnCurve")
-	}
-}
-
 func TestDeriveKeyPoints(t *testing.T) {
 	p := NewPoints(c, bx, by)
 	key := p.DeriveKey()

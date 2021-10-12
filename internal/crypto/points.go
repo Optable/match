@@ -20,6 +20,8 @@ const (
 	P521 = "P521"
 )
 
+// InitCurve instantiate an elliptic curve object given the curveName and returns the number of bytes
+// needed to encode a point on the curve
 func InitCurve(curveName string) (curve elliptic.Curve, encodeLen int) {
 	switch curveName {
 	case P224:
@@ -37,30 +39,36 @@ func InitCurve(curveName string) (curve elliptic.Curve, encodeLen int) {
 	return
 }
 
+// Points represents a point on an elliptic curve
 type Points struct {
 	curve elliptic.Curve
 	x     *big.Int
 	y     *big.Int
 }
 
+// NewPoints returns a points on an elliptic curve
 func NewPoints(curve elliptic.Curve, x, y *big.Int) Points {
 	return Points{curve: curve, x: x, y: y}
 }
 
+// SetX sets the x coordiante of a point on elliptic curve
 func (p Points) SetX(newX *big.Int) Points {
 	p.x.Set(newX)
 	return p
 }
 
+// SetY sets the y coordiante of a point on elliptic curve
 func (p Points) SetY(newY *big.Int) Points {
 	p.y.Set(newY)
 	return p
 }
 
+// Marshal converts a points to a byte slice representation
 func (p Points) Marshal() []byte {
 	return elliptic.Marshal(p.curve, p.x, p.y)
 }
 
+// Unmarshal takes in a marshaledPoint byte slice and extracts the points object
 func (p Points) Unmarshal(marshaledPoint []byte) error {
 	x, y := elliptic.Unmarshal(p.curve, marshaledPoint)
 
@@ -74,16 +82,19 @@ func (p Points) Unmarshal(marshaledPoint []byte) error {
 	return nil
 }
 
+// Add adds two points on the same curve
 func (p Points) Add(q Points) Points {
 	x, y := p.curve.Add(p.x, p.y, q.x, q.y)
 	return NewPoints(p.curve, x, y)
 }
 
+// ScalarMult multiplies a points with a scalar
 func (p Points) ScalarMult(scalar []byte) Points {
 	x, y := p.curve.ScalarMult(p.x, p.y, scalar)
 	return NewPoints(p.curve, x, y)
 }
 
+// Sub substract points p with q
 func (p Points) Sub(q Points) Points {
 	// p - q = p.x + q.x, p.y - q.y
 	x := big.NewInt(0)
@@ -91,16 +102,13 @@ func (p Points) Sub(q Points) Points {
 	return NewPoints(p.curve, x, y)
 }
 
-func (p Points) IsOnCurve() bool {
-	return p.curve.IsOnCurve(p.x, p.y)
-}
-
-// deriveKey returns a key of 32 byte from an elliptic curve point
+// DeriveKey returns a key of 32 byte from an elliptic curve point
 func (p Points) DeriveKey() []byte {
 	key := blake3.Sum256(p.x.Bytes())
 	return key[:]
 }
 
+// GenerateKeyWithPoints returns a secret and public key pair
 func GenerateKeyWithPoints(curve elliptic.Curve) ([]byte, Points, error) {
 	secret, x, y, err := elliptic.GenerateKey(curve, rand.Reader)
 	if err != nil {
@@ -110,7 +118,7 @@ func GenerateKeyWithPoints(curve elliptic.Curve) ([]byte, Points, error) {
 	return secret, NewPoints(curve, x, y), nil
 }
 
-// deriveKey returns a key of 32 byte from an elliptic curve point
+// DeriveKey returns a key of 32 byte from an elliptic curve point
 func DeriveKey(point []byte) []byte {
 	key := blake3.Sum256(point)
 	return key[:]
