@@ -37,8 +37,8 @@ func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err erro
 	}
 
 	// Instantiate Reader, Writer
-	r := newReaderRistretto(rw)
-	w := newWriterRistretto(rw)
+	r := newRistrettoReader(rw)
+	w := newRistrettoWriter(rw)
 
 	// generate sender secret public key pairs
 	a, A := generateKeys()
@@ -97,8 +97,8 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 	}
 
 	// instantiate Reader, Writer
-	r := newReaderRistretto(rw)
-	w := newWriterRistretto(rw)
+	r := newRistrettoReader(rw)
+	w := newRistrettoWriter(rw)
 
 	// Receive point A from sender
 	var A gr.Point

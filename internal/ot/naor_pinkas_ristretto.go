@@ -37,8 +37,8 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 	}
 
 	// Instantiate Reader, Writer
-	reader := newReaderRistretto(rw)
-	writer := newWriterRistretto(rw)
+	reader := newRistrettoReader(rw)
+	writer := newRistrettoWriter(rw)
 
 	// generate sender A point w/o secret, since a is never used.
 	var A gr.Point
@@ -103,8 +103,8 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 	}
 
 	// instantiate Reader, Writer
-	reader := newReaderRistretto(rw)
-	writer := newWriterRistretto(rw)
+	reader := newRistrettoReader(rw)
+	writer := newRistrettoWriter(rw)
 
 	// Receive point A from sender
 	var A gr.Point

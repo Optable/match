@@ -12,6 +12,7 @@ OT interface
 */
 
 const (
+	// enumerated base OTs
 	NaorPinkas = iota
 	Simplest
 )
@@ -46,32 +47,34 @@ func NewBaseOT(t int, ristretto bool, baseCount int, curveName string, msgLen []
 	}
 }
 
+// writer for elliptic curve points
 type writer struct {
 	w io.Writer
 }
 
+// reader for elliptic curve points
 type reader struct {
 	r         io.Reader
 	encodeLen int
 }
 
+// newWriter returns an elliptic curve point writer
 func newWriter(w io.Writer) *writer {
 	return &writer{w: w}
 }
 
+// newReader returns an elliptic curve point reader
 func newReader(r io.Reader, l int) *reader {
 	return &reader{r: r, encodeLen: l}
 }
 
-// Write writes the marshalled elliptic curve point to writer
+// write writes the marshalled elliptic curve point to writer
 func (w *writer) write(p crypto.Points) (err error) {
-	if _, err = w.w.Write(p.Marshal()); err != nil {
-		return err
-	}
-	return
+	_, err = w.w.Write(p.Marshal())
+	return err
 }
 
-// Read reads a marshalled elliptic curve point from reader and stores it in point
+// read reads a marshalled elliptic curve point from reader and stores it in point
 func (r *reader) read(p crypto.Points) (err error) {
 	pt := make([]byte, r.encodeLen)
 	if _, err = io.ReadFull(r.r, pt); err != nil {

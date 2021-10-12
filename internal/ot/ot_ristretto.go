@@ -1,36 +1,36 @@
 package ot
 
 import (
-	"crypto/sha256"
 	"io"
 
 	gr "github.com/bwesterb/go-ristretto"
+	"github.com/optable/match/internal/crypto"
 )
 
 /*
 OT interface
 */
 
-var encodeLen = 32 //ristretto point encoded length, as well as aes key
+const encodeLen = 32 //ristretto point encoded length, as well as aes key
 
-type writerRistretto struct {
+type ristrettoWriter struct {
 	w io.Writer
 }
 
-type readerRistretto struct {
+type ristrettoReader struct {
 	r io.Reader
 }
 
-func newWriterRistretto(w io.Writer) *writerRistretto {
-	return &writerRistretto{w: w}
+func newRistrettoWriter(w io.Writer) *ristrettoWriter {
+	return &ristrettoWriter{w: w}
 }
 
-func newReaderRistretto(r io.Reader) *readerRistretto {
-	return &readerRistretto{r: r}
+func newRistrettoReader(r io.Reader) *ristrettoReader {
+	return &ristrettoReader{r: r}
 }
 
 // Write writes the marshalled elliptic curve point to writer
-func (w *writerRistretto) write(p *gr.Point) (err error) {
+func (w *ristrettoWriter) write(p *gr.Point) (err error) {
 	pByte, err := p.MarshalBinary()
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (w *writerRistretto) write(p *gr.Point) (err error) {
 }
 
 // Read reads a marshalled elliptic curve point from reader and stores it in point
-func (r *readerRistretto) read(p *gr.Point) (err error) {
+func (r *ristrettoReader) read(p *gr.Point) (err error) {
 	pt := make([]byte, encodeLen)
 	if _, err = io.ReadFull(r.r, pt); err != nil {
 		return err
@@ -71,6 +71,5 @@ func deriveKeyRistretto(point *gr.Point) ([]byte, error) {
 		return nil, err
 	}
 
-	key := sha256.Sum256(buf)
-	return key[:], nil
+	return crypto.DeriveKey(buf), nil
 }

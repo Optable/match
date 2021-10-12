@@ -15,8 +15,6 @@ import (
 from the paper: Efficient Oblivious Transfer Protocol
 by Moni Naor and Benny Pinkas in 2001.
 reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
-
-Naor-Pinkas OT is used in most papers, but it is slightly slower than Simplest OT.
 */
 
 type naorPinkas struct {

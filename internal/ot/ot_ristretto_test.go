@@ -9,8 +9,8 @@ import (
 
 func TestReadWritePoints(t *testing.T) {
 	rw := new(bytes.Buffer)
-	r := newReaderRistretto(rw)
-	w := newWriterRistretto(rw)
+	r := newRistrettoReader(rw)
+	w := newRistrettoWriter(rw)
 
 	var point, readPoint gr.Point
 	point.Rand()
