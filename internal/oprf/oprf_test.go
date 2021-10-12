@@ -97,16 +97,12 @@ func TestKKRT(t *testing.T) {
 			close(outBus)
 		}
 
-		for _, key := range keys {
-			keyBus <- key
-		}
+		keyBus <- keys
+
 	}()
 
 	// Receive keys
-	var keys []Key
-	for key := range keyBus {
-		keys = append(keys, key)
-	}
+	keys := <-keyBus
 
 	// Receive msg
 	var out [][]byte
@@ -130,10 +126,9 @@ func TestKKRT(t *testing.T) {
 		t.Fatal("KKRT OT failed, did not receive any messages")
 	}
 
-	aesBlock, _ := aes.NewCipher(keys[0].sk)
 	for i, o := range out {
 		// encode choice with key
-		enc, err := keys[i].Encode(aesBlock, choices[i])
+		enc, err := keys.Encode(uint64(i), choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -183,16 +178,11 @@ func TestImprovedKKRT(t *testing.T) {
 			close(outBus)
 		}
 
-		for _, key := range keys {
-			keyBus <- key
-		}
+		keyBus <- keys
 	}()
 
 	// Receive keys
-	var keys []Key
-	for key := range keyBus {
-		keys = append(keys, key)
-	}
+	keys := <-keyBus
 
 	// Receive msg
 	var out [][]byte
@@ -216,10 +206,9 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal("Improved KKRT OT failed, did not receive any messages")
 	}
 
-	aesBlock, _ := aes.NewCipher(keys[0].sk)
 	for i, o := range out {
 		// encode choice with key
-		enc, err := keys[i].Encode(aesBlock, choices[i])
+		enc, err := keys.Encode(uint64(i), choices[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -234,15 +223,17 @@ func TestImprovedKKRT(t *testing.T) {
 func BenchmarkEncode(b *testing.B) {
 	sk := make([]byte, 16)
 	s := make([]byte, 64)
-	q := make([]byte, 64)
+	q := make([][]byte, 1)
+	q[0] = make([]byte, 65)
 	prng.Read(sk)
 	prng.Read(s)
-	prng.Read(q)
-	key := Key{sk: sk, s: s, q: q}
+	prng.Read(q[0])
+	aesBlock, _ := aes.NewCipher(sk)
+	key := Key{block: aesBlock, s: s, q: q}
 
 	b.ResetTimer()
-	aesBlock, _ := aes.NewCipher(sk)
+
 	for i := 0; i < b.N; i++ {
-		key.Encode(aesBlock, q)
+		key.Encode(0, q[0])
 	}
 }
