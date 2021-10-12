@@ -122,7 +122,7 @@ func TestDeriveKey(t *testing.T) {
 	}
 
 	p := elliptic.Marshal(c, px, py)
-	key := deriveKey(p)
+	key := hashToKey(p)
 	if len(key) != 32 {
 		t.Fatalf("derived key length is not 32, got: %d", len(key))
 	}
@@ -131,13 +131,23 @@ func TestDeriveKey(t *testing.T) {
 func TestDeriveKeyRistretto(t *testing.T) {
 	var p gr.Point
 	p.Rand()
-	key, err := DeriveKeyRistretto(&p)
+	key, err := DeriveRistrettoKey(&p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(key) != 32 {
 		t.Fatalf("derived key length is not 32, got: %d", len(key))
+	}
+}
+
+func TestGenerateKeys(t *testing.T) {
+	s, P := GenerateRistrettoKeys()
+	// check point
+	var pP gr.Point
+	pP.ScalarMultBase(&s)
+	if !P.Equals(&pP) {
+		t.Fatal("error in generateKey(), secret, public key pairs not working.")
 	}
 }
 

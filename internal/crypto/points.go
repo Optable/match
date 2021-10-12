@@ -123,18 +123,35 @@ func GenerateKeyWithPoints(curve elliptic.Curve) ([]byte, Points, error) {
 	return secret, newPoints(curve, x, y), nil
 }
 
-// DeriveKey returns a key of 32 byte from an elliptic curve point
-func deriveKey(point []byte) []byte {
+// Ristretto points
+
+// GenerateRistrettoKeys returns a secret key scalar
+// and a public key ristretto point
+func GenerateRistrettoKeys() (secretKey gr.Scalar, publicKey gr.Point) {
+	secretKey.Rand()
+	publicKey.ScalarMultBase(&secretKey)
+
+	return
+}
+
+func GeneratePublicRistrettoKey() (publicKey gr.Point) {
+	var p gr.Point
+	p.Rand()
+	return p
+}
+
+// hashToKey returns a key of 32 byte from an elliptic curve point
+func hashToKey(point []byte) []byte {
 	key := blake3.Sum256(point)
 	return key[:]
 }
 
-// deriveKey returns a key of 32 byte from an elliptic curve point
-func DeriveKeyRistretto(point *gr.Point) ([]byte, error) {
+// DeriveRistrettoKeys returns a key of 32 byte from an elliptic curve point
+func DeriveRistrettoKey(point *gr.Point) ([]byte, error) {
 	buf, err := point.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
 
-	return deriveKey(buf), nil
+	return hashToKey(buf), nil
 }

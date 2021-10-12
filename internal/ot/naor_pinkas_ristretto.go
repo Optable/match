@@ -41,10 +41,10 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 	writer := newRistrettoWriter(rw)
 
 	// generate sender A point w/o secret, since a is never used.
-	var pointA gr.Point
-	pointA.Rand()
+	var pointA = crypto.GeneratePublicRistrettoKey()
+
 	// generate sender secret public key pairs used for encryption
-	secretR, pointR := generateKeys()
+	secretR, pointR := crypto.GenerateRistrettoKeys()
 
 	// send both public keys to receiver
 	if err := writer.write(&pointA); err != nil {
@@ -76,7 +76,7 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// derive key for encryption
-			key, err := crypto.DeriveKeyRistretto(&pointK[choice])
+			key, err := crypto.DeriveRistrettoKey(&pointK[choice])
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 	var pointB gr.Point
 	for i := 0; i < n.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		bSecrets[i], pointB = generateKeys()
+		bSecrets[i], pointB = crypto.GenerateRistrettoKeys()
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
 		if util.TestBitSetInByte(choices, i) == 0 {
@@ -159,7 +159,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		// build keys for decrypting choice messages
 		// K = bR
 		pointK.ScalarMult(&pointR, &bSecrets[i])
-		key, err := crypto.DeriveKeyRistretto(&pointK)
+		key, err := crypto.DeriveRistrettoKey(&pointK)
 		if err != nil {
 			return err
 		}
