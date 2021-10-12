@@ -214,10 +214,9 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// SampleRandomDenseBitMatrix allocates a 2D byte matrix of dimension row x col,
+// SampleRandomBitMatrix allocates a 2D byte matrix of dimension row x col,
 // and add extra rows of 0s to have number of rows be a multiple of 512,
 // fills each entry in the byte matrix with pseudorandom byte values from a rand reader
-// but leaves them densely encoded unlike SampleRandomBitMatrix.
 func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
