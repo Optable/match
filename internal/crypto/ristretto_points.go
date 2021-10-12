@@ -7,7 +7,7 @@ import (
 	"github.com/zeebo/blake3"
 )
 
-const encodeLen = 32 //ristretto point encoded length, as well as aes key
+const encodeLen = 32 //ristretto point encoded length
 
 type ristrettoWriter struct {
 	w io.Writer
@@ -17,15 +17,17 @@ type ristrettoReader struct {
 	r io.Reader
 }
 
+// NewRistrettoWriter returns a writer for ristretto points
 func NewRistrettoWriter(w io.Writer) *ristrettoWriter {
 	return &ristrettoWriter{w: w}
 }
 
+// NewRistrettoReader returns a reader for ristretto points
 func NewRistrettoReader(r io.Reader) *ristrettoReader {
 	return &ristrettoReader{r: r}
 }
 
-// Write writes the marshalled elliptic curve point to writer
+// Write writes the marshalled ristretto point to writer
 func (w *ristrettoWriter) Write(p *gr.Point) (err error) {
 	pByte, err := p.MarshalBinary()
 	if err != nil {
@@ -36,7 +38,7 @@ func (w *ristrettoWriter) Write(p *gr.Point) (err error) {
 	return err
 }
 
-// Read reads a marshalled elliptic curve point from reader and stores it in point
+// Read reads a marshalled ristretto point from reader and stores it in point
 func (r *ristrettoReader) Read(p *gr.Point) (err error) {
 	pt := make([]byte, encodeLen)
 	if _, err = io.ReadFull(r.r, pt); err != nil {
@@ -47,7 +49,7 @@ func (r *ristrettoReader) Read(p *gr.Point) (err error) {
 }
 
 // GenerateRistrettoKeys returns a secret key scalar
-// and a public key ristretto point
+// and a public ristretto point key
 func GenerateRistrettoKeys() (secretKey gr.Scalar, publicKey gr.Point) {
 	secretKey.Rand()
 	publicKey.ScalarMultBase(&secretKey)
@@ -55,6 +57,7 @@ func GenerateRistrettoKeys() (secretKey gr.Scalar, publicKey gr.Point) {
 	return
 }
 
+// GeneratePublicRistrettoKey returns just a public ristretto point key
 func GeneratePublicRistrettoKey() (publicKey gr.Point) {
 	var p gr.Point
 	p.Rand()
@@ -67,7 +70,7 @@ func hashToKey(point []byte) []byte {
 	return key[:]
 }
 
-// DeriveRistrettoKeys returns a key of 32 byte from an elliptic curve point
+// DeriveRistrettoKey returns a key of 32 byte from a ristretto point on curve25519
 func DeriveRistrettoKey(point *gr.Point) ([]byte, error) {
 	buf, err := point.MarshalBinary()
 	if err != nil {

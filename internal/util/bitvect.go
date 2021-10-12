@@ -83,7 +83,7 @@ func (b BitVect) printUints() {
 // transpose on the BitVect, and finally writes the result to a shared final
 // output matrix.
 func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
-	// determine is original matrix is wide or tall
+	// determine if original matrix is wide or tall
 	var tall bool
 	if len(matrix[0]) == 8 {
 		tall = true

@@ -134,23 +134,23 @@ type pointsReader struct {
 	encodeLen int
 }
 
-// newWriter returns an elliptic curve point writer
+// NewECPointsWriter returns an elliptic curve point writer
 func NewECPointsWriter(w io.Writer) *pointsWriter {
 	return &pointsWriter{w: w}
 }
 
-// newReader returns an elliptic curve point reader
+// NewECPointsReader returns an elliptic curve point reader
 func NewECPointsReader(r io.Reader, l int) *pointsReader {
 	return &pointsReader{r: r, encodeLen: l}
 }
 
-// write writes the marshalled elliptic curve point to writer
+// Write writes the marshalled elliptic curve point to writer
 func (w *pointsWriter) Write(p Points) (err error) {
 	_, err = w.w.Write(p.Marshal())
 	return err
 }
 
-// read reads a marshalled elliptic curve point from reader and stores it in point
+// Read reads a marshalled elliptic curve point from reader and stores it in point
 func (r *pointsReader) Read(p Points) (err error) {
 	pt := make([]byte, r.encodeLen)
 	if _, err = io.ReadFull(r.r, pt); err != nil {

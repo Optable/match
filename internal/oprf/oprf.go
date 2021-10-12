@@ -40,8 +40,9 @@ func NewOPRF(t, m, baseOT int) (OPRF, error) {
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)
-// the index j is implicit when key is stored into a key slice.
-// Pseudorandom code C is represented by block
+// Pseudorandom code C is represented by aes block seeded with s
+// q stores the received OT extension matrix chosen with secret
+// seed s.
 type Key struct {
 	block cipher.Block
 	s     []byte   // secret choice bits
