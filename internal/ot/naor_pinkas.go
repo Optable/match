@@ -149,7 +149,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	}
 
 	e := make([][]byte, 2)
-	var K crypto.Points
+	var pointK crypto.Points
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
@@ -164,11 +164,11 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 
 		// build keys for decryption
 		// K = bR
-		K = pointR.ScalarMult(bSecrets[i])
+		pointK = pointR.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
 		bit := util.TestBitSetInByte(choices, i)
-		messages[i], err = crypto.Decrypt(n.cipherMode, K.DeriveKey(), bit, e[bit])
+		messages[i], err = crypto.Decrypt(n.cipherMode, pointK.DeriveKey(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
