@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
+	"hash"
 
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
@@ -22,27 +23,44 @@ const (
 )
 
 // PseudorandomCode is implemented as follows:
-// C(x) = AES(1||x) || AES(2||x) || AES(3||x) || AES(4||X)
+// C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
 // secretKey is a 16 byte slice for AES-128
-// k is the desired number of bytes
-// on success, pseudorandomCode returns a byte slice of length k.
+// on success, pseudorandomCode returns a byte slice of 64 bytes.
 func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	dst = make([]byte, aes.BlockSize*4)
 
-	// pad src
-	input := make([]byte, len(src)+aes.BlockSize-len(src)%aes.BlockSize)
-	copy(input[1:], src)
-
-	input[0] = 1
+	// pad src (will always have at most 16 extra bytes)
+	if len(src) < aes.BlockSize*4 {
+		src = append(src, make([]byte, aes.BlockSize-len(src))...)
+		aesBlock.Encrypt(dst[:aes.BlockSize], src[:aes.BlockSize])
+		copy(dst[aes.BlockSize:aes.BlockSize*2], dst[:aes.BlockSize])
+		copy(dst[aes.BlockSize*2:aes.BlockSize*3], dst[:aes.BlockSize])
+		copy(dst[aes.BlockSize*3:], dst[:aes.BlockSize])
+		return dst
+	}
 
 	// encrypt
-	aesBlock.Encrypt(dst[:aes.BlockSize], input)
-	input[0] = 2
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], input)
-	input[0] = 3
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], input)
-	input[0] = 4
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], input)
+	aesBlock.Encrypt(dst[:aes.BlockSize], src[:aes.BlockSize])
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], src[aes.BlockSize:aes.BlockSize*2])
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], src[aes.BlockSize*2:aes.BlockSize*3])
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], src[aes.BlockSize*3:])
+
+	return dst
+}
+
+// PseudorandomCodeHmacSHA256 is implemented as follows:
+// C(x) = HmacSHA256_key(x[:32]) || HmacSHA256_key(x[32:]
+// secretKey is a 32 byte slice for Hmac-SHA256
+// on success, pseudorandomCode returns a byte slice of 64 bytes.
+func PseudorandomCodeHmacSHA256(prf hash.Hash, src []byte) (dst []byte) {
+	dst = make([]byte, 64)
+
+	// PRF
+	prf.Write(src[:32])
+	copy(dst[:32], prf.Sum(nil))
+
+	prf.Write(src[32:])
+	copy(dst[32:], prf.Sum(nil))
 
 	return dst
 }
