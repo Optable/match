@@ -36,10 +36,8 @@ func (w *ristrettoWriter) write(p *gr.Point) (err error) {
 		return err
 	}
 
-	if _, err = w.w.Write(pByte); err != nil {
-		return err
-	}
-	return
+	_, err = w.w.Write(pByte)
+	return err
 }
 
 // Read reads a marshalled elliptic curve point from reader and stores it in point
@@ -49,10 +47,7 @@ func (r *ristrettoReader) read(p *gr.Point) (err error) {
 		return err
 	}
 
-	if err := p.UnmarshalBinary(pt); err != nil {
-		return err
-	}
-	return
+	return p.UnmarshalBinary(pt)
 }
 
 // generatekeys returns a secret key scalar
