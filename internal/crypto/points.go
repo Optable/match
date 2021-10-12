@@ -46,8 +46,12 @@ type Points struct {
 	y     *big.Int
 }
 
-// NewPoints returns a points on an elliptic curve
-func NewPoints(curve elliptic.Curve, x, y *big.Int) Points {
+// NewPoints returns a blank points on an elliptic curve
+func NewPoints(curve elliptic.Curve) Points {
+	return Points{curve: curve, x: new(big.Int), y: new(big.Int)}
+}
+
+func newPoints(curve elliptic.Curve, x, y *big.Int) Points {
 	return Points{curve: curve, x: x, y: y}
 }
 
@@ -85,13 +89,13 @@ func (p Points) Unmarshal(marshaledPoint []byte) error {
 // Add adds two points on the same curve
 func (p Points) Add(q Points) Points {
 	x, y := p.curve.Add(p.x, p.y, q.x, q.y)
-	return NewPoints(p.curve, x, y)
+	return newPoints(p.curve, x, y)
 }
 
 // ScalarMult multiplies a points with a scalar
 func (p Points) ScalarMult(scalar []byte) Points {
 	x, y := p.curve.ScalarMult(p.x, p.y, scalar)
-	return NewPoints(p.curve, x, y)
+	return newPoints(p.curve, x, y)
 }
 
 // Sub substract points p with q
@@ -99,7 +103,7 @@ func (p Points) Sub(q Points) Points {
 	// p - q = p.x + q.x, p.y - q.y
 	x := big.NewInt(0)
 	x, y := p.curve.Add(p.x, p.y, q.x, x.Neg(q.y))
-	return NewPoints(p.curve, x, y)
+	return newPoints(p.curve, x, y)
 }
 
 // DeriveKey returns a key of 32 byte from an elliptic curve point
@@ -115,7 +119,7 @@ func GenerateKeyWithPoints(curve elliptic.Curve) ([]byte, Points, error) {
 		return nil, Points{}, err
 	}
 
-	return secret, NewPoints(curve, x, y), nil
+	return secret, newPoints(curve, x, y), nil
 }
 
 // DeriveKey returns a key of 32 byte from an elliptic curve point

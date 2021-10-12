@@ -4,7 +4,6 @@ import (
 	"crypto/elliptic"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -48,7 +47,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		return err
 	}
 
-	// generate sender secret public key pairs  used for encryption.
+	// generate sender secret public key pairs used for encryption.
 	r, R, err := crypto.GenerateKeyWithPoints(n.curve)
 	if err != nil {
 		return err
@@ -58,6 +57,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	if err := writer.write(A); err != nil {
 		return err
 	}
+
 	// send point R to receiver
 	if err := writer.write(R); err != nil {
 		return err
@@ -69,7 +69,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// make a slice of points to receive K0.
 	pointK0 := make([]crypto.Points, n.baseCount)
 	for i := range pointK0 {
-		pointK0[i] = crypto.NewPoints(n.curve, new(big.Int), new(big.Int))
+		pointK0[i] = crypto.NewPoints(n.curve)
 		if err := reader.read(pointK0[i]); err != nil {
 			return err
 		}
@@ -112,13 +112,13 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	writer := newWriter(rw)
 
 	// receive point A from sender
-	A := crypto.NewPoints(n.curve, new(big.Int), new(big.Int))
+	A := crypto.NewPoints(n.curve)
 	if err := reader.read(A); err != nil {
 		return err
 	}
 
 	// recieve point R from sender
-	R := crypto.NewPoints(n.curve, new(big.Int), new(big.Int))
+	R := crypto.NewPoints(n.curve)
 	if err := reader.read(R); err != nil {
 		return err
 	}

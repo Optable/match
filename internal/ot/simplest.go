@@ -4,7 +4,6 @@ import (
 	"crypto/elliptic"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
@@ -62,7 +61,7 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// make a slice of point B, 1 for each OT, and receive them
 	B := make([]crypto.Points, s.baseCount)
 	for i := range B {
-		B[i] = crypto.NewPoints(s.curve, new(big.Int), new(big.Int))
+		B[i] = crypto.NewPoints(s.curve)
 		if err := reader.read(B[i]); err != nil {
 			return err
 		}
@@ -105,7 +104,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 	writer := newWriter(rw)
 
 	// Receive marshalled point A from sender
-	A := crypto.NewPoints(s.curve, new(big.Int), new(big.Int))
+	A := crypto.NewPoints(s.curve)
 	if err := reader.read(A); err != nil {
 		return err
 	}
