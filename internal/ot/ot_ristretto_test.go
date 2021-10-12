@@ -37,16 +37,3 @@ func TestGenerateKeys(t *testing.T) {
 		t.Fatal("error in generateKey(), secret, public key pairs not working.")
 	}
 }
-
-func TestDeriveKeyRistretto(t *testing.T) {
-	var p gr.Point
-	p.Rand()
-	key, err := deriveKeyRistretto(&p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(key) != 32 {
-		t.Fatalf("derived key length is not 32, got: %d", len(key))
-	}
-}

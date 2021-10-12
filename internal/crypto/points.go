@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	gr "github.com/bwesterb/go-ristretto"
 	"github.com/zeebo/blake3"
 )
 
@@ -123,7 +124,17 @@ func GenerateKeyWithPoints(curve elliptic.Curve) ([]byte, Points, error) {
 }
 
 // DeriveKey returns a key of 32 byte from an elliptic curve point
-func DeriveKey(point []byte) []byte {
+func deriveKey(point []byte) []byte {
 	key := blake3.Sum256(point)
 	return key[:]
+}
+
+// deriveKey returns a key of 32 byte from an elliptic curve point
+func DeriveKeyRistretto(point *gr.Point) ([]byte, error) {
+	buf, err := point.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	return deriveKey(buf), nil
 }

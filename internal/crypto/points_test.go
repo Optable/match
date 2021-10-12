@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	gr "github.com/bwesterb/go-ristretto"
 	"github.com/zeebo/blake3"
 )
 
@@ -121,7 +122,20 @@ func TestDeriveKey(t *testing.T) {
 	}
 
 	p := elliptic.Marshal(c, px, py)
-	key := DeriveKey(p)
+	key := deriveKey(p)
+	if len(key) != 32 {
+		t.Fatalf("derived key length is not 32, got: %d", len(key))
+	}
+}
+
+func TestDeriveKeyRistretto(t *testing.T) {
+	var p gr.Point
+	p.Rand()
+	key, err := DeriveKeyRistretto(&p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if len(key) != 32 {
 		t.Fatalf("derived key length is not 32, got: %d", len(key))
 	}

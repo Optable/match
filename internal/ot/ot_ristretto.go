@@ -4,7 +4,6 @@ import (
 	"io"
 
 	gr "github.com/bwesterb/go-ristretto"
-	"github.com/optable/match/internal/crypto"
 )
 
 /*
@@ -57,14 +56,4 @@ func generateKeys() (secretKey gr.Scalar, publicKey gr.Point) {
 	publicKey.ScalarMultBase(&secretKey)
 
 	return
-}
-
-// deriveKey returns a key of 32 byte from an elliptic curve point
-func deriveKeyRistretto(point *gr.Point) ([]byte, error) {
-	buf, err := point.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	return crypto.DeriveKey(buf), nil
 }

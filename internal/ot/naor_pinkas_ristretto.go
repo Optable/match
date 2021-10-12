@@ -76,7 +76,7 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// derive key for encryption
-			key, err := deriveKeyRistretto(&pointK[choice])
+			key, err := crypto.DeriveKeyRistretto(&pointK[choice])
 			if err != nil {
 				return err
 			}
@@ -159,7 +159,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		// build keys for decrypting choice messages
 		// K = bR
 		pointK.ScalarMult(&pointR, &bSecrets[i])
-		key, err := deriveKeyRistretto(&pointK)
+		key, err := crypto.DeriveKeyRistretto(&pointK)
 		if err != nil {
 			return err
 		}
