@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	nmsg        = 1024
+	nmsg        = 10240
 	nworkers    = 6
 	uintBlock   = sampleRandomTall(prng, nmsg)
 	randomBlock = unravelTall(uintBlock, 0)

@@ -27,8 +27,8 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InplaceXorBytes XORS each byte from a with b and returns dst
-// if a and b are the same length
+// InplaceXorBytes XORS each byte from a with dst in place
+// if a and dst are the same length
 func InPlaceXorBytes(dst, a []byte) error {
 	var n = len(dst)
 	if n != len(a) {
@@ -42,7 +42,7 @@ func InPlaceXorBytes(dst, a []byte) error {
 	return nil
 }
 
-// ConcurrentInplaceXorBytes XORS each byte from a with dst and returns dst
+// ConcurrentInPlaceXorBytes XORS each byte from a with dst in place
 // if a and dst are the same length
 func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
@@ -95,7 +95,7 @@ func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 }
 
 // AndBytes returns the binary AND of each byte in a and b
-// if a and b are the same length
+// and returns dst if a and b are the same length
 func AndBytes(a, b []byte) (dst []byte, err error) {
 	n := len(b)
 	if n != len(a) {
@@ -111,9 +111,8 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InPlaceAndBytes retunrs the binary AND of
-// each byte in a and dst if a and dst are the
-// same length.
+// InPlaceAndBytes performs the binary AND of each byte in a
+// and dst in place if a and dst are the same length.
 func InPlaceAndBytes(dst, a []byte) error {
 	n := len(dst)
 	if n != len(a) {
@@ -127,9 +126,8 @@ func InPlaceAndBytes(dst, a []byte) error {
 	return nil
 }
 
-// ConcurrentInPlaceAndBytes returns the binary
-// AND of each byte in a and dst if a and dst are the
-// same length.
+// ConcurrentInPlaceAndBytes performs the binary AND of each
+// byte in a and dst if a and dst are the same length.
 func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.NumCPU()
@@ -190,8 +188,8 @@ func AndByte(a uint8, b []byte) []byte {
 }
 
 // TestBitSetInByte returns 1 if bit i is set in a byte slice.
-// it extracts bits from the least significant bit (i = 0) to the
-// most significant bit (i = 7)
+// It extracts bits from the least significant bit (i = 0) to the
+// most significant bit (i = 7).
 func TestBitSetInByte(b []byte, i int) byte {
 	if b[i/8]&(1<<(i%8)) > 0 {
 		return 1
@@ -214,17 +212,16 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// SampleRandomDenseBitMatrix allocates a 2D byte matrix of dimension row x col,
-// and add extra rows of 0s to have number of rows be a multiple of 512,
-// fills each entry in the byte matrix with pseudorandom byte values from a rand reader
-// but leaves them densely encoded unlike SampleRandomBitMatrix.
+// SampleRandomBitMatrix allocates a 2D byte matrix of dimension row x col,
+// and adds extra rows of 0s to have the number of rows be a multiple of 512,
+// fills each entry in the byte matrix with pseudorandom byte values from a rand reader.
 func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
 		matrix[row] = make([]uint8, (col+PadTill512(col))/8)
 	}
-
+	// fill matrix
 	for row := range matrix {
 		if _, err := prng.Read(matrix[row]); err != nil {
 			return nil, err
@@ -274,8 +271,8 @@ func ByteSliceFromUint64(u []uint64) (b []byte) {
 	return b
 }
 
-// Uint64MatrixFromByte converts matrix of bytes to matrix of uint64s.
-// pad is number of rows containing 0s which will be added to end of matrix.
+// Uint64MatrixFromByte converts a matrix of bytes to a matrix of uint64s.
+// pad is number of rows containing 0s which will be added to end of the matrix.
 // Assume each row contains 64 bytes (512 bits).
 func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
 	pad := PadTill512(len(b))
@@ -292,7 +289,7 @@ func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
 	return u
 }
 
-// ByteMatrixFromUint64 converts matrix of uint64s to matrix of bytes.
+// ByteMatrixFromUint64 converts a matrix of uint64s to a matrix of bytes.
 // If any padding was added, it is left untouched.
 func ByteMatrixFromUint64(u [][]uint64) (b [][]byte) {
 	b = make([][]byte, len(u))
