@@ -5,13 +5,16 @@ import (
 	"sync"
 )
 
-// A BitVect is a matrix of 512 by 512 bits encoded into uint64 elements.
+// A BitVect is a matrix of 512 by 512 bits encoded into a contiguous slice of
+// uint64 elements.
 type BitVect struct {
 	set [512 * 8]uint64
 }
 
-// unravelTall is a constructor used to create a BitVect from a 2D matrix of uint64.
-// The matrix must have 8 columns and 512 rows. idx is the block target.
+// unravelTall is a constructor used to create a BitVect from a subset of a 2D matrix
+// of uint64. The matrix must have 8 columns and a multiple of 512 rows. idx is the
+// block target. idx = 0 will take the first 512 rows, idx = 1 will take from row 512
+// to row 1028, etc.
 func unravelTall(matrix [][]uint64, idx int) BitVect {
 	set := [4096]uint64{}
 
@@ -21,8 +24,10 @@ func unravelTall(matrix [][]uint64, idx int) BitVect {
 	return BitVect{set}
 }
 
-// unravelWide is a constructor used to create a BitVect from a 2D matrix of uint64.
-// The matrix must have 8 columns and 512 rows. idx is the block target.
+// unravelWide is a constructor used to create a BitVect from a subset of a 2D matrix
+// of uint64. The matrix must have a multiple of 8 columns and 512 rows. idx is the
+// block target. idx = 0 will take the first 8 columns, idx = 1 will take from column
+// 8 to column 16, etc.
 func unravelWide(matrix [][]uint64, idx int) BitVect {
 	set := [4096]uint64{}
 
@@ -46,7 +51,7 @@ func (b BitVect) ravelToWide(matrix [][]uint64, idx int) {
 	}
 }
 
-// printBits prints a subset of the overall bit array. The limit is in bits but
+// printBits prints a square subset of the overall bit array. The limit is in bits but
 // since we are really printing uint64, everything is rounded down to the nearest
 // multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
 func (b BitVect) printBits(lim int) {
@@ -68,17 +73,17 @@ func (b BitVect) printUints() {
 	}
 }
 
-// ConcurrentTranspose tranposes a wide (512 row) or tall (8 column) matrix.
+// ConcurrentTranspose transposes a wide (512 row) or tall (8 column) matrix.
 // First it determines how many 512x512 bit blocks are necessary to contain the
-// matrix and hold the indices where the blocks should be split from the larger
-// matrix. The input matrix must have a multiple of 512 rows (tall) or 8 columns (wide)
-// The indices are passed into a channel which is being read by a worker pool of
-// goroutines. Each goroutine reads an index, generates a BitVect from the matrix
-// at that index (with padding if necessary), performs a cache-oblivious, in-place,
-// contiguous transpose on the BitVect, and finally writes the result to a shared
-// final output matrix.
+// matrix and holds the indices where the blocks should be split from the larger
+// matrix. The input matrix must have a multiple of 512 rows (tall) or 8 columns
+// (wide) The indices are passed into a channel which is being read by a worker
+// pool of goroutines. Each goroutine reads an index, generates a BitVect from
+// the matrix at that index, performs a cache-oblivious, in-place, contiguous
+// transpose on the BitVect, and finally writes the result to a shared final
+// output matrix.
 func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
-	// determine is original matrix is wide or tall
+	// determine if original matrix is wide or tall
 	var tall bool
 	if len(matrix[0]) == 8 {
 		tall = true
@@ -101,6 +106,7 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 		nrows = len(matrix[0]) * 64
 		ncols = 8
 	}
+
 	trans := make([][]uint64, nrows)
 	for r := range trans {
 		trans[r] = make([]uint64, ncols)
@@ -149,7 +155,6 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 // and 1. Since the input is square, the transposition can be performed in place.
 func (b *BitVect) transpose() {
 	// Transpose 4 x 256 blocks
-
 	tmp4 := make([]uint64, 4)
 	var jmp int
 	for i := 0; i < 256; i++ {
@@ -256,14 +261,6 @@ func (b *BitVect) transpose() {
 			transpose64(b, blk, col)
 		}
 	}
-}
-
-// swap64 swaps two subsets of rows in a 512x8 bit matrix which is
-// held as a contiguous uint64 array in a BitVect.
-func swap64(a, b int, vect *BitVect, width int, tmp []uint64) {
-	copy(tmp, vect.set[a:a+width])
-	copy(vect.set[a:a+width], vect.set[b:b+width])
-	copy(vect.set[b:b+width], tmp)
 }
 
 // swap swaps two rows of masked binary elements in a 64x64 bit matrix which is

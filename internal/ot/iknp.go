@@ -14,14 +14,7 @@ import (
 from the paper: Extending Oblivious Transfers Efficiently
 by Yushal Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank in 2003.
 reference: https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf
-
-A possible improvement is to use bitset to store the bit matrices/bit sets.
 */
-
-const (
-	iknpCurve      = "P256"
-	iknpCipherMode = crypto.XORBlake3
-)
 
 type iknp struct {
 	baseOT OT
@@ -37,7 +30,7 @@ func NewIKNP(m, k, baseOT int, ristretto bool, msgLen []int) (iknp, error) {
 		baseMsgLen[i] = (m + util.PadTill512(m)) / 8
 	}
 
-	ot, err := NewBaseOT(baseOT, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
+	ot, err := NewBaseOT(baseOT, ristretto, k, crypto.P256, baseMsgLen, crypto.XORBlake3)
 	if err != nil {
 		return iknp{}, err
 	}
@@ -73,7 +66,7 @@ func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 				}
 			}
 
-			ciphertext, err = crypto.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(crypto.XORBlake3, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -127,7 +120,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	for i := 0; i < ext.m; i++ {
 		choiceBit := util.TestBitSetInByte(choices, i)
 		// compute # of bytes to be read
-		l := crypto.EncryptLen(iknpCipherMode, ext.msgLen[i])
+		l := crypto.EncryptLen(crypto.XORBlake3, ext.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -137,7 +130,7 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choiceBit, e[choiceBit])
+		messages[i], err = crypto.Decrypt(crypto.XORBlake3, t[i], choiceBit, e[choiceBit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

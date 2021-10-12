@@ -10,8 +10,6 @@ import (
 	"github.com/optable/match/internal/crypto"
 )
 
-var k = 512
-
 func initKKRTReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
@@ -60,7 +58,7 @@ func TestKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewKKRT(otExtensionCount, k, tuple, NaorPinkas, false, mLen)
+	ot, err := NewKKRT(otExtensionCount, 512, tuple, NaorPinkas, false, mLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,10 +74,10 @@ func TestKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
 		if err != nil {
-			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
+			errs <- fmt.Errorf("Error creating KKRT OT: %s", err)
 		}
 
-		ot, err := NewKKRT(otExtensionCount, k, tuple, NaorPinkas, false, mLen)
+		ot, err := NewKKRT(otExtensionCount, 512, tuple, NaorPinkas, false, mLen)
 		if err != nil {
 			errs <- err
 		}
@@ -139,7 +137,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// start timer
 	start := time.Now()
-	ot, err := NewImprovedKKRT(otExtensionCount, k, tuple, NaorPinkas, crypto.AESCtrDrbg, false, mLen)
+	ot, err := NewImprovedKKRT(otExtensionCount, 512, tuple, NaorPinkas, crypto.AESCtrDrbg, false, mLen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +156,7 @@ func TestImprovedKKRT(t *testing.T) {
 			errs <- fmt.Errorf("Error creating improved KKRT OT extension: %s", err)
 		}
 
-		ot, err := NewImprovedKKRT(otExtensionCount, k, tuple, NaorPinkas, crypto.AESCtrDrbg, false, mLen)
+		ot, err := NewImprovedKKRT(otExtensionCount, 512, tuple, NaorPinkas, crypto.AESCtrDrbg, false, mLen)
 		if err != nil {
 			errs <- err
 		}

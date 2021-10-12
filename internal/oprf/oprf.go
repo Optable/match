@@ -1,7 +1,6 @@
 package oprf
 
 import (
-	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
 	"io"
@@ -24,7 +23,7 @@ const (
 var ErrUnknownOPRF = fmt.Errorf("cannot create an OPRF that follows an unknown protocol")
 
 type OPRF interface {
-	Send(rw io.ReadWriter) ([]Key, error)
+	Send(rw io.ReadWriter) (Key, error)
 	Receive(choices [][]uint8, rw io.ReadWriter) ([][]byte, error)
 }
 
@@ -41,27 +40,24 @@ func NewOPRF(t, m, baseOT int) (OPRF, error) {
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)
-// the index j is implicit when key is stored into a key slice.
-// Pseudorandom code C is represented by sk
+// Pseudorandom code C is represented by aes block seeded with s
+// q stores the received OT extension matrix chosen with secret
+// seed s.
 type Key struct {
-	sk []byte // secret key for pseudorandom code
-	s  []byte // secret choice bits
-	q  []byte // m x k bit matrice
+	block cipher.Block
+	s     []byte   // secret choice bits
+	q     [][]byte // m x k bit matrice
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(aesBlock cipher.Block, in []byte) (out []byte, err error) {
+func (k Key) Encode(j uint64, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCode(aesBlock, in)
+	out = crypto.PseudorandomCode(k.block, in)
 
 	if err = util.ConcurrentInPlaceAndBytes(out, k.s); err != nil {
 		return nil, err
 	}
 
-	err = util.ConcurrentInPlaceXorBytes(out, k.q)
+	err = util.ConcurrentInPlaceXorBytes(out, k.q[j])
 	return
-}
-
-func GetAesBlock(k Key) (cipher.Block, error) {
-	return aes.NewCipher(k.sk)
 }

@@ -41,6 +41,7 @@ func otExtreceiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []
 		msgBus <- m
 	}
 }
+
 func TestIKNP(t *testing.T) {
 	mLen := make([]int, otExtensionCount)
 	for i, m := range otExtensionMessages {
@@ -108,7 +109,7 @@ func TestIKNP(t *testing.T) {
 	for i, m := range msg {
 		bit := util.TestBitSetInByte(otExtensionChoices, i)
 		if !bytes.Equal(m, otExtensionMessages[i][bit]) {
-			t.Fatalf("ALSZ OT extension failed at meesage %d, got: %v, want %v", i, m, otExtensionMessages[i][bit])
+			t.Fatalf("IKNP OT extension failed at message %d, got: %v, want %v", i, m, otExtensionMessages[i][bit])
 		}
 	}
 }
@@ -140,7 +141,7 @@ func TestALSZ(t *testing.T) {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
 		if err != nil {
-			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
+			errs <- fmt.Errorf("Error creating ALSZ OT: %s", err)
 		}
 
 		senderOT, err := NewALSZ(otExtensionCount, 512, NaorPinkas, crypto.AESCtrDrbg, false, mLen)

@@ -21,11 +21,6 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-const (
-	kkrtCurve      = "P256"
-	kkrtCipherMode = crypto.XORBlake3
-)
-
 type kkrt struct {
 	baseOT OT
 	m      int
@@ -41,7 +36,7 @@ func NewKKRT(m, k, n, baseOT int, ristretto bool, msgLen []int) (kkrt, error) {
 		baseMsgLen[i] = (m + util.PadTill512(m)) / 8
 	}
 
-	ot, err := NewBaseOT(baseOT, ristretto, k, kkrtCurve, baseMsgLen, kkrtCipherMode)
+	ot, err := NewBaseOT(baseOT, ristretto, k, crypto.P256, baseMsgLen, crypto.XORBlake3)
 	if err != nil {
 		return kkrt{}, err
 	}
@@ -87,7 +82,7 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			util.ConcurrentInPlaceAndBytes(key, s)
 			util.ConcurrentInPlaceXorBytes(key, q[i])
 
-			ciphertext, err = crypto.Encrypt(kkrtCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(crypto.XORBlake3, key, uint8(choice), plaintext)
 			if err != nil {
 				return err
 			}
@@ -157,7 +152,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	e := make([][]byte, ext.n)
 	for i := range choices {
 		// compute nb of bytes to be read
-		l := crypto.EncryptLen(kkrtCipherMode, ext.msgLen[i])
+		l := crypto.EncryptLen(crypto.XORBlake3, ext.msgLen[i])
 		// read all msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -167,7 +162,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = crypto.Decrypt(kkrtCipherMode, t[i], choices[i], e[choices[i]])
+		messages[i], err = crypto.Decrypt(crypto.XORBlake3, t[i], choices[i], e[choices[i]])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}
