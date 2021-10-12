@@ -12,6 +12,23 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
+var (
+	network             = "tcp"
+	address             = "127.0.0.1:"
+	curve               = "P256"
+	cipherMode          = crypto.XORBlake3
+	baseCount           = 512
+	otExtensionCount    = 1400
+	tuple               = 10
+	messages            = genMsg(baseCount, 2)
+	otExtensionMessages = genMsg(otExtensionCount, 2)
+	nchooseOneMessages  = genMsg(otExtensionCount, tuple)
+	msgLen              = make([]int, len(messages))
+	choices             = genChoiceBits(baseCount / 8)
+	otExtensionChoices  = genChoiceBits(otExtensionCount / 8)
+	r                   = rand.New(rand.NewSource(time.Now().UnixNano()))
+)
+
 func TestNewNaorPinkas(t *testing.T) {
 	ot, err := NewBaseOT(NaorPinkas, false, 3, curve, []int{1, 2, 3}, cipherMode)
 	if err != nil {
@@ -69,23 +86,6 @@ func TestNewUnknownOTRistretto(t *testing.T) {
 		t.Fatal("should get error creating unknown baseOT")
 	}
 }
-
-var (
-	network             = "tcp"
-	address             = "127.0.0.1:"
-	curve               = "P256"
-	cipherMode          = crypto.XORBlake3
-	baseCount           = 512
-	otExtensionCount    = 1400
-	tuple               = 10
-	messages            = genMsg(baseCount, 2)
-	otExtensionMessages = genMsg(otExtensionCount, 2)
-	nchooseOneMessages  = genMsg(otExtensionCount, tuple)
-	msgLen              = make([]int, len(messages))
-	choices             = genChoiceBits(baseCount / 8)
-	otExtensionChoices  = genChoiceBits(otExtensionCount / 8)
-	r                   = rand.New(rand.NewSource(time.Now().UnixNano()))
-)
 
 func genMsg(n, t int) [][][]byte {
 	data := make([][][]byte, n)

@@ -41,36 +41,36 @@ func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err erro
 	w := newRistrettoWriter(rw)
 
 	// generate sender secret public key pairs
-	a, A := generateKeys()
+	secretA, pointA := generateKeys()
 	// T = aA
-	var T gr.Point
-	T.ScalarMult(&A, &a)
+	var pointT gr.Point
+	pointT.ScalarMult(&pointA, &secretA)
 
 	// send point A to receiver
-	if err := w.write(&A); err != nil {
+	if err := w.write(&pointA); err != nil {
 		return err
 	}
 
 	// make a slice of ristretto points to receive B from receiver.
-	B := make([]gr.Point, s.baseCount)
-	for i := range B {
-		if err := r.read(&B[i]); err != nil {
+	pointB := make([]gr.Point, s.baseCount)
+	for i := range pointB {
+		if err := r.read(&pointB[i]); err != nil {
 			return err
 		}
 	}
 
-	K := make([]gr.Point, 2)
+	pointK := make([]gr.Point, 2)
 	// encrypt plaintext messages and send it.
 	for i := 0; i < s.baseCount; i++ {
 		// k0 = aB
-		K[0].ScalarMult(&B[i], &a)
+		pointK[0].ScalarMult(&pointB[i], &secretA)
 		//k1 = a(B - A) = aB - aA
-		K[1].Sub(&K[0], &T)
+		pointK[1].Sub(&pointK[0], &pointT)
 
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
 			// derive key for encryption
-			key, err := deriveKeyRistretto(&K[choice])
+			key, err := deriveKeyRistretto(&pointK[choice])
 			if err != nil {
 				return err
 			}
@@ -101,30 +101,30 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 	w := newRistrettoWriter(rw)
 
 	// Receive point A from sender
-	var A gr.Point
-	if err := r.read(&A); err != nil {
+	var pointA gr.Point
+	if err := r.read(&pointA); err != nil {
 		return err
 	}
 
 	// Generate points B, 1 for each OT,
 	bSecrets := make([]gr.Scalar, s.baseCount)
+	var pointB gr.Point
 	for i := 0; i < s.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		b, B := generateKeys()
+		bSecrets[i], pointB = generateKeys()
 		if err != nil {
 			return err
 		}
-		bSecrets[i] = b
 
 		// for each choice bit, compute the resultant point B and send it
 		if util.TestBitSetInByte(choices, i) == 0 {
-			if err := w.write(&B); err != nil {
+			if err := w.write(&pointB); err != nil {
 				return err
 			}
 		} else {
 			// B = A + bG
-			B.Add(&A, &B)
-			if err := w.write(&B); err != nil {
+			pointB.Add(&pointA, &pointB)
+			if err := w.write(&pointB); err != nil {
 				return err
 			}
 		}
@@ -145,7 +145,7 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		}
 
 		// build keys for decryption
-		K.ScalarMult(&A, &bSecrets[i])
+		K.ScalarMult(&pointA, &bSecrets[i])
 		key, err := deriveKeyRistretto(&K)
 		if err != nil {
 			return err
