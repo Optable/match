@@ -20,7 +20,6 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 
 	dst = make([]byte, n)
 
-	_ = a[n-1]
 	for i := 0; i < n; i++ {
 		dst[i] = a[i] ^ b[i]
 	}
@@ -36,8 +35,6 @@ func InPlaceXorBytes(dst, a []byte) error {
 		return ErrByteLengthMissMatch
 	}
 
-	_ = dst[n-1]
-	_ = a[n-1]
 	for i := 0; i < n; i++ {
 		dst[i] ^= a[i]
 	}
@@ -45,8 +42,8 @@ func InPlaceXorBytes(dst, a []byte) error {
 	return nil
 }
 
-// ConcurrentInplaceXorBytes XORS each byte from a with b and returns dst
-// if a and b are the same length
+// ConcurrentInplaceXorBytes XORS each byte from a with dst and returns dst
+// if a and dst are the same length
 func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.NumCPU()
@@ -55,6 +52,7 @@ func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 		return ErrByteLengthMissMatch
 	}
 
+	// no need to split into goroutines
 	if n < blockSize {
 		return InPlaceXorBytes(dst, a)
 	}
@@ -106,7 +104,6 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 
 	dst = make([]byte, n)
 
-	_ = a[n-1]
 	for i := 0; i < n; i++ {
 		dst[i] = a[i] & b[i]
 	}
@@ -114,17 +111,15 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InPlaceAndBytes replaces the bytes in dst with the binary AND of
-// each byte with the corresponding byte in a (if a and b are the
-// same length).
+// InPlaceAndBytes retunrs the binary AND of
+// each byte in a and dst if a and dst are the
+// same length.
 func InPlaceAndBytes(dst, a []byte) error {
 	n := len(dst)
 	if n != len(a) {
 		return ErrByteLengthMissMatch
 	}
 
-	_ = dst[n-1]
-	_ = a[n-1]
 	for i := range dst {
 		dst[i] = dst[i] & a[i]
 	}
@@ -132,9 +127,9 @@ func InPlaceAndBytes(dst, a []byte) error {
 	return nil
 }
 
-// ConcurrentInPlaceAndBytes replaces the bytes in dst with the binary
-// AND of each byte with the corresponding byte in a (if a and b are the
-// same length).
+// ConcurrentInPlaceAndBytes returns the binary
+// AND of each byte in a and dst if a and dst are the
+// same length.
 func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.NumCPU()
@@ -143,6 +138,7 @@ func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 		return ErrByteLengthMissMatch
 	}
 
+	// no need to split into goroutines
 	if n < blockSize {
 		return InPlaceAndBytes(dst, a)
 	}
@@ -204,7 +200,7 @@ func TestBitSetInByte(b []byte, i int) byte {
 }
 
 // Transpose returns the transpose of a 2D slices of bytes
-// from (m x k) to (k x m)
+// from (m x k) to (k x m) by naively swapping.
 func Transpose(matrix [][]uint8) [][]uint8 {
 	n := len(matrix)
 	tr := make([][]uint8, len(matrix[0]))
@@ -218,27 +214,10 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// Transpose3D returns the transpose of a 3D slices of bytes
-// from (m x 2 x k) to (k x 2 x m)
-func Transpose3D(matrix [][][]uint8) [][][]uint8 {
-	n := len(matrix)
-	tr := make([][][]uint8, len(matrix[0][0]))
-
-	for row := range tr {
-		tr[row] = make([][]uint8, len(matrix[0]))
-		for b := range tr[row] {
-			tr[row][b] = make([]uint8, n)
-			for col := range tr[row][b] {
-				tr[row][b][col] = matrix[col][b][row]
-			}
-		}
-	}
-	return tr
-}
-
-// SampleRandomDenseBitMatrix fills each entry in the given 2D slices of bytes
-// with pseudorandom bit values but leaves them densely encoded unlike
-// SampleRandomBitMatrix.
+// SampleRandomDenseBitMatrix allocates a 2D byte matrix of dimension row x col,
+// and add extra rows of 0s to have number of rows be a multiple of 512,
+// fills each entry in the byte matrix with pseudorandom byte values from a rand reader
+// but leaves them densely encoded unlike SampleRandomBitMatrix.
 func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
