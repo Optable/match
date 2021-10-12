@@ -124,9 +124,6 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 	for i := 0; i < n.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
 		bSecrets[i], pointB = generateKeys()
-		if err != nil {
-			return err
-		}
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
 		if util.TestBitSetInByte(choices, i) == 0 {

@@ -112,9 +112,6 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 	for i := 0; i < s.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
 		bSecrets[i], pointB = generateKeys()
-		if err != nil {
-			return err
-		}
 
 		// for each choice bit, compute the resultant point B and send it
 		if util.TestBitSetInByte(choices, i) == 0 {
