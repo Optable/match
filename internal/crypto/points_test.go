@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/elliptic"
 	"crypto/rand"
 	"math/big"
@@ -93,7 +94,7 @@ func TestSub(t *testing.T) {
 
 func TestDeriveKeyPoints(t *testing.T) {
 	p := newPoints(c, bx, by)
-	key := p.DeriveKey()
+	key := p.DeriveKeyFromECPoints()
 
 	key2 := blake3.Sum256(bx.Bytes())
 	if string(key) != string(key2[:]) || len(key) != 32 {
@@ -151,6 +152,27 @@ func TestGenerateKeys(t *testing.T) {
 	}
 }
 
+func TestReadWritePoints(t *testing.T) {
+	rw := new(bytes.Buffer)
+	r := NewRistrettoReader(rw)
+	w := NewRistrettoWriter(rw)
+
+	var point, readPoint gr.Point
+	point.Rand()
+	readPoint.SetZero()
+
+	if point.Equals(&readPoint) {
+		t.Fatal("Read point should not be equal to point")
+	}
+
+	w.Write(&point)
+	r.Read(&readPoint)
+
+	if !point.Equals(&readPoint) {
+		t.Fatalf("Read point is not the same as the written point, want: %v, got: %v", point.Bytes(), readPoint.Bytes())
+	}
+}
+
 func BenchmarkDeriveKey(b *testing.B) {
 	c, _ = InitCurve(curve)
 	x := big.NewInt(1)
@@ -159,7 +181,7 @@ func BenchmarkDeriveKey(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		p.DeriveKey()
+		p.DeriveKeyFromECPoints()
 	}
 }
 

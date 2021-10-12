@@ -37,8 +37,8 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 	}
 
 	// Instantiate Reader, Writer
-	reader := newRistrettoReader(rw)
-	writer := newRistrettoWriter(rw)
+	reader := crypto.NewRistrettoReader(rw)
+	writer := crypto.NewRistrettoWriter(rw)
 
 	// generate sender A point w/o secret, since a is never used.
 	var pointA = crypto.GeneratePublicRistrettoKey()
@@ -47,10 +47,10 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 	secretR, pointR := crypto.GenerateRistrettoKeys()
 
 	// send both public keys to receiver
-	if err := writer.write(&pointA); err != nil {
+	if err := writer.Write(&pointA); err != nil {
 		return err
 	}
-	if err := writer.write(&pointR); err != nil {
+	if err := writer.Write(&pointR); err != nil {
 		return err
 	}
 
@@ -60,7 +60,7 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 	// make a slice of ristretto points to receive K0.
 	pointK0 := make([]gr.Point, n.baseCount)
 	for i := range pointK0 {
-		if err := reader.read(&pointK0[i]); err != nil {
+		if err := reader.Read(&pointK0[i]); err != nil {
 			return err
 		}
 	}
@@ -88,7 +88,7 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 			}
 
 			// send ciphertext
-			if _, err = writer.w.Write(ciphertext); err != nil {
+			if _, err = rw.Write(ciphertext); err != nil {
 				return err
 			}
 		}
@@ -103,18 +103,18 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 	}
 
 	// instantiate Reader, Writer
-	reader := newRistrettoReader(rw)
-	writer := newRistrettoWriter(rw)
+	reader := crypto.NewRistrettoReader(rw)
+	writer := crypto.NewRistrettoWriter(rw)
 
 	// Receive point A from sender
 	var pointA gr.Point
-	if err := reader.read(&pointA); err != nil {
+	if err := reader.Read(&pointA); err != nil {
 		return err
 	}
 
 	// Receive point R from sender
 	var pointR gr.Point
-	if err := reader.read(&pointR); err != nil {
+	if err := reader.Read(&pointR); err != nil {
 		return err
 	}
 
@@ -129,14 +129,14 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		if util.TestBitSetInByte(choices, i) == 0 {
 			// K0 = Kc = B
 			// K1 = K1-c = A - B
-			if err := writer.write(&pointB); err != nil {
+			if err := writer.Write(&pointB); err != nil {
 				return err
 			}
 		} else {
 			// K1 = Kc = B
 			// K0 = K1-c = A - B
 			pointB.Sub(&pointA, &pointB)
-			if err := writer.write(&pointB); err != nil {
+			if err := writer.Write(&pointB); err != nil {
 				return err
 			}
 		}
@@ -151,7 +151,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
-			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
+			if _, err := io.ReadFull(rw, e[j]); err != nil {
 				return err
 			}
 		}

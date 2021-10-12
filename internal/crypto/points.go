@@ -4,9 +4,9 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"math/big"
 
-	gr "github.com/bwesterb/go-ristretto"
 	"github.com/zeebo/blake3"
 )
 
@@ -107,8 +107,8 @@ func (p Points) Sub(q Points) Points {
 	return newPoints(p.curve, x, y)
 }
 
-// DeriveKey returns a key of 32 byte from an elliptic curve point
-func (p Points) DeriveKey() []byte {
+// DeriveKeyFromECPoints returns a key of 32 byte from an elliptic curve point
+func (p Points) DeriveKeyFromECPoints() []byte {
 	key := blake3.Sum256(p.x.Bytes())
 	return key[:]
 }
@@ -123,35 +123,39 @@ func GenerateKeyWithPoints(curve elliptic.Curve) ([]byte, Points, error) {
 	return secret, newPoints(curve, x, y), nil
 }
 
-// Ristretto points
-
-// GenerateRistrettoKeys returns a secret key scalar
-// and a public key ristretto point
-func GenerateRistrettoKeys() (secretKey gr.Scalar, publicKey gr.Point) {
-	secretKey.Rand()
-	publicKey.ScalarMultBase(&secretKey)
-
-	return
+// pointsWriter for elliptic curve points
+type pointsWriter struct {
+	w io.Writer
 }
 
-func GeneratePublicRistrettoKey() (publicKey gr.Point) {
-	var p gr.Point
-	p.Rand()
-	return p
+// pointsReader for elliptic curve points
+type pointsReader struct {
+	r         io.Reader
+	encodeLen int
 }
 
-// hashToKey returns a key of 32 byte from an elliptic curve point
-func hashToKey(point []byte) []byte {
-	key := blake3.Sum256(point)
-	return key[:]
+// newWriter returns an elliptic curve point writer
+func NewECPointsWriter(w io.Writer) *pointsWriter {
+	return &pointsWriter{w: w}
 }
 
-// DeriveRistrettoKeys returns a key of 32 byte from an elliptic curve point
-func DeriveRistrettoKey(point *gr.Point) ([]byte, error) {
-	buf, err := point.MarshalBinary()
-	if err != nil {
-		return nil, err
+// newReader returns an elliptic curve point reader
+func NewECPointsReader(r io.Reader, l int) *pointsReader {
+	return &pointsReader{r: r, encodeLen: l}
+}
+
+// write writes the marshalled elliptic curve point to writer
+func (w *pointsWriter) Write(p Points) (err error) {
+	_, err = w.w.Write(p.Marshal())
+	return err
+}
+
+// read reads a marshalled elliptic curve point from reader and stores it in point
+func (r *pointsReader) Read(p Points) (err error) {
+	pt := make([]byte, r.encodeLen)
+	if _, err = io.ReadFull(r.r, pt); err != nil {
+		return err
 	}
 
-	return hashToKey(buf), nil
+	return p.Unmarshal(pt)
 }

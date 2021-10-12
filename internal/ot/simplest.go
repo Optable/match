@@ -38,8 +38,8 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// Instantiate Reader, Writer
-	reader := newReader(rw, s.encodeLen)
-	writer := newWriter(rw)
+	reader := crypto.NewECPointsReader(rw, s.encodeLen)
+	writer := crypto.NewECPointsWriter(rw)
 
 	// generate sender secret public key pairs
 	secretA, pointA, err := crypto.GenerateKeyWithPoints(s.curve)
@@ -48,7 +48,7 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// send point A in marshaled []byte to receiver
-	if err := writer.write(pointA); err != nil {
+	if err := writer.Write(pointA); err != nil {
 		return err
 	}
 
@@ -59,7 +59,7 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	pointB := make([]crypto.Points, s.baseCount)
 	for i := range pointB {
 		pointB[i] = crypto.NewPoints(s.curve)
-		if err := reader.read(pointB[i]); err != nil {
+		if err := reader.Read(pointB[i]); err != nil {
 			return err
 		}
 	}
@@ -76,13 +76,13 @@ func (s simplest) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// Encrypt plaintext message with key derived from received points B
 		for choice, plaintext := range messages[i] {
 			// encrypt plaintext using aes GCM mode
-			ciphertext, err = crypto.Encrypt(s.cipherMode, pointK[choice].DeriveKey(), uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(s.cipherMode, pointK[choice].DeriveKeyFromECPoints(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
-			if _, err = writer.w.Write(ciphertext); err != nil {
+			if _, err = rw.Write(ciphertext); err != nil {
 				return err
 			}
 		}
@@ -97,12 +97,12 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 	}
 
 	// instantiate Reader, Writer
-	reader := newReader(rw, s.encodeLen)
-	writer := newWriter(rw)
+	reader := crypto.NewECPointsReader(rw, s.encodeLen)
+	writer := crypto.NewECPointsWriter(rw)
 
 	// Receive marshalled point A from sender
 	pointA := crypto.NewPoints(s.curve)
-	if err := reader.read(pointA); err != nil {
+	if err := reader.Read(pointA); err != nil {
 		return err
 	}
 
@@ -119,12 +119,12 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		// for each choice bit, compute the resultant point B and send it
 		if util.TestBitSetInByte(choices, i) == 0 {
 			// B
-			if err := writer.write(pointB); err != nil {
+			if err := writer.Write(pointB); err != nil {
 				return err
 			}
 		} else {
 			// B = A + B
-			if err := writer.write(pointA.Add(pointB)); err != nil {
+			if err := writer.Write(pointA.Add(pointB)); err != nil {
 				return err
 			}
 		}
@@ -140,7 +140,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
-			if _, err = io.ReadFull(reader.r, e[j]); err != nil {
+			if _, err = io.ReadFull(rw, e[j]); err != nil {
 				return err
 			}
 		}
@@ -150,7 +150,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 
 		// decrypt the message indexed by choice bit
 		bit := util.TestBitSetInByte(choices, i)
-		messages[i], err = crypto.Decrypt(s.cipherMode, pointK.DeriveKey(), bit, e[bit])
+		messages[i], err = crypto.Decrypt(s.cipherMode, pointK.DeriveKeyFromECPoints(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

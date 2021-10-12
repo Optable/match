@@ -37,8 +37,8 @@ func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err erro
 	}
 
 	// Instantiate Reader, Writer
-	r := newRistrettoReader(rw)
-	w := newRistrettoWriter(rw)
+	r := crypto.NewRistrettoReader(rw)
+	w := crypto.NewRistrettoWriter(rw)
 
 	// generate sender secret public key pairs
 	secretA, pointA := crypto.GenerateRistrettoKeys()
@@ -47,14 +47,14 @@ func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err erro
 	pointT.ScalarMult(&pointA, &secretA)
 
 	// send point A to receiver
-	if err := w.write(&pointA); err != nil {
+	if err := w.Write(&pointA); err != nil {
 		return err
 	}
 
 	// make a slice of ristretto points to receive B from receiver.
 	pointB := make([]gr.Point, s.baseCount)
 	for i := range pointB {
-		if err := r.read(&pointB[i]); err != nil {
+		if err := r.Read(&pointB[i]); err != nil {
 			return err
 		}
 	}
@@ -82,7 +82,7 @@ func (s simplestRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err erro
 			}
 
 			// send ciphertext
-			if _, err = w.w.Write(ciphertext); err != nil {
+			if _, err = rw.Write(ciphertext); err != nil {
 				return err
 			}
 		}
@@ -97,12 +97,12 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 	}
 
 	// instantiate Reader, Writer
-	r := newRistrettoReader(rw)
-	w := newRistrettoWriter(rw)
+	r := crypto.NewRistrettoReader(rw)
+	w := crypto.NewRistrettoWriter(rw)
 
 	// Receive point A from sender
 	var pointA gr.Point
-	if err := r.read(&pointA); err != nil {
+	if err := r.Read(&pointA); err != nil {
 		return err
 	}
 
@@ -115,13 +115,13 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 
 		// for each choice bit, compute the resultant point B and send it
 		if util.TestBitSetInByte(choices, i) == 0 {
-			if err := w.write(&pointB); err != nil {
+			if err := w.Write(&pointB); err != nil {
 				return err
 			}
 		} else {
 			// B = A + bG
 			pointB.Add(&pointA, &pointB)
-			if err := w.write(&pointB); err != nil {
+			if err := w.Write(&pointB); err != nil {
 				return err
 			}
 		}
@@ -136,7 +136,7 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
-			if _, err := io.ReadFull(r.r, e[j]); err != nil {
+			if _, err := io.ReadFull(rw, e[j]); err != nil {
 				return err
 			}
 		}
