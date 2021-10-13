@@ -37,46 +37,46 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 	}
 
 	// Instantiate Reader, Writer
-	reader := newReaderRistretto(rw)
-	writer := newWriterRistretto(rw)
+	reader := crypto.NewRistrettoReader(rw)
+	writer := crypto.NewRistrettoWriter(rw)
 
 	// generate sender A point w/o secret, since a is never used.
-	var A gr.Point
-	A.Rand()
+	var pointA = crypto.GeneratePublicRistrettoKey()
+
 	// generate sender secret public key pairs used for encryption
-	r, R := generateKeys()
+	secretR, pointR := crypto.GenerateRistrettoKeys()
 
 	// send both public keys to receiver
-	if err := writer.write(&A); err != nil {
+	if err := writer.Write(&pointA); err != nil {
 		return err
 	}
-	if err := writer.write(&R); err != nil {
+	if err := writer.Write(&pointR); err != nil {
 		return err
 	}
 
 	// precompute A = rA
-	A.ScalarMult(&A, &r)
+	pointA.ScalarMult(&pointA, &secretR)
 
 	// make a slice of ristretto points to receive K0.
 	pointK0 := make([]gr.Point, n.baseCount)
 	for i := range pointK0 {
-		if err := reader.read(&pointK0[i]); err != nil {
+		if err := reader.Read(&pointK0[i]); err != nil {
 			return err
 		}
 	}
 
-	K := make([]gr.Point, 2)
+	pointK := make([]gr.Point, 2)
 	// encrypt plaintext message and send them.
 	for i := 0; i < n.baseCount; i++ {
 		// compute K0 = rK0
-		K[0].ScalarMult(&pointK0[i], &r)
+		pointK[0].ScalarMult(&pointK0[i], &secretR)
 		// compute K1 = rA - rK0
-		K[1].Sub(&A, &K[0])
+		pointK[1].Sub(&pointA, &pointK[0])
 
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// derive key for encryption
-			key, err := deriveKeyRistretto(&K[choice])
+			key, err := crypto.DeriveRistrettoKey(&pointK[choice])
 			if err != nil {
 				return err
 			}
@@ -88,7 +88,7 @@ func (n naorPinkasRistretto) Send(messages [][][]byte, rw io.ReadWriter) (err er
 			}
 
 			// send ciphertext
-			if _, err = writer.w.Write(ciphertext); err != nil {
+			if _, err = rw.Write(ciphertext); err != nil {
 				return err
 			}
 		}
@@ -103,50 +103,47 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 	}
 
 	// instantiate Reader, Writer
-	reader := newReaderRistretto(rw)
-	writer := newWriterRistretto(rw)
+	reader := crypto.NewRistrettoReader(rw)
+	writer := crypto.NewRistrettoWriter(rw)
 
 	// Receive point A from sender
-	var A gr.Point
-	if err := reader.read(&A); err != nil {
+	var pointA gr.Point
+	if err := reader.Read(&pointA); err != nil {
 		return err
 	}
 
 	// Receive point R from sender
-	var R gr.Point
-	if err := reader.read(&R); err != nil {
+	var pointR gr.Point
+	if err := reader.Read(&pointR); err != nil {
 		return err
 	}
 
 	// Generate points B, 1 for each OT,
 	bSecrets := make([]gr.Scalar, n.baseCount)
+	var pointB gr.Point
 	for i := 0; i < n.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		b, B := generateKeys()
-		if err != nil {
-			return err
-		}
-		bSecrets[i] = b
+		bSecrets[i], pointB = crypto.GenerateRistrettoKeys()
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
 		if util.TestBitSetInByte(choices, i) == 0 {
 			// K0 = Kc = B
 			// K1 = K1-c = A - B
-			if err := writer.write(&B); err != nil {
+			if err := writer.Write(&pointB); err != nil {
 				return err
 			}
 		} else {
 			// K1 = Kc = B
 			// K0 = K1-c = A - B
-			B.Sub(&A, &B)
-			if err := writer.write(&B); err != nil {
+			pointB.Sub(&pointA, &pointB)
+			if err := writer.Write(&pointB); err != nil {
 				return err
 			}
 		}
 	}
 
 	e := make([][]byte, 2)
-	var K gr.Point
+	var pointK gr.Point
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// compute # of bytes to be read.
@@ -154,15 +151,15 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
-			if _, err := io.ReadFull(reader.r, e[j]); err != nil {
+			if _, err := io.ReadFull(rw, e[j]); err != nil {
 				return err
 			}
 		}
 
 		// build keys for decrypting choice messages
 		// K = bR
-		K.ScalarMult(&R, &bSecrets[i])
-		key, err := deriveKeyRistretto(&K)
+		pointK.ScalarMult(&pointR, &bSecrets[i])
+		key, err := crypto.DeriveRistrettoKey(&pointK)
 		if err != nil {
 			return err
 		}

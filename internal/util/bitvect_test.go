@@ -2,12 +2,13 @@ package util
 
 import (
 	"math/rand"
+	"runtime"
 	"testing"
 )
 
 var (
 	nmsg        = 1024
-	nworkers    = 6
+	nworkers    = runtime.NumCPU()
 	uintBlock   = sampleRandomTall(prng, nmsg)
 	randomBlock = unravelTall(uintBlock, 0)
 

@@ -3,6 +3,7 @@ package crypto
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/hmac"
 	"crypto/sha256"
 	"math/rand"
 	"testing"
@@ -166,12 +167,24 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 }
 
 func BenchmarkPseudorandomCode(b *testing.B) {
-	in := make([]byte, 64)
+	in := make([]byte, 65)
 	prng.Read(in)
 	b.ResetTimer()
 	aesBlock, _ := aes.NewCipher(aesKey)
 	for i := 0; i < b.N; i++ {
 		PseudorandomCode(aesBlock, in)
+	}
+}
+
+func BenchmarkPseudorandomCodeHmacSHA256(b *testing.B) {
+	in := make([]byte, 65)
+	hmacKey := make([]byte, 32)
+	prng.Read(in)
+	prng.Read(hmacKey)
+	b.ResetTimer()
+	prf := hmac.New(sha256.New, hmacKey)
+	for i := 0; i < b.N; i++ {
+		PseudorandomCodeHmacSHA256(prf, in)
 	}
 }
 

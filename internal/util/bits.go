@@ -27,8 +27,8 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InplaceXorBytes XORS each byte from a with b and returns dst
-// if a and b are the same length
+// InplaceXorBytes XORS each byte from a with dst in place
+// if a and dst are the same length
 func InPlaceXorBytes(dst, a []byte) error {
 	var n = len(dst)
 	if n != len(a) {
@@ -42,8 +42,8 @@ func InPlaceXorBytes(dst, a []byte) error {
 	return nil
 }
 
-// ConcurrentInplaceXorBytes XORS each byte from a with b and returns dst
-// if a and b are the same length
+// ConcurrentInPlaceXorBytes XORS each byte from a with dst in place
+// if a and dst are the same length
 func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.NumCPU()
@@ -52,6 +52,7 @@ func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 		return ErrByteLengthMissMatch
 	}
 
+	// no need to split into goroutines
 	if n < blockSize {
 		return InPlaceXorBytes(dst, a)
 	}
@@ -94,7 +95,7 @@ func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 }
 
 // AndBytes returns the binary AND of each byte in a and b
-// if a and b are the same length
+// and returns dst if a and b are the same length
 func AndBytes(a, b []byte) (dst []byte, err error) {
 	n := len(b)
 	if n != len(a) {
@@ -110,11 +111,11 @@ func AndBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InPlaceAndBytes replaces the bytes in dst with the binary AND of
-// each byte with the corresponding byte in a (if a and b are the
-// same length).
+// InPlaceAndBytes performs the binary AND of each byte in a
+// and dst in place if a and dst are the same length.
 func InPlaceAndBytes(dst, a []byte) error {
-	if len(dst) != len(a) {
+	n := len(dst)
+	if n != len(a) {
 		return ErrByteLengthMissMatch
 	}
 
@@ -125,9 +126,8 @@ func InPlaceAndBytes(dst, a []byte) error {
 	return nil
 }
 
-// ConcurrentInPlaceAndBytes replaces the bytes in dst with the binary
-// AND of each byte with the corresponding byte in a (if a and b are the
-// same length).
+// ConcurrentInPlaceAndBytes performs the binary AND of each
+// byte in a and dst if a and dst are the same length.
 func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.NumCPU()
@@ -136,6 +136,7 @@ func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 		return ErrByteLengthMissMatch
 	}
 
+	// no need to split into goroutines
 	if n < blockSize {
 		return InPlaceAndBytes(dst, a)
 	}
@@ -187,8 +188,8 @@ func AndByte(a uint8, b []byte) []byte {
 }
 
 // TestBitSetInByte returns 1 if bit i is set in a byte slice.
-// it extracts bits from the least significant bit (i = 0) to the
-// most significant bit (i = 7)
+// It extracts bits from the least significant bit (i = 0) to the
+// most significant bit (i = 7).
 func TestBitSetInByte(b []byte, i int) byte {
 	if b[i/8]&(1<<(i%8)) > 0 {
 		return 1
@@ -197,7 +198,7 @@ func TestBitSetInByte(b []byte, i int) byte {
 }
 
 // Transpose returns the transpose of a 2D slices of bytes
-// from (m x k) to (k x m)
+// from (m x k) to (k x m) by naively swapping.
 func Transpose(matrix [][]uint8) [][]uint8 {
 	n := len(matrix)
 	tr := make([][]uint8, len(matrix[0]))
@@ -211,34 +212,16 @@ func Transpose(matrix [][]uint8) [][]uint8 {
 	return tr
 }
 
-// Transpose3D returns the transpose of a 3D slices of bytes
-// from (m x 2 x k) to (k x 2 x m)
-func Transpose3D(matrix [][][]uint8) [][][]uint8 {
-	n := len(matrix)
-	tr := make([][][]uint8, len(matrix[0][0]))
-
-	for row := range tr {
-		tr[row] = make([][]uint8, len(matrix[0]))
-		for b := range tr[row] {
-			tr[row][b] = make([]uint8, n)
-			for col := range tr[row][b] {
-				tr[row][b][col] = matrix[col][b][row]
-			}
-		}
-	}
-	return tr
-}
-
-// SampleRandomDenseBitMatrix fills each entry in the given 2D slices of bytes
-// with pseudorandom bit values but leaves them densely encoded unlike
-// SampleRandomBitMatrix.
+// SampleRandomBitMatrix allocates a 2D byte matrix of dimension row x col,
+// and adds extra rows of 0s to have the number of rows be a multiple of 512,
+// fills each entry in the byte matrix with pseudorandom byte values from a rand reader.
 func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
 		matrix[row] = make([]uint8, (col+PadTill512(col))/8)
 	}
-
+	// fill matrix
 	for row := range matrix {
 		if _, err := prng.Read(matrix[row]); err != nil {
 			return nil, err
@@ -250,12 +233,13 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 
 // PadTill512 returns the number of rows/columns to pad such that the number is a
 // multiple of 512.
-func PadTill512(m int) (pad int) {
-	pad = 512 - (m % 512)
-	if pad == 512 {
-		pad = 0
+func PadTill512(m int) int {
+	n := m % 512
+	if n == 0 {
+		return 0
 	}
-	return pad
+
+	return 512 - n
 }
 
 // TransposeByteMatrix performs a concurrent cache-oblivious transpose on a byte matrix by first
@@ -287,8 +271,8 @@ func ByteSliceFromUint64(u []uint64) (b []byte) {
 	return b
 }
 
-// Uint64MatrixFromByte converts matrix of bytes to matrix of uint64s.
-// pad is number of rows containing 0s which will be added to end of matrix.
+// Uint64MatrixFromByte converts a matrix of bytes to a matrix of uint64s.
+// pad is number of rows containing 0s which will be added to end of the matrix.
 // Assume each row contains 64 bytes (512 bits).
 func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
 	pad := PadTill512(len(b))
@@ -305,7 +289,7 @@ func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
 	return u
 }
 
-// ByteMatrixFromUint64 converts matrix of uint64s to matrix of bytes.
+// ByteMatrixFromUint64 converts a matrix of uint64s to a matrix of bytes.
 // If any padding was added, it is left untouched.
 func ByteMatrixFromUint64(u [][]uint64) (b [][]byte) {
 	b = make([][]byte, len(u))

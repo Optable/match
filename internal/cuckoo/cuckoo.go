@@ -16,7 +16,7 @@ const (
 	// Maximum number of reinsertons.
 	// Each reinsertion kicked off 1 egg (item) and replace it
 	// with the item being reinserted, and then reinsert the kicked off egg
-	ReinsertLimit = 200
+	ReInsertLimit = 200
 	Factor        = 1.4
 	dummyValue    = 255
 )
@@ -69,7 +69,6 @@ type Cuckoo struct {
 // a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
-	//bSize := max(1, uint64(FindBucketSize(size)*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
 		hashers[i], _ = hash.New(hash.Highway, s)
@@ -85,7 +84,6 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 // Dummy cuckoo that does not allocate buckets.
 func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
-	//bSize := max(1, uint64(FindBucketSize(size)*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
 		hashers[i], _ = hash.New(hash.Highway, s)
@@ -138,12 +136,12 @@ func (c *Cuckoo) Insert(item []byte) error {
 	if homeLessItem, added := c.tryGreedyAdd(item, bucketIndices); added {
 		return nil
 	} else {
-		return fmt.Errorf("failed to Insert item: %s", string(homeLessItem[:]))
+		return fmt.Errorf("failed to Insert item: %v", homeLessItem)
 	}
 }
 
 // tryAdd finds a free slot and inserts the item
-// if ignore is true, cannot insert into exceptBIdx
+// if ignore is true, it will not insert into exceptBIdx
 func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, exceptBIdx uint64) (added bool) {
 	for hIdx, bIdx := range bucketIndices {
 		if ignore && exceptBIdx == bIdx {
@@ -161,9 +159,9 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 
 // tryGreedyAdd evicts a random occupied slots, inserts the item to the evicted slot
 // and reinserts the evicted item
-// return false and the last evicted item, if reinsertions failed
+// return false and the last evicted item, if reinsertions failed after ReInsertLimit of tries.
 func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLessItem []byte, added bool) {
-	for i := 1; i < ReinsertLimit; i++ {
+	for i := 1; i < ReInsertLimit; i++ {
 		// select a random slot to be evicted
 		evictedHIdx := rand.Int31n(Nhash)
 		evictedBIdx := bucketIndices[evictedHIdx]

@@ -53,38 +53,34 @@ func newKKRT(m, baseOT int, ristretto bool) (OPRF, error) {
 }
 
 // Send returns the OPRF keys
-func (o kkrt) Send(rw io.ReadWriter) (keys []Key, err error) {
+func (o kkrt) Send(rw io.ReadWriter) (keys Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]byte, 16)
 	if _, err = rand.Read(sk); err != nil {
-		return nil, nil
+		return Key{}, nil
 	}
 
 	// send the secret key
 	if _, err := rw.Write(sk); err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	// act as receiver in baseOT to receive q^j
 	q := make([][]byte, k)
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	q = util.TransposeByteMatrix(q)
 
-	// store oprf keys
-	keys = make([]Key, len(q))
-	for j := range q {
-		keys[j] = Key{sk: sk, s: s, q: q[j]}
-	}
-	return
+	aesBlock, err := aes.NewCipher(sk)
+	return Key{block: aesBlock, s: s, q: q}, err
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys

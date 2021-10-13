@@ -34,7 +34,7 @@ func NewALSZ(m, k, baseOt, drbg int, ristretto bool, msgLen []int) (alsz, error)
 		baseMsgLen[i] = k / 8
 	}
 
-	ot, err := NewBaseOT(baseOt, ristretto, k, iknpCurve, baseMsgLen, iknpCipherMode)
+	ot, err := NewBaseOT(baseOt, ristretto, k, crypto.P256, baseMsgLen, crypto.XORBlake3)
 	if err != nil {
 		return alsz{}, err
 	}
@@ -89,7 +89,7 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 				}
 			}
 
-			ciphertext, err = crypto.Encrypt(iknpCipherMode, key, uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(crypto.XORBlake3, key, uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -172,7 +172,7 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	for i := 0; i < ext.m; i++ {
 		choiceBit := util.TestBitSetInByte(choices, i)
 		// compute nb of bytes to be read
-		l := crypto.EncryptLen(iknpCipherMode, ext.msgLen[i])
+		l := crypto.EncryptLen(crypto.XORBlake3, ext.msgLen[i])
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, l)
@@ -182,7 +182,7 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 		}
 
 		// decrypt received ciphertext using key (choices[i], t_i)
-		messages[i], err = crypto.Decrypt(iknpCipherMode, t[i], choiceBit, e[choiceBit])
+		messages[i], err = crypto.Decrypt(crypto.XORBlake3, t[i], choiceBit, e[choiceBit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender messages: %s", err)
 		}

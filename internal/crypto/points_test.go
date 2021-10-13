@@ -1,11 +1,13 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/elliptic"
 	"crypto/rand"
 	"math/big"
 	"testing"
 
+	gr "github.com/bwesterb/go-ristretto"
 	"github.com/zeebo/blake3"
 )
 
@@ -44,7 +46,7 @@ func TestNewPoints(t *testing.T) {
 	c, _ = InitCurve(curve)
 	x := big.NewInt(1)
 	y := big.NewInt(2)
-	points := NewPoints(c, x, y)
+	points := newPoints(c, x, y)
 	n := points.curve.Params().Name
 	if n != "P-256" {
 		t.Fatalf("newPoints curve: want :P-256, got %s", n)
@@ -59,29 +61,29 @@ func TestNewPoints(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	bx, by = c.Params().Gx, c.Params().Gy
-	p := NewPoints(c, bx, by)
+	p := newPoints(c, bx, by)
 	p = p.Add(p)
 
 	dx, dy := c.Double(bx, by)
-	if !arePointsEqual(p, NewPoints(c, dx, dy)) {
+	if !arePointsEqual(p, newPoints(c, dx, dy)) {
 		t.Fatal("Error in points addition.")
 	}
 }
 
 func TestScalarMult(t *testing.T) {
 	a, dx, dy, _ := elliptic.GenerateKey(c, rand.Reader)
-	p := NewPoints(c, bx, by)
+	p := newPoints(c, bx, by)
 
 	dp := p.ScalarMult(a)
 
-	if !arePointsEqual(NewPoints(c, dx, dy), dp) {
+	if !arePointsEqual(newPoints(c, dx, dy), dp) {
 		t.Fatal("Error in points scalar multiplication.")
 	}
 }
 
 func TestSub(t *testing.T) {
 	_, dx, dy, _ := elliptic.GenerateKey(c, rand.Reader)
-	p := NewPoints(c, dx, dy)
+	p := newPoints(c, dx, dy)
 	s := p.Add(p)
 	s = s.Sub(p)
 
@@ -90,19 +92,9 @@ func TestSub(t *testing.T) {
 	}
 }
 
-func TestIsOnCurve(t *testing.T) {
-	newC, _ := InitCurve("P521")
-	q := NewPoints(c, newC.Params().Gx, newC.Params().Gy)
-	r := NewPoints(newC, newC.Params().Gx, newC.Params().Gy)
-
-	if q.IsOnCurve() || !r.IsOnCurve() {
-		t.Fatal("Error in points isOnCurve")
-	}
-}
-
 func TestDeriveKeyPoints(t *testing.T) {
-	p := NewPoints(c, bx, by)
-	key := p.DeriveKey()
+	p := newPoints(c, bx, by)
+	key := p.DeriveKeyFromECPoints()
 
 	key2 := blake3.Sum256(bx.Bytes())
 	if string(key) != string(key2[:]) || len(key) != 32 {
@@ -111,7 +103,7 @@ func TestDeriveKeyPoints(t *testing.T) {
 }
 
 func TestGenerateKeyWithPoints(t *testing.T) {
-	p := NewPoints(c, bx, by)
+	p := newPoints(c, bx, by)
 	s, P, err := GenerateKeyWithPoints(c)
 	if err != nil {
 		t.Fatal(err)
@@ -131,9 +123,53 @@ func TestDeriveKey(t *testing.T) {
 	}
 
 	p := elliptic.Marshal(c, px, py)
-	key := DeriveKey(p)
+	key := hashToKey(p)
 	if len(key) != 32 {
 		t.Fatalf("derived key length is not 32, got: %d", len(key))
+	}
+}
+
+func TestDeriveKeyRistretto(t *testing.T) {
+	var p gr.Point
+	p.Rand()
+	key, err := DeriveRistrettoKey(&p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(key) != 32 {
+		t.Fatalf("derived key length is not 32, got: %d", len(key))
+	}
+}
+
+func TestGenerateKeys(t *testing.T) {
+	s, P := GenerateRistrettoKeys()
+	// check point
+	var pP gr.Point
+	pP.ScalarMultBase(&s)
+	if !P.Equals(&pP) {
+		t.Fatal("error in generateKey(), secret, public key pairs not working.")
+	}
+}
+
+func TestReadWritePoints(t *testing.T) {
+	rw := new(bytes.Buffer)
+	r := NewRistrettoReader(rw)
+	w := NewRistrettoWriter(rw)
+
+	var point, readPoint gr.Point
+	point.Rand()
+	readPoint.SetZero()
+
+	if point.Equals(&readPoint) {
+		t.Fatal("Read point should not be equal to point")
+	}
+
+	w.Write(&point)
+	r.Read(&readPoint)
+
+	if !point.Equals(&readPoint) {
+		t.Fatalf("Read point is not the same as the written point, want: %v, got: %v", point.Bytes(), readPoint.Bytes())
 	}
 }
 
@@ -141,11 +177,11 @@ func BenchmarkDeriveKey(b *testing.B) {
 	c, _ = InitCurve(curve)
 	x := big.NewInt(1)
 	y := big.NewInt(2)
-	p := NewPoints(c, x, y)
+	p := newPoints(c, x, y)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		p.DeriveKey()
+		p.DeriveKeyFromECPoints()
 	}
 }
 
@@ -153,7 +189,7 @@ func BenchmarkSub(b *testing.B) {
 	c, _ = InitCurve(curve)
 	x := big.NewInt(1)
 	y := big.NewInt(2)
-	p := NewPoints(c, x, y)
+	p := newPoints(c, x, y)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {

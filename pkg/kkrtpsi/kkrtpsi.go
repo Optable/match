@@ -1,7 +1,6 @@
 package kkrtpsi
 
 import (
-	"crypto/cipher"
 	"encoding/binary"
 	"io"
 	"runtime"
@@ -41,9 +40,9 @@ func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEnc
 		execute:     f}
 }
 
-func (id hashable) encodeAndHash(oprfKeys []oprf.Key, hasher hash.Hasher, aesBlock cipher.Block) (hashes [cuckoo.Nhash]uint64) {
+func (id hashable) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
 	for hIdx, bucketIdx := range id.bucketIdx {
-		encoded, _ := oprfKeys[bucketIdx].Encode(aesBlock, append(id.identifier, uint8(hIdx)))
+		encoded, _ := oprfKeys.Encode(bucketIdx, append(id.identifier, uint8(hIdx)))
 		hashes[hIdx] = hasher.Hash64(encoded)
 	}
 
@@ -52,7 +51,7 @@ func (id hashable) encodeAndHash(oprfKeys []oprf.Key, hasher hash.Hasher, aesBlo
 
 // HashAllParallel reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
-func EncodeAndHashAllParallel(oprfKeys []oprf.Key, hasher hash.Hasher, identifiers <-chan hashable) <-chan [cuckoo.Nhash]uint64 {
+func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers <-chan hashable) <-chan [cuckoo.Nhash]uint64 {
 	// one wg.Add() per batch + one for the batcher go routine
 	var jobPool = make(chan hashEncodingJob)
 	var wg sync.WaitGroup
@@ -60,11 +59,10 @@ func EncodeAndHashAllParallel(oprfKeys []oprf.Key, hasher hash.Hasher, identifie
 	// work on the jobPool
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		go func() {
-			aesBlock, _ := oprf.GetAesBlock(oprfKeys[0])
 			for job := range jobPool {
 				var hashed = make([][cuckoo.Nhash]uint64, job.batchSize)
 				for i := 0; i < job.batchSize; i++ {
-					hashed[i] = job.identifiers[i].encodeAndHash(oprfKeys, hasher, aesBlock)
+					hashed[i] = job.identifiers[i].encodeAndHash(oprfKeys, hasher)
 				}
 				job.hashed = hashed
 				job.execute(job)

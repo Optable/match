@@ -20,11 +20,16 @@ const (
 )
 
 var (
-	ErrUnknownPRG     = fmt.Errorf("cannot create unknown pseudorandom generators")
+	ErrUnknownPRG     = fmt.Errorf("unknown pseudorandom generators")
 	ErrNotImplemented = fmt.Errorf("drbg not implemented")
 )
 
 func PseudorandomGenerate(drbg int, seed []byte, length int) ([]byte, error) {
+	// need expand?
+	if length < len(seed) {
+		return seed[:length], nil
+	}
+
 	switch drbg {
 	case MrandDrbg:
 		return prgWithSeed(seed, length), nil
@@ -43,11 +48,9 @@ func PseudorandomGenerate(drbg int, seed []byte, length int) ([]byte, error) {
 	return nil, ErrUnknownPRG
 }
 
+// prgWithSeed returns a pseudorandom byte slice read from
+// math rand seeded with seed.
 func prgWithSeed(seed []byte, length int) (dst []byte) {
-	// need expand?
-	if length < len(seed) {
-		return seed[:length]
-	}
 	dst = make([]byte, length)
 	var source int64
 	for i := 0; i < len(seed)/64; i++ {
@@ -64,12 +67,9 @@ func prgWithSeed(seed []byte, length int) (dst []byte) {
 	return dst
 }
 
+// aesCTRDrbg returns a pseudorandom byte slice generated using block cipher DRBG
+// with AES in CTR mode.
 func aesCTRDrbg(seed []byte, length int) (dst []byte) {
-	// need expand?
-	if length < len(seed) {
-		return seed[:length]
-	}
-
 	var newSeed [48]byte
 	copy(newSeed[:], seed)
 	drbg := NewDRBG(&newSeed)
@@ -80,12 +80,8 @@ func aesCTRDrbg(seed []byte, length int) (dst []byte) {
 	return dst
 }
 
+// blake3XOF returns a byte slice generated with a seeded blake3 digest object.
 func blake3XOF(seed []byte, length int) (dst []byte, err error) {
-	// need expand?
-	if length < len(seed) {
-		return seed[:length], nil
-	}
-
 	h := blake3.New()
 	h.Write(seed)
 	drbg := h.Digest()

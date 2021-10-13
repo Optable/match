@@ -49,28 +49,28 @@ func newImprovedKKRT(m, baseOT, drbg int, ristretto bool) (OPRF, error) {
 }
 
 // Send returns the OPRF keys
-func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
+func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]byte, 16)
 	if _, err = rand.Read(sk); err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	// send the secret key
 	if _, err := rw.Write(sk); err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
 	seeds := make([][]uint8, k)
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	// receive masked columns u
@@ -79,28 +79,24 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys []Key, err error) {
 	q := make([][]byte, k)
 	for row := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
-			return nil, err
+			return Key{}, err
 		}
 
 		q[row], err = crypto.PseudorandomGenerate(ext.drbg, seeds[row], paddedLen)
 		if err != nil {
-			return nil, err
+			return Key{}, err
 		}
 		err = util.ConcurrentInPlaceXorBytes(q[row], util.AndByte(util.TestBitSetInByte(s, row), u))
 		if err != nil {
-			return nil, err
+			return Key{}, err
 		}
 	}
 
 	q = util.TransposeByteMatrix(q)[:ext.m]
 
 	// store oprf keys
-	keys = make([]Key, len(q))
-	for j := range q {
-		keys[j] = Key{sk: sk, s: s, q: q[j]}
-	}
-
-	return
+	aesBlock, err := aes.NewCipher(sk)
+	return Key{block: aesBlock, s: s, q: q}, err
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
