@@ -11,7 +11,7 @@ import (
 	"github.com/optable/match/internal/oprf"
 )
 
-var batchSize = 42 * runtime.GOMAXPROCS(0)
+const batchSize = 2048
 
 // HashRead reads one hash
 func EncodesRead(r io.Reader, u *[cuckoo.Nhash]uint64) (err error) {
