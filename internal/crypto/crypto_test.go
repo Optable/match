@@ -166,8 +166,21 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 	}
 }
 
-func BenchmarkPseudorandomCode(b *testing.B) {
+func BenchmarkNormalPseudorandomCode(b *testing.B) {
+	// the normal input is a 64 byte sha256 digest plus a byte indicating
+	// which hash function is used to compute the cuckoo hash bucket index.
 	in := make([]byte, 65)
+	prng.Read(in)
+	b.ResetTimer()
+	aesBlock, _ := aes.NewCipher(aesKey)
+	for i := 0; i < b.N; i++ {
+		PseudorandomCode(aesBlock, in)
+	}
+}
+
+func BenchmarkDummyPseudorandomCode(b *testing.B) {
+	// when input is just a dummy byte value
+	in := make([]byte, 1)
 	prng.Read(in)
 	b.ResetTimer()
 	aesBlock, _ := aes.NewCipher(aesKey)
