@@ -8,7 +8,7 @@ import (
 
 var (
 	nmsg        = 1024
-	nworkers    = runtime.NumCPU()
+	nworkers    = runtime.GOMAXPROCS(0)
 	uintBlock   = sampleRandomTall(prng, nmsg)
 	randomBlock = unravelTall(uintBlock, 0)
 

@@ -46,7 +46,7 @@ func InPlaceXorBytes(dst, a []byte) error {
 // if a and dst are the same length
 func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
-	nworkers := runtime.NumCPU()
+	nworkers := runtime.GOMAXPROCS(0)
 	var n = len(dst)
 	if n != len(a) {
 		return ErrByteLengthMissMatch
@@ -130,7 +130,7 @@ func InPlaceAndBytes(dst, a []byte) error {
 // byte in a and dst if a and dst are the same length.
 func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 	const blockSize int = 16384 // half of what L2 cache can hold
-	nworkers := runtime.NumCPU()
+	nworkers := runtime.GOMAXPROCS(0)
 	var n = len(dst)
 	if n != len(a) {
 		return ErrByteLengthMissMatch
@@ -246,7 +246,7 @@ func PadTill512(m int) int {
 // converting from bytes to uint64 (and padding as needed), performing the transpose on the uint64
 // matrix and then converting back to bytes.
 func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
-	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), runtime.NumCPU()))
+	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), runtime.GOMAXPROCS(0)))
 }
 
 // Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.

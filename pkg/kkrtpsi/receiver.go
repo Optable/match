@@ -123,10 +123,10 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// hash local oprf output
 		hasher, _ := hash.New(hash.Highway, seeds[0])
 		for i, input := range oprfInputs {
-			// check if it was a dummy input
-			if len(input) != 1 && input[0] != 255 {
+			// check if it was an empty input
+			if !cuckoo.IsEmpty(input) {
 				// insert into proper map
-				localEncodings[input[len(input)-1]][hasher.Hash64(oprfOutput[i])] = input[:len(input)-1]
+				localEncodings[cuckoo.GetHashIdx(input)][hasher.Hash64(oprfOutput[i])] = cuckoo.GetItem(input)
 			}
 		}
 
@@ -137,7 +137,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// Add a buffer of 64k to amortize syscalls cost
-		var bufferedReader = bufio.NewReaderSize(r.rw, 64*1024)
+		var bufferedReader = bufio.NewReaderSize(r.rw, 1024*64)
 
 		// read remote encodings and intersect
 		var remoteEncodings [cuckoo.Nhash]uint64

@@ -18,6 +18,7 @@ const (
 	// with the item being reinserted, and then reinsert the kicked off egg
 	ReInsertLimit = 200
 	Factor        = 1.4
+	dummyValue    = 255
 )
 
 func init() {
@@ -32,7 +33,7 @@ type value struct {
 	item []byte
 }
 
-func (v value) Empty() bool {
+func (v value) empty() bool {
 	return len(v.item) == 0 && v.hIdx == 0
 }
 
@@ -88,31 +89,10 @@ func FindBucketSize(size uint64) float64 {
 	return (40 - b) / float64(a)
 }
 
-// hash returns the result of h0(item), h1(item), h2(item)
-func (c *Cuckoo) hash(item []byte) [Nhash]uint64 {
-	var hashes [Nhash]uint64
-
-	for i := range hashes {
-		hashes[i] = doHash(item, c.hashers[i])
-	}
-
-	return hashes
-}
-
-// doHash returns the hash of an item given a hash function
-func doHash(item []byte, hasher hash.Hasher) uint64 {
-	return hasher.Hash64(item)
-}
-
-// bucketIndex computes the bucket index
-func (c *Cuckoo) bucketIndex(hash uint64) uint64 {
-	return hash % c.bucketSize
-}
-
 // bucketIndices returns the 3 possible bucket indices of an item
 func (c *Cuckoo) BucketIndices(item []byte) (idx [Nhash]uint64) {
-	for i, h := range c.hash(item) {
-		idx[i] = c.bucketIndex(h)
+	for i := range idx {
+		idx[i] = c.hashers[i].Hash64(item) % c.bucketSize
 	}
 
 	return idx
@@ -121,8 +101,6 @@ func (c *Cuckoo) BucketIndices(item []byte) (idx [Nhash]uint64) {
 // Insert tries to insert a given item to the bucket
 // in available slots, otherwise, it evicts a random occupied slot,
 // and reinserts evicted item.
-// as a last resort, after ReinsertLim number of reinsetion,
-// it pushes the evicted item onto the stash
 // returns an error msg if all failed.
 func (c *Cuckoo) Insert(item []byte) error {
 	bucketIndices := c.BucketIndices(item)
@@ -154,7 +132,7 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 			continue
 		}
 
-		if c.buckets[bIdx].Empty() {
+		if c.buckets[bIdx].empty() {
 			// this is a free slot
 			c.buckets[bIdx] = value{uint8(hIdx), item}
 			return true
@@ -205,14 +183,14 @@ func (c *Cuckoo) onBucket(item []byte, bucketIndices [Nhash]uint64) (found bool)
 
 func (c *Cuckoo) onBucketAtIndex(item []byte, bucketIndices [Nhash]uint64) (uint8, bool) {
 	for _, bIdx := range bucketIndices {
-		if !c.buckets[bIdx].Empty() && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
+		if !c.buckets[bIdx].empty() && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
 			// the index for hash function is the same as the
 			// index for the bucketIndices
 			return c.buckets[bIdx].hIdx, true
 		}
 	}
 
-	return uint8(255), false
+	return uint8(dummyValue), false
 }
 
 // Exists returns true if an item is inserted in cuckoo, false otherwise
@@ -224,7 +202,7 @@ func (c *Cuckoo) Exists(item []byte, bucketIndices [Nhash]uint64) (found bool) {
 func (c *Cuckoo) LoadFactor() (factor float64) {
 	occupation := 0
 	for _, v := range c.buckets {
-		if !v.Empty() {
+		if !v.empty() {
 			occupation += 1
 		}
 	}
@@ -240,23 +218,42 @@ func (c *Cuckoo) Len() uint64 {
 
 func (v *value) oprfInput() []byte {
 	// no item inserted, return dummy value
-	if v.Empty() {
-		return []byte{255}
+	if v.empty() {
+		return []byte{dummyValue}
 	}
 
 	return append(v.item, v.hIdx)
 }
 
+func MakeOPRFInput(item []byte, hashIdx byte) []byte {
+	return append(item, hashIdx)
+}
+
 // OPRFInput returns the OPRF input for KKRT Receiver
 // if the identifier is in the bucket, it appends the hash index
 // if the identifier is on stash, it returns just the id
-// if the bucket has nothing it in, it returns a dummy value: 255
-func (c *Cuckoo) OPRFInput() [][]byte {
-	var inputs = make([][]byte, c.bucketSize)
+// if the bucket has nothing it in, it returns a dummy value
+func (c *Cuckoo) OPRFInput() (inputs [][]byte) {
+	inputs = make([][]byte, c.bucketSize)
 	for i, b := range c.buckets {
 		inputs[i] = b.oprfInput()
 	}
 	return inputs
+}
+
+// returns true if the oprfInput is a dummyValue
+func IsEmpty(oprfInput []byte) bool {
+	return len(oprfInput) == 1 || oprfInput[0] == dummyValue
+}
+
+// returns the item contained in oprfInput
+func GetItem(oprfInput []byte) []byte {
+	return oprfInput[:len(oprfInput)-1]
+}
+
+// returns the hash index contained in oprfInput
+func GetHashIdx(oprfInput []byte) byte {
+	return oprfInput[len(oprfInput)-1]
 }
 
 func max(a, b uint64) uint64 {
