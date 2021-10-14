@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"runtime"
 	"time"
 
 	"github.com/optable/match/internal/cuckoo"
@@ -74,7 +75,15 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// end stage1
 		end1 := time.Now()
+		fmt.Println("-------------------------")
 		fmt.Println("Stage1: ", end1.Sub(start))
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
+		fmt.Printf("Heap Alloc = %v MB\n", m.HeapAlloc/1000000)
+		fmt.Printf("Heap Sys = %v MB\n", m.HeapSys/1000000)           // estimate largest size heap has had
+		fmt.Printf("Total Cum Alloc = %v MB\n", m.TotalAlloc/1000000) // cumulative heap allocations
+		fmt.Printf("Sys = %v MB\n", m.Sys/1000000)
+		fmt.Printf("NumGC = %v\n", m.NumGC)
 		return nil
 	}
 
@@ -105,7 +114,15 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// end stage2
 		end2 := time.Now()
+		fmt.Println("-------------------------")
 		fmt.Println("Stage2: ", end2.Sub(start))
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
+		fmt.Printf("Heap Alloc = %v MB\n", m.HeapAlloc/1000000)
+		fmt.Printf("Heap Sys = %v MB\n", m.HeapSys/1000000)           // estimate largest size heap has had
+		fmt.Printf("Total Cum Alloc = %v MB\n", m.TotalAlloc/1000000) // cumulative heap allocations
+		fmt.Printf("Sys = %v MB\n", m.Sys/1000000)
+		fmt.Printf("NumGC = %v\n", m.NumGC)
 		return nil
 	}
 
@@ -159,7 +176,15 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// end stage3
 		end3 := time.Now()
+		fmt.Println("-------------------------")
 		fmt.Println("stage3: ", end3.Sub(start))
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
+		fmt.Printf("Heap Alloc = %v MB\n", m.HeapAlloc/1000000)
+		fmt.Printf("Heap Sys = %v MB\n", m.HeapSys/1000000)           // estimate largest size heap has had
+		fmt.Printf("Total Cum Alloc = %v MB\n", m.TotalAlloc/1000000) // cumulative heap allocations
+		fmt.Printf("Virt Address Space = %v MB\n", m.Sys/1000000)
+		fmt.Printf("NumGC = %v\n", m.NumGC)
 		return nil
 	}
 
