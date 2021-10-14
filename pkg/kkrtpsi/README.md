@@ -25,14 +25,14 @@ Stage 1      Cuckoo Hash                                                        
 
 
 Stage 2.1                                                                             Stage 2.1
-             OPRF.Receive()     ◄─────────────────────T, U───────────────────────     oprf.Send()
+             oprf.Receive()     ◄─────────────────────T, U───────────────────────     oprf.Send()
 
 
              K = Q              ────────────────────────────────────────────────►     OPRF(K, Y) = T
 
 
 
-Stage 3      OPRF.Encode()      ────────────────────OPRF(K, X)──────────────────►     Stage 3
+Stage 3      OPRF(K, X)         ────────────────────OPRF(K, X)──────────────────►     Stage 3
 
 
 K:          OPRF keys
