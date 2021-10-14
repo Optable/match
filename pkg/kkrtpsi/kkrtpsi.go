@@ -2,9 +2,11 @@ package kkrtpsi
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -111,4 +113,19 @@ func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers
 	}()
 
 	return encoded
+}
+
+func printStageStats(stage string, prevTime, startTime time.Time, prevMem uint64) (time.Time, uint64) {
+	fmt.Println("====================================")
+	fmt.Println(stage)
+	endTime := time.Now()
+	fmt.Println("Time:\033[34;1m", endTime.Sub(prevTime), "\033[0m(cum", endTime.Sub(startTime), ")")
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
+	fmt.Printf("\033[31;1m%v MB\033[0m of memory obtained from OS\n", (m.Sys-prevMem)/1000000)
+	fmt.Printf("Heap Alloc = %v MB\n", m.HeapAlloc/1000000)
+	fmt.Printf("Heap Sys = %v MB\n", m.HeapSys/1000000)           // estimate largest size heap has had
+	fmt.Printf("Total Cum Alloc = %v MB\n", m.TotalAlloc/1000000) // cumulative heap allocations
+	fmt.Printf("Cum NumGC calls = %v\n", m.NumGC)
+	return endTime, m.Sys
 }
