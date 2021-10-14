@@ -2,17 +2,14 @@
 
 # protocol
 The KKRT PSI (Batched-OPRF PSI) [1] is one of the most efficient OT-extension ([oblivious transfer](https://en.wikipedia.org/wiki/Oblivious_transfer)) based PSI protocol that boast more than 100 times speed up in single core performance (350s for DHPSI vs 2.5s for KKRT for a match between two 1 Million records dataset). It is secure against semi-honest adversaries, a malicious party that adheres to the protocol honestly but wants to learn/extract the other party's private information from the data being exchanged.
-Discalimer: This is a work in progress.
 
-1. the receiver generates [CuckooHash](https://en.wikipedia.org/wiki/Cuckoo_hashing) parameters and exchange with the sender.
-2. the receiver Cuckhash his input sets _Y_.
-3. the sender and the receiver agree on base OT (Naor-Pinkas [2] or Simplest [3]) parameters as well as the OT-extension (IKNP [4]) parameters.
-4. the receiver acts as the sender in the OT-extension protocol with two matrices _T_ and  _U_ as input, and receives nothing. The matrix _T_ is the encoding of _Y_ with the CuckooHash table/stash and a linear correcitng code _C_, and matrix _U_ is sampled uniformly random.
-5. the sender acts as the receiver in the OT-extension protocol with input secret choice bits _s_, and receives matrix _Q_, with columns of _Q_ correspond to either matrix _T_ or _U_ depending on the value of _s_.
-6. the receiver evalutes the [OPRF](https://en.wikipedia.org/wiki/Pseudorandom_function_family#Oblivious_pseudorandom_functions) output of his input set _Y_.
-7. the sender computes the key _K_ used for the OPRF evaluation of the receiver, and use the same key _K_ to evaluate the OPRF output of his input set _X_.
-8. the sender permutes the OPRF result of the key _K_, and input _X_, and sends it to the receiver.
-9. the receiver receives the permuted OPRF evaluation of _X_, and compares with his own OPRF evaluation of _Y_, and outputs the intersection.
+1. the sender generates [CuckooHash](https://en.wikipedia.org/wiki/Cuckoo_hashing) parameters and exchange with the receiver.
+2. the receiver Cuckoohashes his input sets _Y_.
+3. the sender and the receiver agree on OPRF (KKRT) parameters which includes which base OT (Naor-Pinkas [2] or Simplest [3]) to use.
+4. the receiver acts as the sender in the OPRF protocol and samples two matrices _T_ and  _U_ such that the matrix _T_ is a uniformly (crypto/rand) random bit matrix, and the matrix _U_ is the Pseudorandom Code (linear correcting code) _C_ on cuckoohashed inputs. The receiver outputs the matrix _T_ as the OPRF evaluation of his inputs _Y_.
+5. the sender acts as the receiver in the OPRF protocol with input secret choice bits _s_, and receives matrix _Q_, with columns of _Q_ correspond to either matrix _T_ or _U_ depending on the value of _s_, and outputs the matrix _Q_. Each row of the column _Q_ along with the secret choice bit _s_ serves as the OPRF keys to encode his own input _X_.
+6. the sender uses the key _k_ to encode his own input _X_, and sends it to the receiver.
+9. the receiver receives the OPRF evaluation of _X_, and compares with his own OPRF evaluation of _Y_, and outputs the intersection.
 
 
 ## data flow
@@ -22,32 +19,24 @@ Discalimer: This is a work in progress.
 
 
 
-Stage 1      Cuckoo Hash        ◄─────────────────CukooHashSetup────────────────     CH(Y)         Stage 1
+Stage 1      Cuckoo Hash                                                              Stage 1
+                                ───────────────────CukooHashParam───────────────►     cuckoo.Insert(Y)
 
 
 
-Stage 2.1    OT + OTExtension   ◄───────────────────OTSender─────────────────────                  Stage 2.1
+Stage 2.1                                                                             Stage 2.1
+             OPRF.Receive()     ◄─────────────────────T, U───────────────────────     oprf.Send()
 
 
-                                ───────────────────OTReceiver───────────────────►
-
-
-
-             K                  ◄──────────────OTExtensionReceiver───────────────
-
-
-                                ────────────────OTExtensionSender───────────────►    OPRF(K, Y)
+             K = Q              ────────────────────────────────────────────────►     OPRF(K, Y) = T
 
 
 
-Stage 3      H', S'             ────────────────────PsiStage────────────────────►                  Stage 3
+Stage 3      OPRF.Encode()      ────────────────────OPRF(K, X)──────────────────►     Stage 3
 
 
-CH(Y):      Cuckoo Hash input Y
 K:          OPRF keys
 OPRF(K, Y): OPRF evaluation of input Y with key K
-H':         OPRF evaluation of input X that are put in cuckoo hash table
-S':         OPRF evaluation of input X that are put in cuckoo stash
 ```
 
 ## References
