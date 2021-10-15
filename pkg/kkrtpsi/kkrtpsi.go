@@ -122,10 +122,10 @@ func printStageStats(stage string, prevTime, startTime time.Time, prevMem uint64
 	fmt.Println("Time:\033[34;1m", endTime.Sub(prevTime), "\033[0m(cum", endTime.Sub(startTime), ")")
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
-	fmt.Printf("Total memory from OS (MB): \033[31;1m%v MB\033[0m\n", (m.Sys-prevMem)/1000000)
-	fmt.Printf("Heap Alloc: %v MB\n", m.HeapAlloc/1000000)
-	fmt.Printf("Heap Sys: %v MB\n", m.HeapSys/1000000)           // estimate largest size heap has had
-	fmt.Printf("Total Cum Alloc: %v MB\n", m.TotalAlloc/1000000) // cumulative heap allocations
+	fmt.Printf("Total memory from OS: \033[31;1m%v MiB\033[0m\n", (m.Sys-prevMem)/(1024*1024))
+	fmt.Printf("Heap Alloc: %v MiB\n", m.HeapAlloc/(1024*1024))
+	fmt.Printf("Heap Sys: %v MiB\n", m.HeapSys/(1024*1024))           // estimate largest size heap has had
+	fmt.Printf("Total Cum Alloc: %v MiB\n", m.TotalAlloc/(1024*1024)) // cumulative heap allocations
 	fmt.Printf("Cum NumGC calls: \033[33;1m%v\033[0m\n", m.NumGC)
 	return endTime, m.Sys
 }
