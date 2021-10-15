@@ -132,7 +132,6 @@ func main() {
 			}
 		}
 	}
-	memUsageToStdErr()
 }
 
 func handle(r psi.Receiver, n int64, f io.ReadCloser) {
@@ -141,6 +140,8 @@ func handle(r psi.Receiver, n int64, f io.ReadCloser) {
 	if i, err := r.Intersect(context.Background(), n, ids); err != nil {
 		log.Printf("intersect failed (%d): %v", len(i), err)
 	} else {
+		// write memory usage to stderr
+		memUsageToStdErr()
 		// write out to common-ids.txt
 		log.Printf("intersected %d IDs, writing out to %s", len(i), *out)
 		if f, err := os.Create(*out); err == nil {
