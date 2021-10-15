@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -29,6 +30,13 @@ func usage() {
 func showUsageAndExit(exitcode int) {
 	usage()
 	os.Exit(exitcode)
+}
+
+func memUsageToStdErr() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
+	log.Printf("Total memory: %v\n", m.Sys)
+	log.Printf("Garbage collector calls: %v\n", m.NumGC)
 }
 
 var out *string
@@ -124,6 +132,7 @@ func main() {
 			}
 		}
 	}
+	memUsageToStdErr()
 }
 
 func handle(r psi.Receiver, n int64, f io.ReadCloser) {
