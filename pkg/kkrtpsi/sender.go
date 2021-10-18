@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -43,6 +44,11 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
+	// start timer:
+	start := time.Now()
+	timer := time.Now()
+	var mem uint64
+
 	var seeds [cuckoo.Nhash][]byte
 	var remoteN int64       // receiver size
 	var oprfInputSize int64 // nb of OPRF keys
@@ -83,6 +89,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			close(hashedIds)
 		}()
 
+		// end stage1
+		timer, mem = printStageStats("Stage 1", start, start, 0)
 		return nil
 	}
 
@@ -104,6 +112,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
+		// end stage2
+		timer, mem = printStageStats("Stage 2", timer, start, mem)
 		return nil
 	}
 
@@ -132,6 +142,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			}
 		}
 
+		// end stage3
+		_, _ = printStageStats("Stage 3", timer, start, mem)
 		return nil
 	}
 

@@ -39,6 +39,9 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// start timer:
 	start := time.Now()
+	timer := time.Now()
+	var mem uint64
+
 	var seeds [cuckoo.Nhash][]byte
 	var intersection [][]byte
 	var oprfOutput [][]byte
@@ -73,8 +76,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// end stage1
-		end1 := time.Now()
-		fmt.Println("Stage1: ", end1.Sub(start))
+		timer, mem = printStageStats("Stage 1", start, start, 0)
 		return nil
 	}
 
@@ -104,8 +106,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// end stage2
-		end2 := time.Now()
-		fmt.Println("Stage2: ", end2.Sub(start))
+		timer, mem = printStageStats("Stage 2", timer, start, mem)
 		return nil
 	}
 
@@ -158,8 +159,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// end stage3
-		end3 := time.Now()
-		fmt.Println("stage3: ", end3.Sub(start))
+		_, _ = printStageStats("Stage 3", timer, start, mem)
 		return nil
 	}
 
