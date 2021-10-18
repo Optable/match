@@ -9,8 +9,8 @@ import (
 var (
 	nmsg        = 1024
 	nworkers    = runtime.NumCPU()
-	uintBlock   = sampleRandomTall(prng, nmsg)
-	randomBlock = unravelTall(uintBlock, 0)
+	byteBlock   = sampleRandomTall(prng, nmsg)
+	randomBlock = unravelTall(byteBlock, 0)
 
 	oneMil         = 1000000
 	fiveMil        = 5000000
@@ -24,13 +24,13 @@ var (
 )
 
 func genOrigBlock() BitVect {
-	origBlock2D := make([][]uint64, 512)
+	origBlock2D := make([][]byte, 512)
 	for row := range origBlock2D {
-		origBlock2D[row] = make([]uint64, 8)
-		for c := 0; c < 8; c++ {
+		origBlock2D[row] = make([]byte, 64)
+		for c := 0; c < 64; c++ {
 			// alternating rows of all 0s and all 1s (bits)
 			if row%2 == 1 {
-				origBlock2D[row][c] = ^uint64(0)
+				origBlock2D[row][c] = ^byte(0)
 			}
 		}
 	}
@@ -38,22 +38,22 @@ func genOrigBlock() BitVect {
 }
 
 func genTranBlock() BitVect {
-	tranBlock2D := make([][]uint64, 512)
+	tranBlock2D := make([][]byte, 512)
 	for row := range tranBlock2D {
-		tranBlock2D[row] = make([]uint64, 8)
-		for c := 0; c < 8; c++ {
-			tranBlock2D[row][c] = 0x5555555555555555 // 01010...01
+		tranBlock2D[row] = make([]byte, 64)
+		for c := 0; c < 64; c++ {
+			tranBlock2D[row][c] = 0b01010101
 		}
 	}
 	return unravelTall(tranBlock2D, 0)
 }
 
 func genOnesBlock() BitVect {
-	onesBlock2D := make([][]uint64, 512)
+	onesBlock2D := make([][]byte, 512)
 	for row := range onesBlock2D {
-		onesBlock2D[row] = make([]uint64, 8)
-		for c := 0; c < 8; c++ {
-			onesBlock2D[row][c] = ^uint64(0)
+		onesBlock2D[row] = make([]byte, 64)
+		for c := 0; c < 64; c++ {
+			onesBlock2D[row][c] = ^byte(0)
 		}
 	}
 	return unravelTall(onesBlock2D, 0)
@@ -61,48 +61,16 @@ func genOnesBlock() BitVect {
 
 // this is convenient for visualizing steps of the transposition
 func genProbeBlock() BitVect {
-	probeBlock2D := make([][]uint64, 512)
+	probeBlock2D := make([][]byte, 512)
 	for row := range probeBlock2D {
-		probeBlock2D[row] = []uint64{0, 1, 2, 3, 4, 5, 6, 7}
+		probeBlock2D[row] = []byte{0, 1, 2, 3, 4, 5, 6, 7}
 	}
 	return unravelTall(probeBlock2D, 0)
 }
 
-// sampleRandomTall fills an m by 8 uint64 matrix (512 bits wide) with
-// pseudorandom uint64.
-func sampleRandomTall(r *rand.Rand, m int) [][]uint64 {
-	// instantiate matrix
-	matrix := make([][]uint64, m)
-
-	for row := range matrix {
-		matrix[row] = make([]uint64, 8)
-		for c := 0; c < 8; c++ {
-			matrix[row][c] = r.Uint64()
-		}
-	}
-
-	return matrix
-}
-
-// sampleRandomWide fills a 512 by n uint64 matrix (512 bits tall) with
-// pseudorandom uint64.
-func sampleRandomWide(r *rand.Rand, n int) [][]uint64 {
-	// instantiate matrix
-	matrix := make([][]uint64, 512)
-
-	for row := range matrix {
-		matrix[row] = make([]uint64, n)
-		for c := 0; c < n; c++ {
-			matrix[row][c] = r.Uint64()
-		}
-	}
-
-	return matrix
-}
-
-// sampleRandomTallBytes fills an m by 64 byte matrix (512 bits wide) with
+// sampleRandomTall fills an m by 64 byte matrix (512 bits wide) with
 // pseudorandom bytes.
-func sampleRandomTallBytes(r *rand.Rand, m int) [][]byte {
+func sampleRandomTall(r *rand.Rand, m int) [][]byte {
 	// instantiate matrix
 	matrix := make([][]byte, m)
 
@@ -114,9 +82,9 @@ func sampleRandomTallBytes(r *rand.Rand, m int) [][]byte {
 	return matrix
 }
 
-// sampleRandomWideBytes fills a 512 by n byte matrix (512 bits tall) with
+// sampleRandomWide fills a 512 by n byte matrix (512 bits tall) with
 // pseudorandom bytes.
-func sampleRandomWideBytes(r *rand.Rand, n int) [][]byte {
+func sampleRandomWide(r *rand.Rand, n int) [][]byte {
 	// instantiate matrix
 	matrix := make([][]byte, 512)
 
@@ -132,13 +100,13 @@ func TestUnReRavelingTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, a := range trange {
 		matrix := sampleRandomTall(prng, a)
-		// TALL m x 8
+		// TALL m x 64
 		// determine number of blocks to split original matrix
 		nblks := len(matrix) / 512
 
-		rerav := make([][]uint64, len(matrix))
+		rerav := make([][]byte, len(matrix))
 		for r := range rerav {
-			rerav[r] = make([]uint64, len(matrix[0]))
+			rerav[r] = make([]byte, len(matrix[0]))
 		}
 
 		for id := 0; id < nblks; id++ {
@@ -158,67 +126,9 @@ func TestUnReRavelingTall(t *testing.T) {
 }
 
 func TestUnReRavelingWide(t *testing.T) {
-	trange := []int{8, 16, 24, 32, 40}
-	for _, a := range trange {
-		matrix := sampleRandomWide(prng, a)
-		// WIDE 512 x n
-		// determine number of blocks to split original matrix
-		nblks := len(matrix[0]) / 8
-
-		trans := make([][]uint64, len(matrix))
-		for r := range trans {
-			trans[r] = make([]uint64, len(matrix[0]))
-		}
-
-		for id := 0; id < nblks; id++ {
-			b := unravelWide(matrix, id)
-			b.ravelToWide(trans, id)
-		}
-
-		// check
-		for k := range trans {
-			for l := range trans[k] {
-				if trans[k][l] != matrix[k][l] {
-					t.Fatal("Unraveled and reraveled wide (", a, ") matrix did not match with original at row", k, ".")
-				}
-			}
-		}
-	}
-}
-
-func TestUnReRavelingTallBytes(t *testing.T) {
-	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
-	for _, a := range trange {
-		matrix := sampleRandomTallBytes(prng, a)
-		// TALL m x 64
-		// determine number of blocks to split original matrix
-		nblks := len(matrix) / 512
-
-		rerav := make([][]byte, len(matrix))
-		for r := range rerav {
-			rerav[r] = make([]byte, len(matrix[0]))
-		}
-
-		for id := 0; id < nblks; id++ {
-			b := unravelTallFromBytes(matrix, id)
-			b.ravelToTallBytes(rerav, id)
-		}
-
-		// check
-		for k := range rerav {
-			for l := range rerav[k] {
-				if rerav[k][l] != matrix[k][l] {
-					t.Fatal("Unraveled and reraveled tall (", a, ") matrix did not match with original at row", k, ".")
-				}
-			}
-		}
-	}
-}
-
-func TestUnReRavelingWideBytes(t *testing.T) {
 	trange := []int{64, 128, 512}
 	for _, a := range trange {
-		matrix := sampleRandomWideBytes(prng, a)
+		matrix := sampleRandomWide(prng, a)
 		// WIDE 512 x n
 		// determine number of blocks to split original matrix
 		nblks := len(matrix[0]) / 64
@@ -229,8 +139,8 @@ func TestUnReRavelingWideBytes(t *testing.T) {
 		}
 
 		for id := 0; id < nblks; id++ {
-			b := unravelWideFromBytes(matrix, id)
-			b.ravelToWideBytes(trans, id)
+			b := unravelWide(matrix, id)
+			b.ravelToWide(trans, id)
 		}
 
 		// check
@@ -298,42 +208,6 @@ func TestConcurrentTranspose(t *testing.T) {
 		for k := range orig {
 			for l := range orig[k] {
 				// note the weird aerobics we have to do here because of the residual insignificant rows added
-				// due to the encoding of 64 rows in one column element.
-				if orig[k][l] != dtr[len(dtr)-len(orig)+k][l] {
-					t.Fatal("Doubly-transposed tall (", m, ") matrix did not match with original at row", k, ".")
-				}
-			}
-		}
-	}
-	// WIDE
-	trange = []int{8, 16, 24, 32, 40}
-	for _, m := range trange {
-		orig := sampleRandomWide(prng, m)
-		tr := ConcurrentTranspose(orig, nworkers)
-		dtr := ConcurrentTranspose(tr, nworkers)
-		//test
-		for k := range dtr {
-			for l := range dtr[k] {
-				if dtr[k][l] != orig[k][l] {
-					t.Fatal("Doubly-transposed wide (", m, ") matrix did not match with original at row", k, ".")
-				}
-			}
-		}
-	}
-
-}
-
-func TestConcurrentByteTranspose(t *testing.T) {
-	// TALL
-	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
-	for _, m := range trange {
-		orig := sampleRandomTallBytes(prng, m)
-		tr := ConcurrentTransposeBytes(orig, nworkers)
-		dtr := ConcurrentTransposeBytes(tr, nworkers)
-		// test
-		for k := range orig {
-			for l := range orig[k] {
-				// note the weird aerobics we have to do here because of the residual insignificant rows added
 				// due to the encoding of 8 rows in one column element.
 				if orig[k][l] != dtr[len(dtr)-len(orig)+k][l] {
 					t.Fatal("Doubly-transposed tall (", m, ") matrix did not match with original at row", k, ".")
@@ -345,9 +219,9 @@ func TestConcurrentByteTranspose(t *testing.T) {
 	//trange = []int{64, 64 * 2, 64 * 3, 64 * 4}
 	trange = []int{64}
 	for _, m := range trange {
-		orig := sampleRandomWideBytes(prng, m)
-		tr := ConcurrentTransposeBytes(orig, nworkers)
-		dtr := ConcurrentTransposeBytes(tr, nworkers)
+		orig := sampleRandomWide(prng, m)
+		tr := ConcurrentTranspose(orig, nworkers)
+		dtr := ConcurrentTranspose(tr, nworkers)
 		//test
 		for k := range dtr {
 			for l := range dtr[k] {
@@ -371,12 +245,12 @@ func BenchmarkTranspose512x512(b *testing.B) {
 // and writing to an output transpose matrix.
 func BenchmarkTranspose(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ConcurrentTranspose(uintBlock, 1)
+		ConcurrentTranspose(byteBlock, 1)
 	}
 }
 
 func BenchmarkConcurrentTranspose(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ConcurrentTranspose(uintBlock, nworkers)
+		ConcurrentTranspose(byteBlock, nworkers)
 	}
 }

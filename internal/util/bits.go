@@ -252,14 +252,8 @@ func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
 	for i := 0; i < pad; i++ {
 		b = append(b, make([]byte, 64))
 	}
-	return ConcurrentTransposeBytes(b, runtime.NumCPU())
+	return ConcurrentTranspose(b, runtime.NumCPU())
 }
-
-/*
-func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
-	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), runtime.NumCPU()))
-}
-*/
 
 // Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.
 // There must be a multiple of 8 bytes so they can be packed nicely into uint64.

@@ -13,22 +13,9 @@ type BitVect struct {
 	set [512 * 8]uint64
 }
 
-// unravelTall is a constructor used to create a BitVect from a subset of a 2D matrix
-// of uint64. The matrix must have 8 columns and a multiple of 512 rows. idx is the
-// block target. idx = 0 will take the first 512 rows, idx = 1 will take from row 512
-// to row 1028, etc.
-func unravelTall(matrix [][]uint64, idx int) BitVect {
-	set := [4096]uint64{}
-
-	for i := 0; i < 512; i++ {
-		copy(set[(i)*8:(i+1)*8], matrix[(512*idx)+i])
-	}
-	return BitVect{set}
-}
-
-// unravelTallFromBytes is a constructor used to create a BitVect from a 2D matrix of bytes.
+// unravelTall is a constructor used to create a BitVect from a 2D matrix of bytes.
 // The matrix must have 64 columns and 512 rows. idx is the block target.
-func unravelTallFromBytes(matrix [][]byte, idx int) BitVect {
+func unravelTall(matrix [][]byte, idx int) BitVect {
 	set := [4096]uint64{}
 
 	for i := 0; i < 512; i++ {
@@ -37,20 +24,9 @@ func unravelTallFromBytes(matrix [][]byte, idx int) BitVect {
 	return BitVect{set}
 }
 
-// unravelWide is a constructor used to create a BitVect from a 2D matrix of uint64.
-// The matrix must have 8 columns and 512 rows. idx is the block target.
-func unravelWide(matrix [][]uint64, idx int) BitVect {
-	set := [4096]uint64{}
-
-	for i := 0; i < 512; i++ {
-		copy(set[i*8:(i+1)*8], matrix[i][idx*8:(8*idx)+8])
-	}
-	return BitVect{set}
-}
-
-// unravelWideFromBytes is a constructor used to create a BitVect from a 2D matrix of bytes.
+// unravelWide is a constructor used to create a BitVect from a 2D matrix of bytes.
 // The matrix must have 64 columns and 512 rows. idx is the block target.
-func unravelWideFromBytes(matrix [][]byte, idx int) BitVect {
+func unravelWide(matrix [][]byte, idx int) BitVect {
 	set := [4096]uint64{}
 
 	for i := 0; i < 512; i++ {
@@ -59,29 +35,15 @@ func unravelWideFromBytes(matrix [][]byte, idx int) BitVect {
 	return BitVect{set}
 }
 
-// ravelToTall reconstructs a subsection of a tall (mx8) matrix from a BitVect.
-func (b BitVect) ravelToTall(matrix [][]uint64, idx int) {
-	for i := 0; i < 512; i++ {
-		copy(matrix[(idx*512)+i][:], b.set[i*8:(i+1)*8])
-	}
-}
-
-// ravelToTallBytes reconstructs a subsection of a tall (mx64) matrix from a BitVect.
-func (b BitVect) ravelToTallBytes(matrix [][]byte, idx int) {
+// ravelToTall reconstructs a subsection of a tall (mx64) matrix from a BitVect.
+func (b BitVect) ravelToTall(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[(idx*512)+i][:], unsafeslice.ByteSliceFromUint64Slice(b.set[i*8:(i+1)*8]))
 	}
 }
 
 // ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
-func (b BitVect) ravelToWide(matrix [][]uint64, idx int) {
-	for i := 0; i < 512; i++ {
-		copy(matrix[i][idx*8:(idx+1)*8], b.set[(i*8):(i+1)*8])
-	}
-}
-
-// ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
-func (b BitVect) ravelToWideBytes(matrix [][]byte, idx int) {
+func (b BitVect) ravelToWide(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[i][idx*64:(idx+1)*64], unsafeslice.ByteSliceFromUint64Slice(b.set[(i*8):(i+1)*8]))
 	}
@@ -109,7 +71,7 @@ func (b BitVect) printUints() {
 	}
 }
 
-// ConcurrentTransposeBytes tranposes a wide (512 row) or tall (64 column) matrix.
+// ConcurrentTranspose tranposes a wide (512 row) or tall (64 column) matrix.
 // First it determines how many 512x512 bit blocks are necessary to contain the
 // matrix and hold the indices where the blocks should be split from the larger
 // matrix. The input matrix must have a multiple of 512 rows (tall) or 64 columns (wide)
@@ -118,7 +80,7 @@ func (b BitVect) printUints() {
 // at that index (with padding if necessary), performs a cache-oblivious, in-place,
 // contiguous transpose on the BitVect, and finally writes the result to a shared
 // final output matrix.
-func ConcurrentTransposeBytes(matrix [][]byte, nworkers int) [][]byte {
+func ConcurrentTranspose(matrix [][]byte, nworkers int) [][]byte {
 	// determine is original matrix is wide or tall
 	var tall bool
 	if len(matrix[0]) == 64 {
@@ -157,96 +119,28 @@ func ConcurrentTransposeBytes(matrix [][]byte, nworkers int) [][]byte {
 	// Run a worker pool
 	var wg sync.WaitGroup
 	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		go func() {
-			defer wg.Done()
-			if tall {
-				for id := range ch {
-					b := unravelTallFromBytes(matrix, id)
-					b.transpose()
-					b.ravelToWideBytes(trans, id)
-				}
-			} else {
-				for id := range ch {
-					b := unravelWideFromBytes(matrix, id)
-					b.transpose()
-					b.ravelToTallBytes(trans, id)
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	return trans
-}
-
-// ConcurrentTranspose tranposes a wide (512 row) or tall (8 column) matrix.
-// First it determines how many 512x512 bit blocks are necessary to contain the
-// matrix and holds the indices where the blocks should be split from the larger
-// matrix. The input matrix must have a multiple of 512 rows (tall) or 8 columns
-// (wide) The indices are passed into a channel which is being read by a worker
-// pool of goroutines. Each goroutine reads an index, generates a BitVect from
-// the matrix at that index, performs a cache-oblivious, in-place, contiguous
-// transpose on the BitVect, and finally writes the result to a shared final
-// output matrix.
-func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
-	// determine if original matrix is wide or tall
-	var tall bool
-	if len(matrix[0]) == 8 {
-		tall = true
-	}
-
-	// determine number of blocks to split original matrix
-	var nblks int
 	if tall {
-		nblks = len(matrix) / 512
-	} else {
-		nblks = len(matrix[0]) / 8
-	}
-
-	// build output matrix
-	var nrows, ncols int
-	if tall {
-		nrows = 512
-		ncols = len(matrix) / 64
-	} else {
-		nrows = len(matrix[0]) * 64
-		ncols = 8
-	}
-
-	trans := make([][]uint64, nrows)
-	for r := range trans {
-		trans[r] = make([]uint64, ncols)
-	}
-
-	// feed into buffered channel
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
-
-	// Run a worker pool
-	var wg sync.WaitGroup
-	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		go func() {
-			defer wg.Done()
-			if tall {
+		for w := 0; w < nworkers; w++ {
+			go func() {
+				defer wg.Done()
 				for id := range ch {
 					b := unravelTall(matrix, id)
 					b.transpose()
 					b.ravelToWide(trans, id)
 				}
-			} else {
+			}()
+		}
+	} else {
+		for w := 0; w < nworkers; w++ {
+			go func() {
+				defer wg.Done()
 				for id := range ch {
 					b := unravelWide(matrix, id)
 					b.transpose()
 					b.ravelToTall(trans, id)
 				}
-			}
-		}()
+			}()
+		}
 	}
 
 	wg.Wait()
