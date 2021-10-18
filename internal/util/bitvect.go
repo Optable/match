@@ -154,104 +154,102 @@ func ConcurrentTranspose(matrix [][]uint64, nworkers int) [][]uint64 {
 // shifts. Operations are performed on blocks of bits of size 32, 16, 8, 4, 2,
 // and 1. Since the input is square, the transposition can be performed in place.
 func (b *BitVect) transpose() {
+	tmp := make([]uint64, 4)
 	// Transpose 4 x 256 blocks
-	tmp4 := make([]uint64, 4)
 	var jmp int
 	for i := 0; i < 256; i++ {
 		jmp = i * 8
-		copy(tmp4, b.set[jmp+4:jmp+8])
+		copy(tmp, b.set[jmp+4:jmp+8])
 		copy(b.set[jmp+4:jmp+8], b.set[(256*8)+jmp:(256*8)+jmp+4])
-		copy(b.set[(256*8)+jmp:(256*8)+jmp+4], tmp4)
+		copy(b.set[(256*8)+jmp:(256*8)+jmp+4], tmp)
 	}
 
 	// Transpose 2 x 128 blocks
-	tmp2 := make([]uint64, 2)
 	for j := 0; j < 128; j++ {
 		jmp = j * 8
-		copy(tmp2, b.set[jmp+2:jmp+4])
+		copy(tmp, b.set[jmp+2:jmp+4])
 		copy(b.set[jmp+2:jmp+4], b.set[(128*8)+jmp:(128*8)+jmp+2])
-		copy(b.set[(128*8)+jmp:(128*8)+jmp+2], tmp2)
+		copy(b.set[(128*8)+jmp:(128*8)+jmp+2], tmp[:2])
 
-		copy(tmp2, b.set[jmp+6:jmp+8])
+		copy(tmp, b.set[jmp+6:jmp+8])
 		copy(b.set[jmp+6:jmp+8], b.set[(128*8)+jmp+4:(128*8)+jmp+6])
-		copy(b.set[(128*8)+jmp+4:(128*8)+jmp+6], tmp2)
+		copy(b.set[(128*8)+jmp+4:(128*8)+jmp+6], tmp[:2])
 
-		copy(tmp2, b.set[(256*8)+jmp+2:(256*8)+jmp+4])
+		copy(tmp, b.set[(256*8)+jmp+2:(256*8)+jmp+4])
 		copy(b.set[(256*8)+jmp+2:(256*8)+jmp+4], b.set[(384*8)+jmp:(384*8)+jmp+2])
-		copy(b.set[(384*8)+jmp:(384*8)+jmp+2], tmp2)
+		copy(b.set[(384*8)+jmp:(384*8)+jmp+2], tmp[:2])
 
-		copy(tmp2, b.set[(256*8)+jmp+6:(256*8)+jmp+8])
+		copy(tmp, b.set[(256*8)+jmp+6:(256*8)+jmp+8])
 		copy(b.set[(256*8)+jmp+6:(256*8)+jmp+8], b.set[(384*8)+jmp+4:(384*8)+jmp+6])
-		copy(b.set[(384*8)+jmp+4:(384*8)+jmp+6], tmp2)
+		copy(b.set[(384*8)+jmp+4:(384*8)+jmp+6], tmp[:2])
 	}
 
 	// Transpose 1 x 64 blocks
-	tmp := make([]uint64, 1)
 	for k := 0; k < 64; k++ {
 		jmp = k * 8
 		copy(tmp, b.set[jmp+1:jmp+2])
 		copy(b.set[jmp+1:jmp+2], b.set[(64*8)+jmp:(64*8)+jmp+1])
-		copy(b.set[(64*8)+jmp:(64*8)+jmp+1], tmp)
+		copy(b.set[(64*8)+jmp:(64*8)+jmp+1], tmp[:1])
 
 		copy(tmp, b.set[jmp+3:jmp+4])
 		copy(b.set[jmp+3:jmp+4], b.set[(64*8)+jmp+2:(64*8)+jmp+3])
-		copy(b.set[(64*8)+jmp+2:(64*8)+jmp+3], tmp)
+		copy(b.set[(64*8)+jmp+2:(64*8)+jmp+3], tmp[:1])
 
 		copy(tmp, b.set[jmp+5:jmp+6])
 		copy(b.set[jmp+5:jmp+6], b.set[(64*8)+jmp+4:(64*8)+jmp+5])
-		copy(b.set[(64*8)+jmp+4:(64*8)+jmp+5], tmp)
+		copy(b.set[(64*8)+jmp+4:(64*8)+jmp+5], tmp[:1])
 
 		copy(tmp, b.set[jmp+7:jmp+8])
 		copy(b.set[jmp+7:jmp+8], b.set[(64*8)+jmp+6:(64*8)+jmp+7])
-		copy(b.set[(64*8)+jmp+6:(64*8)+jmp+7], tmp)
+		copy(b.set[(64*8)+jmp+6:(64*8)+jmp+7], tmp[:1])
 
 		copy(tmp, b.set[(128*8)+jmp+1:(128*8)+jmp+2])
 		copy(b.set[(128*8)+jmp+1:(128*8)+jmp+2], b.set[(192*8)+jmp:(192*8)+jmp+1])
-		copy(b.set[(192*8)+jmp:(192*8)+jmp+1], tmp)
+		copy(b.set[(192*8)+jmp:(192*8)+jmp+1], tmp[:1])
 
 		copy(tmp, b.set[(128*8)+jmp+3:(128*8)+jmp+4])
 		copy(b.set[(128*8)+jmp+3:(128*8)+jmp+4], b.set[(192*8)+jmp+2:(192*8)+jmp+3])
-		copy(b.set[(192*8)+jmp+2:(192*8)+jmp+3], tmp)
+		copy(b.set[(192*8)+jmp+2:(192*8)+jmp+3], tmp[:1])
 
 		copy(tmp, b.set[(128*8)+jmp+5:(128*8)+jmp+6])
 		copy(b.set[(128*8)+jmp+5:(128*8)+jmp+6], b.set[(192*8)+jmp+4:(192*8)+jmp+5])
-		copy(b.set[(192*8)+jmp+4:(192*8)+jmp+5], tmp)
+		copy(b.set[(192*8)+jmp+4:(192*8)+jmp+5], tmp[:1])
 
 		copy(tmp, b.set[(128*8)+jmp+7:(128*8)+jmp+8])
 		copy(b.set[(128*8)+jmp+7:(128*8)+jmp+8], b.set[(192*8)+jmp+6:(192*8)+jmp+7])
-		copy(b.set[(192*8)+jmp+6:(192*8)+jmp+7], tmp)
+		copy(b.set[(192*8)+jmp+6:(192*8)+jmp+7], tmp[:1])
 		//
 		copy(tmp, b.set[(256*8)+jmp+1:(256*8)+jmp+2])
 		copy(b.set[(256*8)+jmp+1:(256*8)+jmp+2], b.set[(320*8)+jmp:(320*8)+jmp+1])
-		copy(b.set[(320*8)+jmp:(320*8)+jmp+1], tmp)
+		copy(b.set[(320*8)+jmp:(320*8)+jmp+1], tmp[:1])
 
 		copy(tmp, b.set[(256*8)+jmp+3:(256*8)+jmp+4])
 		copy(b.set[(256*8)+jmp+3:(256*8)+jmp+4], b.set[(320*8)+jmp+2:(320*8)+jmp+3])
-		copy(b.set[(320*8)+jmp+2:(320*8)+jmp+3], tmp)
+		copy(b.set[(320*8)+jmp+2:(320*8)+jmp+3], tmp[:1])
 
 		copy(tmp, b.set[(256*8)+jmp+5:(256*8)+jmp+6])
 		copy(b.set[(256*8)+jmp+5:(256*8)+jmp+6], b.set[(320*8)+jmp+4:(320*8)+jmp+5])
-		copy(b.set[(320*8)+jmp+4:(320*8)+jmp+5], tmp)
+		copy(b.set[(320*8)+jmp+4:(320*8)+jmp+5], tmp[:1])
 
 		copy(tmp, b.set[(256*8)+jmp+7:(256*8)+jmp+8])
 		copy(b.set[(256*8)+jmp+7:(256*8)+jmp+8], b.set[(320*8)+jmp+6:(320*8)+jmp+7])
-		copy(b.set[(320*8)+jmp+6:(320*8)+jmp+7], tmp)
+		copy(b.set[(320*8)+jmp+6:(320*8)+jmp+7], tmp[:1])
 
 		copy(tmp, b.set[(384*8)+jmp+1:(384*8)+jmp+2])
 		copy(b.set[(384*8)+jmp+1:(384*8)+jmp+2], b.set[(448*8)+jmp:(448*8)+jmp+1])
-		copy(b.set[(448*8)+jmp:(448*8)+jmp+1], tmp)
+		copy(b.set[(448*8)+jmp:(448*8)+jmp+1], tmp[:1])
 
 		copy(tmp, b.set[(384*8)+jmp+3:(384*8)+jmp+4])
 		copy(b.set[(384*8)+jmp+3:(384*8)+jmp+4], b.set[(448*8)+jmp+2:(448*8)+jmp+3])
-		copy(b.set[(448*8)+jmp+2:(448*8)+jmp+3], tmp)
+		copy(b.set[(448*8)+jmp+2:(448*8)+jmp+3], tmp[:1])
 
 		copy(tmp, b.set[(384*8)+jmp+5:(384*8)+jmp+6])
 		copy(b.set[(384*8)+jmp+5:(384*8)+jmp+6], b.set[(448*8)+jmp+4:(448*8)+jmp+5])
-		copy(b.set[(448*8)+jmp+4:(448*8)+jmp+5], tmp)
+		copy(b.set[(448*8)+jmp+4:(448*8)+jmp+5], tmp[:1])
 
 		copy(tmp, b.set[(384*8)+jmp+7:(384*8)+jmp+8])
 		copy(b.set[(384*8)+jmp+7:(384*8)+jmp+8], b.set[(448*8)+jmp+6:(448*8)+jmp+7])
-		copy(b.set[(448*8)+jmp+6:(448*8)+jmp+7], tmp)
+		copy(b.set[(448*8)+jmp+6:(448*8)+jmp+7], tmp[:1])
 
 	}
 

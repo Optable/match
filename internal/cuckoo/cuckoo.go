@@ -225,6 +225,7 @@ func oprfInput(b []byte) []byte {
 func (c *Cuckoo) OPRFInput() (inputs [][]byte) {
 	inputs = make([][]byte, c.bucketSize)
 	for i, b := range c.buckets {
+		//c.buckets[i] = oprfInput(b)
 		inputs[i] = oprfInput(b)
 	}
 	return inputs
