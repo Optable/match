@@ -31,9 +31,8 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 
 	// pad src (will always have at most 16 extra bytes)
 	if len(src) < aes.BlockSize*4 {
-		tmp := make([]byte, aes.BlockSize)
-		copy(tmp, src)
-		aesBlock.Encrypt(dst[:aes.BlockSize], tmp)
+		copy(dst, src)
+		aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
 		copy(dst[aes.BlockSize:aes.BlockSize*2], dst[:aes.BlockSize])
 		copy(dst[aes.BlockSize*2:aes.BlockSize*3], dst[:aes.BlockSize])
 		copy(dst[aes.BlockSize*3:], dst[:aes.BlockSize])
