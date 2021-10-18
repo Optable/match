@@ -3,6 +3,8 @@ package util
 import (
 	"fmt"
 	"sync"
+
+	"github.com/alecthomas/unsafeslice"
 )
 
 // A BitVect is a matrix of 512 by 512 bits encoded into a contiguous slice of
@@ -24,15 +26,35 @@ func unravelTall(matrix [][]uint64, idx int) BitVect {
 	return BitVect{set}
 }
 
-// unravelWide is a constructor used to create a BitVect from a subset of a 2D matrix
-// of uint64. The matrix must have a multiple of 8 columns and 512 rows. idx is the
-// block target. idx = 0 will take the first 8 columns, idx = 1 will take from column
-// 8 to column 16, etc.
+// unravelTallFromBytes is a constructor used to create a BitVect from a 2D matrix of bytes.
+// The matrix must have 64 columns and 512 rows. idx is the block target.
+func unravelTallFromBytes(matrix [][]byte, idx int) BitVect {
+	set := [4096]uint64{}
+
+	for i := 0; i < 512; i++ {
+		copy(set[(i)*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[(512*idx)+i]))
+	}
+	return BitVect{set}
+}
+
+// unravelWide is a constructor used to create a BitVect from a 2D matrix of uint64.
+// The matrix must have 8 columns and 512 rows. idx is the block target.
 func unravelWide(matrix [][]uint64, idx int) BitVect {
 	set := [4096]uint64{}
 
 	for i := 0; i < 512; i++ {
 		copy(set[i*8:(i+1)*8], matrix[i][idx*8:(8*idx)+8])
+	}
+	return BitVect{set}
+}
+
+// unravelWideFromBytes is a constructor used to create a BitVect from a 2D matrix of bytes.
+// The matrix must have 64 columns and 512 rows. idx is the block target.
+func unravelWideFromBytes(matrix [][]byte, idx int) BitVect {
+	set := [4096]uint64{}
+
+	for i := 0; i < 512; i++ {
+		copy(set[i*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[i][idx*64:(64*idx)+64]))
 	}
 	return BitVect{set}
 }
@@ -44,6 +66,13 @@ func (b BitVect) ravelToTall(matrix [][]uint64, idx int) {
 	}
 }
 
+// ravelToTallBytes reconstructs a subsection of a tall (mx64) matrix from a BitVect.
+func (b BitVect) ravelToTallBytes(matrix [][]byte, idx int) {
+	for i := 0; i < 512; i++ {
+		copy(matrix[(idx*512)+i][:], unsafeslice.ByteSliceFromUint64Slice(b.set[i*8:(i+1)*8]))
+	}
+}
+
 // ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
 func (b BitVect) ravelToWide(matrix [][]uint64, idx int) {
 	for i := 0; i < 512; i++ {
@@ -51,7 +80,14 @@ func (b BitVect) ravelToWide(matrix [][]uint64, idx int) {
 	}
 }
 
-// printBits prints a square subset of the overall bit array. The limit is in bits but
+// ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
+func (b BitVect) ravelToWideBytes(matrix [][]byte, idx int) {
+	for i := 0; i < 512; i++ {
+		copy(matrix[i][idx*64:(idx+1)*64], unsafeslice.ByteSliceFromUint64Slice(b.set[(i*8):(i+1)*8]))
+	}
+}
+
+// printBits prints a subset of the overall bit array. The limit is in bits but
 // since we are really printing uint64, everything is rounded down to the nearest
 // multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
 func (b BitVect) printBits(lim int) {
@@ -73,7 +109,79 @@ func (b BitVect) printUints() {
 	}
 }
 
-// ConcurrentTranspose transposes a wide (512 row) or tall (8 column) matrix.
+// ConcurrentTransposeBytes tranposes a wide (512 row) or tall (64 column) matrix.
+// First it determines how many 512x512 bit blocks are necessary to contain the
+// matrix and hold the indices where the blocks should be split from the larger
+// matrix. The input matrix must have a multiple of 512 rows (tall) or 64 columns (wide)
+// The indices are passed into a channel which is being read by a worker pool of
+// goroutines. Each goroutine reads an index, generates a BitVect from the matrix
+// at that index (with padding if necessary), performs a cache-oblivious, in-place,
+// contiguous transpose on the BitVect, and finally writes the result to a shared
+// final output matrix.
+func ConcurrentTransposeBytes(matrix [][]byte, nworkers int) [][]byte {
+	// determine is original matrix is wide or tall
+	var tall bool
+	if len(matrix[0]) == 64 {
+		tall = true
+	}
+
+	// determine number of blocks to split original matrix
+	var nblks int
+	if tall {
+		nblks = len(matrix) / 512
+	} else {
+		nblks = len(matrix[0]) / 64
+	}
+
+	// build output matrix
+	var nrows, ncols int
+	if tall {
+		nrows = 512
+		ncols = len(matrix) / 8
+	} else {
+		nrows = len(matrix[0]) * 8
+		ncols = 64
+	}
+	trans := make([][]byte, nrows)
+	for r := range trans {
+		trans[r] = make([]byte, ncols)
+	}
+
+	// feed into buffered channel
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			if tall {
+				for id := range ch {
+					b := unravelTallFromBytes(matrix, id)
+					b.transpose()
+					b.ravelToWideBytes(trans, id)
+				}
+			} else {
+				for id := range ch {
+					b := unravelWideFromBytes(matrix, id)
+					b.transpose()
+					b.ravelToTallBytes(trans, id)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return trans
+}
+
+// ConcurrentTranspose tranposes a wide (512 row) or tall (8 column) matrix.
 // First it determines how many 512x512 bit blocks are necessary to contain the
 // matrix and holds the indices where the blocks should be split from the larger
 // matrix. The input matrix must have a multiple of 512 rows (tall) or 8 columns

@@ -8,7 +8,7 @@ import (
 
 var (
 	nmsg        = 1024
-	nworkers    = runtime.GOMAXPROCS(0)
+	nworkers    = runtime.NumCPU()
 	uintBlock   = sampleRandomTall(prng, nmsg)
 	randomBlock = unravelTall(uintBlock, 0)
 
@@ -100,6 +100,34 @@ func sampleRandomWide(r *rand.Rand, n int) [][]uint64 {
 	return matrix
 }
 
+// sampleRandomTallBytes fills an m by 64 byte matrix (512 bits wide) with
+// pseudorandom bytes.
+func sampleRandomTallBytes(r *rand.Rand, m int) [][]byte {
+	// instantiate matrix
+	matrix := make([][]byte, m)
+
+	for row := range matrix {
+		matrix[row] = make([]byte, 64)
+		r.Read(matrix[row])
+	}
+
+	return matrix
+}
+
+// sampleRandomWideBytes fills a 512 by n byte matrix (512 bits tall) with
+// pseudorandom bytes.
+func sampleRandomWideBytes(r *rand.Rand, n int) [][]byte {
+	// instantiate matrix
+	matrix := make([][]byte, 512)
+
+	for row := range matrix {
+		matrix[row] = make([]byte, n)
+		r.Read(matrix[row])
+	}
+
+	return matrix
+}
+
 func TestUnReRavelingTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, a := range trange {
@@ -145,6 +173,64 @@ func TestUnReRavelingWide(t *testing.T) {
 		for id := 0; id < nblks; id++ {
 			b := unravelWide(matrix, id)
 			b.ravelToWide(trans, id)
+		}
+
+		// check
+		for k := range trans {
+			for l := range trans[k] {
+				if trans[k][l] != matrix[k][l] {
+					t.Fatal("Unraveled and reraveled wide (", a, ") matrix did not match with original at row", k, ".")
+				}
+			}
+		}
+	}
+}
+
+func TestUnReRavelingTallBytes(t *testing.T) {
+	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
+	for _, a := range trange {
+		matrix := sampleRandomTallBytes(prng, a)
+		// TALL m x 64
+		// determine number of blocks to split original matrix
+		nblks := len(matrix) / 512
+
+		rerav := make([][]byte, len(matrix))
+		for r := range rerav {
+			rerav[r] = make([]byte, len(matrix[0]))
+		}
+
+		for id := 0; id < nblks; id++ {
+			b := unravelTallFromBytes(matrix, id)
+			b.ravelToTallBytes(rerav, id)
+		}
+
+		// check
+		for k := range rerav {
+			for l := range rerav[k] {
+				if rerav[k][l] != matrix[k][l] {
+					t.Fatal("Unraveled and reraveled tall (", a, ") matrix did not match with original at row", k, ".")
+				}
+			}
+		}
+	}
+}
+
+func TestUnReRavelingWideBytes(t *testing.T) {
+	trange := []int{64, 128, 512}
+	for _, a := range trange {
+		matrix := sampleRandomWideBytes(prng, a)
+		// WIDE 512 x n
+		// determine number of blocks to split original matrix
+		nblks := len(matrix[0]) / 64
+
+		trans := make([][]byte, len(matrix))
+		for r := range trans {
+			trans[r] = make([]byte, len(matrix[0]))
+		}
+
+		for id := 0; id < nblks; id++ {
+			b := unravelWideFromBytes(matrix, id)
+			b.ravelToWideBytes(trans, id)
 		}
 
 		// check
@@ -235,6 +321,42 @@ func TestConcurrentTranspose(t *testing.T) {
 		}
 	}
 
+}
+
+func TestConcurrentByteTranspose(t *testing.T) {
+	// TALL
+	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
+	for _, m := range trange {
+		orig := sampleRandomTallBytes(prng, m)
+		tr := ConcurrentTransposeBytes(orig, nworkers)
+		dtr := ConcurrentTransposeBytes(tr, nworkers)
+		// test
+		for k := range orig {
+			for l := range orig[k] {
+				// note the weird aerobics we have to do here because of the residual insignificant rows added
+				// due to the encoding of 8 rows in one column element.
+				if orig[k][l] != dtr[len(dtr)-len(orig)+k][l] {
+					t.Fatal("Doubly-transposed tall (", m, ") matrix did not match with original at row", k, ".")
+				}
+			}
+		}
+	}
+	// WIDE
+	//trange = []int{64, 64 * 2, 64 * 3, 64 * 4}
+	trange = []int{64}
+	for _, m := range trange {
+		orig := sampleRandomWideBytes(prng, m)
+		tr := ConcurrentTransposeBytes(orig, nworkers)
+		dtr := ConcurrentTransposeBytes(tr, nworkers)
+		//test
+		for k := range dtr {
+			for l := range dtr[k] {
+				if dtr[k][l] != orig[k][l] {
+					t.Fatal("Doubly-transposed wide (", m, ") matrix did not match with original at row", k, ".")
+				}
+			}
+		}
+	}
 }
 
 func BenchmarkTranspose512x512(b *testing.B) {
