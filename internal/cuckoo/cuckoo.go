@@ -225,10 +225,6 @@ func (v *value) oprfInput() []byte {
 	return append(v.item, v.hIdx)
 }
 
-func MakeOPRFInput(item []byte, hashIdx byte) []byte {
-	return append(item, hashIdx)
-}
-
 // OPRFInput returns the OPRF input for KKRT Receiver
 // if the identifier is in the bucket, it appends the hash index
 // if the identifier is on stash, it returns just the id
