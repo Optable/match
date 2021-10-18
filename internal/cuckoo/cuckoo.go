@@ -25,23 +25,11 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// a value holds the inserted item, and the index of
-// the hash function used to compute which bucket index
-// the item is inserted in.
-type value struct {
-	hIdx uint8
-	item []byte
-}
-
-func (v value) empty() bool {
-	return len(v.item) == 0 && v.hIdx == 0
-}
-
 // A Cuckoo represents a 3-way Cuckoo hash table data structure
 // that contains buckets and a stash with 3 hash functions
 type Cuckoo struct {
 	//hashmap (k, v) -> k: bucket index, v: value
-	buckets []value
+	buckets [][]byte
 	// Total bucket count, len(bucket)
 	bucketSize uint64
 	// 3 hash functions h_0, h_1, h_2
@@ -58,7 +46,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	}
 
 	return &Cuckoo{
-		buckets:    make([]value, bSize),
+		buckets:    make([][]byte, bSize),
 		bucketSize: bSize,
 		hashers:    hashers,
 	}
@@ -116,10 +104,10 @@ func (c *Cuckoo) Insert(item []byte) error {
 	}
 
 	// force insert by cuckoo (eviction)
-	if homeLessItem, added := c.tryGreedyAdd(item, bucketIndices); added {
+	if homelessItem, added := c.tryGreedyAdd(item, bucketIndices); added {
 		return nil
 	} else {
-		return fmt.Errorf("failed to Insert item: %v", homeLessItem)
+		return fmt.Errorf("failed to Insert item: %v", homelessItem)
 	}
 
 }
@@ -132,9 +120,11 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 			continue
 		}
 
-		if c.buckets[bIdx].empty() {
+		if len(c.buckets[bIdx]) == 0 {
 			// this is a free slot
-			c.buckets[bIdx] = value{uint8(hIdx), item}
+			c.buckets[bIdx] = make([]byte, len(item)+1)
+			c.buckets[bIdx][0] = uint8(hIdx)
+			copy(c.buckets[bIdx][1:], item)
 			return true
 		}
 	}
@@ -144,24 +134,27 @@ func (c *Cuckoo) tryAdd(item []byte, bucketIndices [Nhash]uint64, ignore bool, e
 // tryGreedyAdd evicts a random occupied slots, inserts the item to the evicted slot
 // and reinserts the evicted item
 // return false and the last evicted item, if reinsertions failed after ReInsertLimit of tries.
-func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLessItem []byte, added bool) {
+func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homelessItem []byte, added bool) {
 	for i := 1; i < ReInsertLimit; i++ {
 		// select a random slot to be evicted
 		evictedHIdx := rand.Int31n(Nhash)
 		evictedBIdx := bucketIndices[evictedHIdx]
-		evictedItem := c.buckets[evictedBIdx]
+		evictedItem := make([]byte, len(c.buckets[evictedBIdx])-1)
+		copy(evictedItem, c.buckets[evictedBIdx][1:])
+		//evictedItem := c.buckets[evictedBIdx][1:]
 		// insert the item in the evicted slot
-		c.buckets[evictedBIdx] = value{uint8(evictedHIdx), item}
+		c.buckets[evictedBIdx][0] = uint8(evictedHIdx)
+		copy(c.buckets[evictedBIdx][1:], item)
 
-		evictedBucketIndices := c.BucketIndices(evictedItem.item)
+		evictedBucketIndices := c.BucketIndices(evictedItem)
 		// try to reinsert the evicted items
 		// ignore the evictedBIdx since we newly inserted the item there
-		if c.tryAdd(evictedItem.item, evictedBucketIndices, true, evictedBIdx) {
+		if c.tryAdd(evictedItem, evictedBucketIndices, true, evictedBIdx) {
 			return nil, true
 		}
 
 		// insert evicted item not successful, recurse
-		item = evictedItem.item
+		item = evictedItem
 		bucketIndices = evictedBucketIndices
 	}
 
@@ -183,10 +176,10 @@ func (c *Cuckoo) onBucket(item []byte, bucketIndices [Nhash]uint64) (found bool)
 
 func (c *Cuckoo) onBucketAtIndex(item []byte, bucketIndices [Nhash]uint64) (uint8, bool) {
 	for _, bIdx := range bucketIndices {
-		if !c.buckets[bIdx].empty() && len(c.buckets[bIdx].item) > 0 && bytes.Equal(c.buckets[bIdx].item, item) {
+		if len(c.buckets[bIdx]) > 0 && bytes.Equal(c.buckets[bIdx][1:], item) {
 			// the index for hash function is the same as the
 			// index for the bucketIndices
-			return c.buckets[bIdx].hIdx, true
+			return c.buckets[bIdx][0], true
 		}
 	}
 
@@ -202,7 +195,7 @@ func (c *Cuckoo) Exists(item []byte, bucketIndices [Nhash]uint64) (found bool) {
 func (c *Cuckoo) LoadFactor() (factor float64) {
 	occupation := 0
 	for _, v := range c.buckets {
-		if !v.empty() {
+		if !(len(v) == 0) {
 			occupation += 1
 		}
 	}
@@ -216,13 +209,13 @@ func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize
 }
 
-func (v *value) oprfInput() []byte {
+func oprfInput(b []byte) []byte {
 	// no item inserted, return dummy value
-	if v.empty() {
+	if len(b) == 0 {
 		return []byte{dummyValue}
 	}
 
-	return append(v.item, v.hIdx)
+	return b
 }
 
 // OPRFInput returns the OPRF input for KKRT Receiver
@@ -232,24 +225,26 @@ func (v *value) oprfInput() []byte {
 func (c *Cuckoo) OPRFInput() (inputs [][]byte) {
 	inputs = make([][]byte, c.bucketSize)
 	for i, b := range c.buckets {
-		inputs[i] = b.oprfInput()
+		inputs[i] = oprfInput(b)
 	}
 	return inputs
 }
 
 // returns true if the oprfInput is a dummyValue
 func IsEmpty(oprfInput []byte) bool {
-	return len(oprfInput) == 1 || oprfInput[0] == dummyValue
+	return len(oprfInput) == 0 || oprfInput[0] == dummyValue
 }
 
 // returns the item contained in oprfInput
 func GetItem(oprfInput []byte) []byte {
-	return oprfInput[:len(oprfInput)-1]
+	//return oprfInput[:len(oprfInput)-1]
+	return oprfInput[1:]
 }
 
 // returns the hash index contained in oprfInput
 func GetHashIdx(oprfInput []byte) byte {
-	return oprfInput[len(oprfInput)-1]
+	//return oprfInput[len(oprfInput)-1]
+	return oprfInput[0]
 }
 
 func max(a, b uint64) uint64 {
