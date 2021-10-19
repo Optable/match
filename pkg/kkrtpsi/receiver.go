@@ -113,6 +113,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
+
 		// Hash and index all local encodings
 		// the hash value of the oprf encoding is the key
 		// the corresponding ID is the value
@@ -120,7 +121,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		for i := range localEncodings {
 			localEncodings[i] = make(map[uint64][]byte, n)
 		}
-
 		// hash local oprf output
 		hasher, _ := hash.New(hash.Highway, seeds[0])
 		for i, input := range oprfInputs {
