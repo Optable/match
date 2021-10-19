@@ -43,9 +43,9 @@ func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEnc
 func (id hashable) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
 	// oprfInput is instantiated at the required size
 	oprfInput := make([]byte, len(id.identifier)+1)
-	copy(oprfInput[1:], id.identifier)
+	copy(oprfInput, id.identifier)
 	for hIdx, bucketIdx := range id.bucketIdx {
-		oprfInput[0] = uint8(hIdx)
+		oprfInput[len(id.identifier)] = uint8(hIdx)
 		encoded, _ := oprfKeys.Encode(bucketIdx, oprfInput)
 		hashes[hIdx] = hasher.Hash64(encoded)
 	}

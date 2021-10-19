@@ -50,6 +50,7 @@ func TestNewCuckoo(t *testing.T) {
 func TestInsertAndGetHashIdx(t *testing.T) {
 	cuckoo := NewCuckoo(test_n, seeds)
 	errCount := 0
+
 	for _, item := range testData {
 		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
@@ -67,8 +68,8 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 		}
 
 		bIdx := cuckoo.BucketIndices(item)[hIdx]
-		if !bytes.Equal(cuckoo.buckets[bIdx][1:], item) {
-			t.Fatalf("Cuckoo GetHashIdx, hashIdx not correct for item: %v, with hIdx: %d, item : %v", item[:], hIdx, cuckoo.buckets[bIdx][1:])
+		if !bytes.Equal(cuckoo.buckets[bIdx].item, item) {
+			t.Fatalf("Cuckoo GetHashIdx, hashIdx not correct for item: %v, with hIdx: %d, item : %v", item[:], hIdx, cuckoo.buckets[bIdx].item)
 		}
 	}
 }
