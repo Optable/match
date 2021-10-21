@@ -127,7 +127,9 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			// check if it was an empty input
 			if !cuckoo.IsEmpty(input) {
 				// insert into proper map
-				localEncodings[cuckoo.GetHashIdx(input)][hasher.Hash64(oprfOutput[i])] = cuckoo.GetItem(input)
+				hIdx, _ := cuckooHashTable.GetHashIdx(input)
+				localEncodings[hIdx][hasher.Hash64(oprfOutput[i])] = input
+				//localEncodings[cuckoo.GetHashIdx(input)][hasher.Hash64(oprfOutput[i])] = input
 			}
 		}
 

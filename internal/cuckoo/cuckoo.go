@@ -222,13 +222,13 @@ func (v *value) oprfInput() []byte {
 		return []byte{dummyValue}
 	}
 
-	return append(v.item, v.hIdx)
+	return v.item
 }
 
 // OPRFInput returns the OPRF input for KKRT Receiver
-// if the identifier is in the bucket, it appends the hash index
+// if the identifier is in the bucket, it returns the id
 // if the identifier is on stash, it returns just the id
-// if the bucket has nothing it in, it returns a dummy value
+// if the bucket has nothing in it, it returns a dummy value
 func (c *Cuckoo) OPRFInput() (inputs [][]byte) {
 	inputs = make([][]byte, c.bucketSize)
 	for i, b := range c.buckets {
@@ -240,11 +240,6 @@ func (c *Cuckoo) OPRFInput() (inputs [][]byte) {
 // returns true if the oprfInput is a dummyValue
 func IsEmpty(oprfInput []byte) bool {
 	return len(oprfInput) == 1 || oprfInput[0] == dummyValue
-}
-
-// returns the item contained in oprfInput
-func GetItem(oprfInput []byte) []byte {
-	return oprfInput[:len(oprfInput)-1]
 }
 
 // returns the hash index contained in oprfInput
