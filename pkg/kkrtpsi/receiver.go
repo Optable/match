@@ -61,11 +61,9 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// instantiate cuckoo hash table
 		cuckooHashTable = cuckoo.NewCuckoo(uint64(n), seeds)
-		for identifier := range identifiers {
-			err := cuckooHashTable.Insert(identifier)
-			if err != nil {
-				return err
-			}
+		err := cuckooHashTable.Insert(identifiers)
+		if err != nil {
+			return err
 		}
 
 		oprfInputs = cuckooHashTable.OPRFInput()
