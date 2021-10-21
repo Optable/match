@@ -10,6 +10,7 @@ import (
 
 	"github.com/optable/match/internal/util"
 	"github.com/optable/match/pkg/psi"
+	matchlog "github.com/optable/match/pkg/log"
 )
 
 const (
@@ -32,6 +33,7 @@ func main() {
 	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (dhpsi,npsi)")
 	var addr = flag.String("a", defaultAddress, "The receiver address")
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
+	var verbose = flag.Int("v", 0, "Verbosity level, default to -v 0 for info level messages, -v 1 for debug messages, and -v 2 for trace level message.")
 	var showHelp = flag.Bool("h", false, "Show help message")
 
 	log.SetFlags(0)
@@ -57,18 +59,23 @@ func main() {
 	}
 
 	log.Printf("operating with protocol %s", *protocol)
+	// fetch stdr logger
+	slog := matchlog.GetLogger(*verbose)
+	slog.V(1).Info("Should see this")
 
 	// open file
 	f, err := os.Open(*file)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err, "failed to open file")
+		os.Exit(1)
 	}
 
 	// count lines
 	log.Printf("counting lines in %s", *file)
 	n, err := util.Count(f)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err, "failed to count")
+		os.Exit(1)
 	}
 	log.Printf("operating on %s with %d IDs", *file, n)
 
@@ -77,7 +84,8 @@ func main() {
 
 	c, err := net.Dial("tcp", *addr)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err, "failed to dial")
+		os.Exit(1)
 	}
 	defer c.Close()
 	// enable nagle
@@ -87,8 +95,9 @@ func main() {
 	}
 	s, _ := psi.NewSender(psiType, c)
 	ids := util.Exhaust(n, f)
-	err = s.Send(context.Background(), n, ids)
+	err = s.Send(matchlog.ContextWithLogger(context.Background(), slog), n, ids)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err, "failed to perform PSI")
+		os.Exit(1)
 	}
 }

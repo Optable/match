@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/optable/match/pkg/log"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/util"
 )
@@ -30,20 +31,29 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
+	// fetch logger
+	var logger = log.GetLoggerFromContextWithName(ctx, "npsi")
+
 	// hold k
 	var k = make([]byte, hash.SaltLength)
 	// stage 1: receive a random salt K from P1
 	stage1 := func() error {
+		logger.Info("Starting stage 1")
+		logger.V(1).Info("Testing this logger")
 		if n, err := s.rw.Read(k); err != nil {
 			return fmt.Errorf("stage1: %v", err)
 		} else if n != hash.SaltLength {
 			return hash.ErrSaltLengthMismatch
 		}
+
+		logger.Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: send hashes salted with K to P1
 	stage2 := func() error {
+		logger.Info("Starting stage 2")
+		logger.V(2).Info("Testing this logger with verbosity = 2")
 		// get a hasher
 		h, err := hash.New(hash.Highway, k)
 		if err != nil {
@@ -62,6 +72,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 				return fmt.Errorf("stage2: %v", err)
 			}
 		}
+
+		logger.Info("Finished stage 2")
 		return nil
 	}
 

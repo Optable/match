@@ -9,6 +9,8 @@ require (
 	github.com/dchest/siphash v1.2.2
 	github.com/devopsfaith/bloomfilter v1.4.0
 	github.com/dgryski/go-highway v0.0.0-20210309212254-61406496927c
+	github.com/go-logr/logr v1.2.0 // indirect
+	github.com/go-logr/stdr v1.2.0 // indirect
 	github.com/gtank/ristretto255 v0.1.2
 	github.com/intel-go/cpuid v0.0.0-20210602155658-5747e5cec0d9 // indirect
 	github.com/spaolacci/murmur3 v1.1.0

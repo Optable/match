@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/optable/match/internal/util"
+	"github.com/optable/match/pkg/log"
 )
 
 // ErrReadingBloomfilter is triggered if there's an IO problem reading the remote side bloomfilter structure
@@ -31,27 +32,36 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is
 //  string
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+	// fetch logger
+	var logger = log.GetLoggerFromContextWithName(ctx, "bpsi")
 	var bf bloomfilter
 	var intersected [][]byte
 
 	// stage 1: read the bloomfilter from the remote side
 	stage1 := func() error {
+		logger.Info("Starting stage 1")
+
 		_bf, _, err := ReadFrom(r.rw)
 		if err != nil {
 			return err
 		}
 		bf = _bf
+
+		logger.Info("Finish stage 1")
 		return nil
 	}
 
 	// stage 2: read local IDs and compare with the remote bloomfilter
 	//          to produce intersections
 	stage2 := func() error {
+		logger.Info("Starting stage 2")
 		for identifier := range identifiers {
 			if bf.Check(identifier) {
 				intersected = append(intersected, identifier)
 			}
 		}
+
+		logger.Info("Finish stage 2")
 		return nil
 	}
 
