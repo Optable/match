@@ -3,6 +3,7 @@ package hash
 import (
 	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"log"
 
 	"github.com/cespare/xxhash"
@@ -20,6 +21,7 @@ const (
 	XX
 	Highway
 	HighwayMinio
+	FNV1a
 )
 
 var (
@@ -62,9 +64,35 @@ func New(t int, salt []byte) (Hasher, error) {
 		return NewHighwayHasher(salt)
 	case HighwayMinio:
 		return NewHighwayHasherMinio(salt)
+	case FNV1a:
+		return NewFNV1aHasher(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
+}
+
+// FNV1-a implementation of Hasher
+type fnv1a struct {
+	salt []byte
+}
+
+// NewFNV1aHasher returns a FNV1a hasher
+// that uses salt as a prefix to the
+// bytes being summed
+func NewFNV1aHasher(salt []byte) (fnv1a, error) {
+	if len(salt) != SaltLength {
+		return fnv1a{}, ErrSaltLengthMismatch
+	}
+
+	return fnv1a{salt: salt}, nil
+}
+
+func (f fnv1a) Hash64(p []byte) uint64 {
+	// prepend the salt in m and then Sum
+	h := fnv.New64a()
+	h.Write(f.salt)
+	h.Write(p)
+	return h.Sum64()
 }
 
 // sipHash implementation of Hasher

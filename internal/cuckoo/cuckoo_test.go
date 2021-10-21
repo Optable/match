@@ -10,7 +10,7 @@ import (
 
 var (
 	bench_cuckoo *Cuckoo
-	test_n       = uint64(1e6) // 1 Million
+	test_n       = uint64(1e7) // 1 Million
 	bench_n      = uint64(1e6) // 1 Million
 	seeds        = makeSeeds()
 	testData     = genBytes(int(test_n))
@@ -51,14 +51,15 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	cuckoo := NewCuckoo(test_n, seeds)
 	errCount := 0
 
+	insertTime := time.Now()
 	for _, item := range testData {
 		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
 		}
 	}
 
-	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d",
-		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount)
+	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, collisions: %d, taken %v",
+		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, collision, time.Since(insertTime))
 
 	//test GetHashIdx
 	for _, item := range testData {

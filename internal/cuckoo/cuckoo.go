@@ -25,6 +25,9 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// to check number of collisions for testing purposes
+var collision int
+
 // a value holds the inserted item, and the index of
 // the hash function used to compute which bucket index
 // the item is inserted in.
@@ -54,7 +57,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
-		hashers[i], _ = hash.New(hash.Highway, s)
+		hashers[i], _ = hash.New(hash.HighwayMinio, s)
 	}
 
 	return &Cuckoo{
@@ -69,7 +72,7 @@ func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
-		hashers[i], _ = hash.New(hash.Highway, s)
+		hashers[i], _ = hash.New(hash.HighwayMinio, s)
 	}
 
 	return &Cuckoo{
@@ -156,6 +159,7 @@ func (c *Cuckoo) tryGreedyAdd(item []byte, bucketIndices [Nhash]uint64) (homeLes
 		evictedBucketIndices := c.BucketIndices(evictedItem.item)
 		// try to reinsert the evicted items
 		// ignore the evictedBIdx since we newly inserted the item there
+		collision++
 		if c.tryAdd(evictedItem.item, evictedBucketIndices, true, evictedBIdx) {
 			return nil, true
 		}
@@ -226,8 +230,8 @@ func (v *value) oprfInput() []byte {
 }
 
 // OPRFInput returns the OPRF input for KKRT Receiver
-// if the identifier is in the bucket, it returns the id
-// if the identifier is on stash, it returns just the id
+// if the identifier is in the bucket or on the stash,
+// it returns the id
 // if the bucket has nothing in it, it returns a dummy value
 func (c *Cuckoo) OPRFInput() (inputs [][]byte) {
 	inputs = make([][]byte, c.bucketSize)
@@ -240,11 +244,6 @@ func (c *Cuckoo) OPRFInput() (inputs [][]byte) {
 // returns true if the oprfInput is a dummyValue
 func IsEmpty(oprfInput []byte) bool {
 	return len(oprfInput) == 1 || oprfInput[0] == dummyValue
-}
-
-// returns the hash index contained in oprfInput
-func GetHashIdx(oprfInput []byte) byte {
-	return oprfInput[len(oprfInput)-1]
 }
 
 func max(a, b uint64) uint64 {
