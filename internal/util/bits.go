@@ -245,8 +245,14 @@ func PadTill512(m int) int {
 // TransposeByteMatrix performs a concurrent cache-oblivious transpose on a byte matrix by first
 // converting from bytes to uint64 (and padding as needed), performing the transpose on the uint64
 // matrix and then converting back to bytes.
+// pad is number of rows containing 0s which will be added to end of matrix.
+// Assume each row contains 64 bytes (512 bits).
 func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
-	return ByteMatrixFromUint64(ConcurrentTranspose(Uint64MatrixFromByte(b), runtime.GOMAXPROCS(0)))
+	pad := PadTill512(len(b))
+	for i := 0; i < pad; i++ {
+		b = append(b, make([]byte, 64))
+	}
+	return ConcurrentTranspose(b, runtime.NumCPU())
 }
 
 // Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.
