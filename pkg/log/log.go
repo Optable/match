@@ -12,12 +12,14 @@ import (
 // 1 for debug messages and 2 for trace level message.
 // any other verbosity level will default to 0.
 func GetLogger(v int) logr.Logger {
+	logger := stdr.New(nil).WithName("match")
 	// bound check
 	if v > 2 || v < 0 {
 		v = 0
+		logger.Info("Invalid verbosity, setting logger to display info level messages only.")
 	}
-	logger := stdr.New(nil).WithName("match")
 	stdr.SetVerbosity(v)
+
 	return logger
 }
 
