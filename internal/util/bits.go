@@ -1,7 +1,6 @@
 package util
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"runtime"
@@ -253,56 +252,4 @@ func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
 		b = append(b, make([]byte, 64))
 	}
 	return ConcurrentTranspose(b, runtime.NumCPU())
-}
-
-// Uint64SliceFromByte converts a slice of bytes to a slice of uint64s.
-// There must be a multiple of 8 bytes so they can be packed nicely into uint64.
-func Uint64SliceFromByte(b []byte) (u []uint64) {
-	u = make([]uint64, len(b)/8)
-	for i := range u {
-		u[i] = binary.LittleEndian.Uint64(b[i*8:])
-	}
-
-	return u
-}
-
-// ByteSliceFromUint64 extracts a slice of bytes from a slice of uint64.
-func ByteSliceFromUint64(u []uint64) (b []byte) {
-	b = make([]byte, len(u)*8)
-
-	for i, e := range u {
-		binary.LittleEndian.PutUint64(b[i*8:], e)
-	}
-
-	return b
-}
-
-// Uint64MatrixFromByte converts a matrix of bytes to a matrix of uint64s.
-// pad is number of rows containing 0s which will be added to end of the matrix.
-// Assume each row contains 64 bytes (512 bits).
-func Uint64MatrixFromByte(b [][]byte) (u [][]uint64) {
-	pad := PadTill512(len(b))
-	u = make([][]uint64, len(b)+pad)
-
-	for i := 0; i < len(b); i++ {
-		u[i] = Uint64SliceFromByte(b[i])
-	}
-
-	for j := 0; j < pad; j++ {
-		u[len(b)+j] = make([]uint64, len(u[0]))
-	}
-
-	return u
-}
-
-// ByteMatrixFromUint64 converts a matrix of uint64s to a matrix of bytes.
-// If any padding was added, it is left untouched.
-func ByteMatrixFromUint64(u [][]uint64) (b [][]byte) {
-	b = make([][]byte, len(u))
-
-	for i, e := range u {
-		b[i] = ByteSliceFromUint64(e)
-	}
-
-	return b
 }

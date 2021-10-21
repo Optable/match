@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/alecthomas/unsafeslice"
 )
 
 var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -60,8 +62,8 @@ func TestSliceConversions(t *testing.T) {
 		// Bytes to Uint64s
 		b := make([]byte, l)
 		sampleByteSlice(prng, b)
-		u := Uint64SliceFromByte(b)
-		bb := ByteSliceFromUint64(u)
+		u := unsafeslice.Uint64SliceFromByteSlice(b)
+		bb := unsafeslice.ByteSliceFromUint64Slice(u)
 
 		// test
 		for i, e := range b {
@@ -75,8 +77,8 @@ func TestSliceConversions(t *testing.T) {
 		// Uint64s to Bytes
 		u := make([]uint64, l)
 		sampleUint64Slice(prng, u)
-		b := ByteSliceFromUint64(u)
-		uu := Uint64SliceFromByte(b)
+		b := unsafeslice.ByteSliceFromUint64Slice(u)
+		uu := unsafeslice.Uint64SliceFromByteSlice(b)
 
 		//test
 		for i, e := range u {
