@@ -65,7 +65,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			}
 		}
 
-		logger.Info("Finish stage 1")
+		logger.Info("Finished stage 1")
 		return nil
 	}
 
@@ -93,7 +93,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			}
 		}
 
-		logger.Info("Finish stage 2")
+		logger.Info("Finished stage 2")
 		return nil
 	}
 

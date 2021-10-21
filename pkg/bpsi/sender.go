@@ -42,7 +42,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			s.bf.Add(id)
 		}
 
-		logger.Info("Finish stage 1")
+		logger.Info("Finished stage 1")
 		return nil
 	}
 
@@ -51,7 +51,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		logger.Info("Starting stage 2")
 		_, err := s.bf.WriteTo(s.rw)
 
-		logger.Info("Finish stage 2")
+		logger.Info("Finished stage 2")
 		return err
 	}
 

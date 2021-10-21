@@ -47,7 +47,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 		bf = _bf
 
-		logger.Info("Finish stage 1")
+		logger.Info("Finished stage 1")
 		return nil
 	}
 
@@ -61,7 +61,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 
-		logger.Info("Finish stage 2")
+		logger.Info("Finished stage 2")
 		return nil
 	}
 

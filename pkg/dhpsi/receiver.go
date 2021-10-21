@@ -76,7 +76,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				var p [EncodedLen]byte
 				if err := reader.Read(&p); err != nil {
 					if err == io.EOF {
-						logger.Info("Finish stage 1")
+						logger.Info("Finished stage 1")
 						return nil
 					}
 					return err
@@ -88,7 +88,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 	// stage2.1 : permute and write the local identifiers to the sender
 	stage21 := func() error {
-		logger.Info("Starting stage 2")
+		logger.Info("Starting stage 2.1")
 
 		writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr)
 		if err != nil {
@@ -110,11 +110,12 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			i++
 		}
 
-		logger.Info("Finish stage 2")
+		logger.Info("Finished stage 2.1")
 		return nil
 	}
 	// step3: reads back the identifiers from the sender and learns the intersection
 	stage22 := func() error {
+		logger.Info("Starting stage 2.2")
 		reader, err := NewReader(s.rw)
 		if err != nil {
 			return err
@@ -133,6 +134,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 
+		logger.Info("Finished stage 2.2")
 		return nil
 	}
 
