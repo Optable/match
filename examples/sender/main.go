@@ -61,7 +61,6 @@ func main() {
 	log.Printf("operating with protocol %s", *protocol)
 	// fetch stdr logger
 	slog := matchlog.GetLogger(*verbose)
-	slog.V(1).Info("Should see this")
 
 	// open file
 	f, err := os.Open(*file)

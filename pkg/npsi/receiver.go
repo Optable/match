@@ -39,7 +39,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 1: P2 samples a random salt K and sends it to P1.
 	stage1 := func() error {
 		logger.Info("Starting stage 1")
-		logger.V(1).Info("Testing this logger")
 		// stage1.1: generate a SaltLength salt
 		if _, err := rand.Read(k); err != nil {
 			return err
@@ -56,7 +55,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
 	stage2v2 := func() error {
 		logger.Info("Starting stage 2")
-		logger.V(2).Info("Testing this logger with verbosity = 2")
 
 		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)

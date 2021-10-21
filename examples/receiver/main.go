@@ -33,7 +33,6 @@ func showUsageAndExit(exitcode int) {
 }
 
 var out *string
-	
 func main() {
 	var wg sync.WaitGroup
 	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (dhpsi,npsi)")

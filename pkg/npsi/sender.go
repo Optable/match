@@ -39,7 +39,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 	// stage 1: receive a random salt K from P1
 	stage1 := func() error {
 		logger.Info("Starting stage 1")
-		logger.V(1).Info("Testing this logger")
 		if n, err := s.rw.Read(k); err != nil {
 			return fmt.Errorf("stage1: %v", err)
 		} else if n != hash.SaltLength {
@@ -53,7 +52,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 	// stage 2: send hashes salted with K to P1
 	stage2 := func() error {
 		logger.Info("Starting stage 2")
-		logger.V(2).Info("Testing this logger with verbosity = 2")
 		// get a hasher
 		h, err := hash.New(hash.Highway, k)
 		if err != nil {
