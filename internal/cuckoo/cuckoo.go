@@ -28,12 +28,11 @@ var collision int
 
 // A Cuckoo represents a 3-way Cuckoo hash table data structure
 // that contains the items, bucket indices of each item and the 3
-// hash functions
-// The bucket lookup is a lookup table on items which tells us which
-// item should be in the bucket at that index.
-// Upon construction the items slice has an additional nil value prepended
-// so the index of the Cuckoo.items slice is +1 compared to the index of the
-// input slice you use.
+// hash functions. The bucket lookup is a lookup table on items which
+// tells us which item should be in the bucket at that index. Upon
+// construction the items slice has an additional nil value prepended
+// so the index of the Cuckoo.items slice is +1 compared to the index
+// of the input slice you use.
 type Cuckoo struct {
 	items        [][]byte
 	bucketLookup []uint64
@@ -114,7 +113,7 @@ func (c *Cuckoo) GetBucket(bIdx uint64) (uint64, error) {
 	return c.bucketLookup[bIdx], nil
 }
 
-// GetItem return the item from it's position in the list
+// GetItem return the item from it's index in the list
 func (c *Cuckoo) GetItem(idx uint64) ([]byte, error) {
 	if idx > uint64(len(c.items)-1) {
 		return nil, fmt.Errorf("failed to retrieve item #%v", idx)
@@ -125,16 +124,6 @@ func (c *Cuckoo) GetItem(idx uint64) ([]byte, error) {
 	return c.items[idx], nil
 }
 
-/*
-// GetItem returns the item which is in the bIdx bucket.
-func (c *Cuckoo) GetItem(bIdx uint64) ([]byte, error) {
-	if bIdx > c.bucketSize {
-		return nil, fmt.Errorf("failed to retrieve item in bucket #%v", bIdx)
-	}
-	fmt.Println("Lookup", c.bucketLookup)
-	return c.items[c.bucketLookup[bIdx]], nil
-}
-*/
 // Insert tries to insert a given item (at index, idx) to the bucket
 // in available slots, otherwise, it evicts a random occupied slot,
 // and reinserts evicted item.
@@ -194,9 +183,9 @@ func (c *Cuckoo) tryAdd(idx uint64, bucketIndices [Nhash]uint64, ignore bool, ex
 	return false
 }
 
-// tryGreedyAdd evicts a random occupied slots, inserts the item to the evicted slot
-// and reinserts the evicted item
-// return false and the last evicted item, if reinsertions failed after ReInsertLimit of tries.
+// tryGreedyAdd evicts a random occupied slot, inserts the item to the evicted slot
+// and reinserts the evicted item. Return false and the last evicted item, if reinsertions
+// failed after ReInsertLimit of tries.
 func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLessItem uint64, added bool) {
 	for i := 1; i < ReInsertLimit; i++ {
 		// select a random slot to be evicted
@@ -249,13 +238,12 @@ func (c *Cuckoo) LoadFactor() (factor float64) {
 	return float64(occupation) / float64(c.bucketSize)
 }
 
-// Len returns the total size of the cuckoo struct
-// which is equal to bucketSize
+// Len returns the total size of the cuckoo struct which is equal to bucketSize
 func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize
 }
 
-// IsEmpty returns true if bucket at bidx doesn't contain an identifier
+// IsEmpty returns true if bucket at bidx doesn't contain the index of an identifier
 func (c *Cuckoo) IsEmpty(bidx uint64) bool {
 	return c.bucketLookup[bidx] != 0
 }
