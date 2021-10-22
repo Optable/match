@@ -106,23 +106,19 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	if len(choices)*8 != len(messages) || len(choices)*8 != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
-
 	// instantiate Reader, Writer
 	reader := crypto.NewECPointsReader(rw, n.encodeLen)
 	writer := crypto.NewECPointsWriter(rw)
-
 	// receive point A from sender
 	pointA := crypto.NewPoints(n.curve)
 	if err := reader.Read(pointA); err != nil {
 		return err
 	}
-
 	// recieve point R from sender
 	pointR := crypto.NewPoints(n.curve)
 	if err := reader.Read(pointR); err != nil {
 		return err
 	}
-
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, n.baseCount)
 	var pointB crypto.Points

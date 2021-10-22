@@ -31,6 +31,9 @@ var collision int
 // hash functions
 // The bucket lookup is a lookup table on items which tells us which
 // item should be in the bucket at that index.
+// Upon construction the items slice has an additional nil value prepended
+// so the index of the Cuckoo.items slice is +1 compared to the index of the
+// input slice you use.
 type Cuckoo struct {
 	items        [][]byte
 	bucketLookup []uint64
@@ -73,8 +76,27 @@ func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	}
 }
 
-// bucketIndices returns the 3 possible bucket indices of an item at
-// a given index, idx
+// NewTestingCuckoo creates a testing cuckoo that has the same number of
+// buckets as identifiers. Each bucket points directly to the respective
+// identifier (skipping the nil "keeper" value): bucket 0 -> id 1, bucket
+// 1 -> id 2, . . .
+func NewTestingCuckoo(buckets [][]byte) *Cuckoo {
+	items := make([][]byte, len(buckets)+1)
+	copy(items[1:], buckets[:])
+
+	lookup := make([]uint64, len(buckets))
+	for i := range lookup {
+		lookup[i] = uint64(i + 1)
+	}
+
+	return &Cuckoo{
+		items:        items,
+		bucketSize:   uint64(len(lookup)),
+		bucketLookup: lookup,
+	}
+}
+
+// BucketIndices returns the 3 possible bucket indices of an item
 func (c *Cuckoo) BucketIndices(item []byte) (idxs [Nhash]uint64) {
 	for i := range idxs {
 		idxs[i] = c.hashers[i].Hash64(item) % c.bucketSize
@@ -83,14 +105,36 @@ func (c *Cuckoo) BucketIndices(item []byte) (idxs [Nhash]uint64) {
 	return idxs
 }
 
+// GetBucket returns the index in a given bucket which represents the value in
+// the list of identifiers to which it points.
+func (c *Cuckoo) GetBucket(bIdx uint64) (uint64, error) {
+	if bIdx > c.bucketSize {
+		return 0, fmt.Errorf("failed to retrieve item in bucket #%v", bIdx)
+	}
+	return c.bucketLookup[bIdx], nil
+}
+
+// GetItem return the item from it's position in the list
+func (c *Cuckoo) GetItem(idx uint64) ([]byte, error) {
+	if idx > uint64(len(c.items)-1) {
+		return nil, fmt.Errorf("failed to retrieve item #%v", idx)
+	}
+	if c.items[idx] == nil {
+		return nil, fmt.Errorf("failed to retrieve item #%v", idx)
+	}
+	return c.items[idx], nil
+}
+
+/*
 // GetItem returns the item which is in the bIdx bucket.
 func (c *Cuckoo) GetItem(bIdx uint64) ([]byte, error) {
 	if bIdx > c.bucketSize {
 		return nil, fmt.Errorf("failed to retrieve item in bucket #%v", bIdx)
 	}
+	fmt.Println("Lookup", c.bucketLookup)
 	return c.items[c.bucketLookup[bIdx]], nil
 }
-
+*/
 // Insert tries to insert a given item (at index, idx) to the bucket
 // in available slots, otherwise, it evicts a random occupied slot,
 // and reinserts evicted item.
@@ -116,7 +160,7 @@ func (c *Cuckoo) insert(idx uint64, item []byte) error {
 	bucketIndices := c.BucketIndices(item)
 
 	// check if item has already been inserted:
-	if _, found := c.Exists(item, bucketIndices); found {
+	if _, found := c.Exists(idx); found {
 		return nil
 	}
 
@@ -179,7 +223,12 @@ func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLess
 }
 
 // Exists returns the hash index and true if an item is inserted in cuckoo, false otherwise
-func (c *Cuckoo) Exists(item []byte, bucketIndices [Nhash]uint64) (hIdx uint8, found bool) {
+func (c *Cuckoo) Exists(idx uint64) (hIdx uint8, found bool) {
+	item, err := c.GetItem(idx)
+	if err != nil {
+		return 0, false
+	}
+	bucketIndices := c.BucketIndices(item)
 	for hIdx, bIdx := range bucketIndices {
 		if bytes.Equal(c.items[c.bucketLookup[bIdx]], item) {
 			return uint8(hIdx), true
@@ -201,14 +250,14 @@ func (c *Cuckoo) LoadFactor() (factor float64) {
 }
 
 // Len returns the total size of the cuckoo struct
-// which is equal to bucketSize + stashSize
+// which is equal to bucketSize
 func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize
 }
 
-// GetItems returns all identifiers stored in cuckoo struct
-func (c *Cuckoo) GetItems() [][]byte {
-	return c.items[1:]
+// IsEmpty returns true if bucket at bidx doesn't contain an identifier
+func (c *Cuckoo) IsEmpty(bidx uint64) bool {
+	return c.bucketLookup[bidx] != 0
 }
 
 func max(a, b uint64) uint64 {

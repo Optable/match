@@ -64,12 +64,13 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	//test GetHashIdx
 	for i, item := range testData {
 		bIndices := cuckoo.BucketIndices(item)
-		hIdx, found := cuckoo.Exists(item, bIndices)
+		hIdx, found := cuckoo.Exists(uint64(i + 1))
 		if !found {
-			t.Fatalf("Cuckoo GetHashIdx, %dth item: %v not inserted.", i, item)
+			t.Fatalf("Cuckoo GetHashIdx, %dth item: %v not inserted.", i+1, item)
 		}
 
-		checkItem, err := cuckoo.GetItem(bIndices[hIdx])
+		checkIndex, _ := cuckoo.GetBucket(bIndices[hIdx])
+		checkItem, err := cuckoo.GetItem(checkIndex)
 		if !bytes.Equal(checkItem, item) || err != nil {
 			t.Fatalf("Cuckoo GetHashIdx, hashIdx not correct for item: %v, with hIdx: %d, item : %v", item, hIdx, checkItem)
 		}
@@ -92,8 +93,7 @@ func BenchmarkCuckooExists(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		item := benchCuckoo.items[uint64(i%int(benchN))]
-		benchCuckoo.Exists(item, benchCuckoo.BucketIndices(item))
+		benchCuckoo.Exists(uint64(i % int(benchN)))
 	}
 }
 

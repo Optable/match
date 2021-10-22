@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
 )
 
@@ -49,7 +50,7 @@ func initOPRFReceiver(oprf OPRF, choices [][]uint8, msgBus chan<- []byte, errs c
 func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices [][]uint8, outBus chan<- []byte, errs chan<- error) {
 	defer close(outBus)
 
-	out, err := oprf.Receive(choices, conn)
+	out, err := oprf.Receive(cuckoo.NewTestingCuckoo(choices), conn)
 	if err != nil {
 		errs <- err
 	}
@@ -199,7 +200,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for %d imporved KKRT OPRF is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for %d improved KKRT OPRF is: %v\n", baseCount, end.Sub(start))
 
 	// verify if the received msgs are correct:
 	if len(out) == 0 {

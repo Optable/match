@@ -18,6 +18,7 @@ import (
 	"io"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
@@ -59,18 +60,15 @@ func (o kkrt) Send(rw io.ReadWriter) (keys Key, err error) {
 	if _, err = rand.Read(sk); err != nil {
 		return Key{}, nil
 	}
-
 	// send the secret key
 	if _, err := rw.Write(sk); err != nil {
 		return Key{}, err
 	}
-
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
 		return Key{}, err
 	}
-
 	// act as receiver in baseOT to receive q^j
 	q := make([][]byte, k)
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
@@ -80,12 +78,13 @@ func (o kkrt) Send(rw io.ReadWriter) (keys Key, err error) {
 	q = util.TransposeByteMatrix(q)
 
 	aesBlock, err := aes.NewCipher(sk)
+
 	return Key{block: aesBlock, s: s, q: q}, err
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error) {
-	if len(choices) != o.m {
+func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]byte, err error) {
+	if int(choices.Len()) != o.m {
 		return nil, ot.ErrBaseCountMissMatch
 	}
 
@@ -101,7 +100,9 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 		d := make([][]byte, o.m)
 		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < o.m; i++ {
-			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
+			idx, _ := choices.GetBucket(uint64(i))
+			src, _ := choices.GetItem(idx)
+			d[i] = crypto.PseudorandomCode(aesBlock, src)
 		}
 		tr := util.TransposeByteMatrix(d)
 		pseudorandomChan <- tr

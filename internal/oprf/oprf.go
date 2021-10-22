@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/util"
 )
 
@@ -24,7 +25,8 @@ var ErrUnknownOPRF = fmt.Errorf("cannot create an OPRF that follows an unknown p
 
 type OPRF interface {
 	Send(rw io.ReadWriter) (Key, error)
-	Receive(choices [][]uint8, rw io.ReadWriter) ([][]byte, error)
+	//Receive(choices [][]uint8, rw io.ReadWriter) ([][]byte, error)
+	Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) ([][]byte, error)
 }
 
 // NewOPRF returns an OPRF of type t

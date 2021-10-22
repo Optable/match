@@ -18,6 +18,7 @@ import (
 	"io"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
@@ -100,8 +101,8 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error) {
-	if len(choices) != ext.m {
+func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]byte, err error) {
+	if int(choices.Len()) != ext.m {
 		return nil, ot.ErrBaseCountMissMatch
 	}
 
@@ -117,7 +118,9 @@ func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, er
 		d := make([][]byte, ext.m)
 		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
+			idx, _ := choices.GetBucket(uint64(i))
+			src, _ := choices.GetItem(idx)
+			d[i] = crypto.PseudorandomCode(aesBlock, src)
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
