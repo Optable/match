@@ -51,14 +51,15 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	cuckoo := NewCuckoo(test_n, seeds)
 	errCount := 0
 
+	insert_time := time.Now()
 	for _, item := range testData {
 		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
 		}
 	}
 
-	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d",
-		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount)
+	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, took: %v",
+		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, time.Since(insert_time))
 
 	//test GetHashIdx
 	for _, item := range testData {
