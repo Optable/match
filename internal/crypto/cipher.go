@@ -28,17 +28,18 @@ const (
 // on success, pseudorandomCode returns a byte slice of 64 bytes.
 func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	dst = make([]byte, aes.BlockSize*4)
+	// effectively pad src
+	copy(dst, src)
 
-	// pad src (will always have at most 16 extra bytes)
 	if len(src) < aes.BlockSize {
 		return dst
 	}
 
 	// encrypt
-	aesBlock.Encrypt(dst[:aes.BlockSize], src[:aes.BlockSize])
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], src[aes.BlockSize:aes.BlockSize*2])
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], src[aes.BlockSize*2:aes.BlockSize*3])
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], src[aes.BlockSize*3:])
+	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
 
 	return dst
 }
