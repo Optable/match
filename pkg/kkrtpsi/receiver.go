@@ -44,7 +44,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	var seeds [cuckoo.Nhash][]byte
 	var intersection [][]byte
-	var oprfOutput [][]byte
+	var oprfOutput [cuckoo.Nhash]map[uint64]uint64
 	var cuckooHashTable *cuckoo.Cuckoo
 
 	// stage 1: read the hash seeds from the remote side
@@ -95,11 +95,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		// sanity check
-		if len(oprfOutput) != int(oprfInputSize) {
-			return fmt.Errorf("received number of OPRF outputs should be the same as cuckoo hash bucket size")
-		}
-
 		// end stage2
 		timer, mem = printStageStats("Stage 2", timer, start, mem)
 		return nil
@@ -108,25 +103,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
-
-		// Hash and index all local encodings
-		// the hash value of the oprf encoding is the key
-		// the index of the corresponding ID is the value
-		var localEncodings [cuckoo.Nhash]map[uint64]uint64
-		for i := range localEncodings {
-			localEncodings[i] = make(map[uint64]uint64, n)
-		}
-		// hash local oprf output
-		hasher, _ := hash.New(hash.Highway, seeds[0])
-		for bIdx := uint64(0); bIdx < cuckooHashTable.Len(); bIdx++ {
-			// check if it was an empty input
-			if idx, _ := cuckooHashTable.GetBucket(bIdx); idx != 0 {
-				// insert into proper map
-				hIdx, _ := cuckooHashTable.Exists(idx)
-				localEncodings[hIdx][hasher.Hash64(oprfOutput[bIdx])] = idx
-			}
-		}
-
 		// read number of remote IDs
 		var remoteN int64
 		if err := binary.Read(r.rw, binary.BigEndian, &remoteN); err != nil {
@@ -143,10 +119,9 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			if err := EncodesRead(bufferedReader, &remoteEncodings); err != nil {
 				return err
 			}
-
 			// intersect
 			for hashIdx, remoteHash := range remoteEncodings {
-				if idx, ok := localEncodings[hashIdx][remoteHash]; ok {
+				if idx, ok := oprfOutput[hashIdx][remoteHash]; ok {
 					id, err := cuckooHashTable.GetItem(idx)
 					if err != nil {
 						return err

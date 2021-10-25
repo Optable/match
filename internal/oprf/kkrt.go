@@ -83,15 +83,15 @@ func (o kkrt) Send(rw io.ReadWriter) (keys Key, err error) {
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]byte, err error) {
+func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
 	if int(choices.Len()) != o.m {
-		return nil, ot.ErrBaseCountMissMatch
+		return encodings, ot.ErrBaseCountMissMatch
 	}
 
 	// receive AES-128 secret key
 	sk := make([]byte, 16)
 	if _, err = io.ReadFull(rw, sk); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
 	// compute code word using pseudorandom code on choice stirng r in a separate thread
@@ -109,9 +109,9 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]byte, err
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
-	t, err = util.SampleRandomBitMatrix(rand.Reader, k, o.m)
+	t, err := util.SampleRandomBitMatrix(rand.Reader, k, o.m)
 	if err != nil {
-		return nil, err
+		return encodings, err
 	}
 
 	d := <-pseudorandomChan
@@ -122,7 +122,7 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]byte, err
 
 		err = util.ConcurrentInPlaceXorBytes(d[i], t[i])
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
 		baseMsgs[i] = make([][]byte, 2)
@@ -132,8 +132,26 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]byte, err
 
 	// act as sender in baseOT to send k columns
 	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
-	return util.TransposeByteMatrix(t)[:o.m], nil
+	t = util.TransposeByteMatrix(t)[:o.m]
+
+	// Hash and index all local encodings
+	// the hash value of the oprf encoding is the key
+	// the index of the corresponding ID is the value
+	for i := range encodings {
+		encodings[i] = make(map[uint64]uint64, o.m)
+	}
+	// hash local oprf output
+	for bIdx := uint64(0); bIdx < choices.Len(); bIdx++ {
+		// check if it was an empty input
+		if idx, _ := choices.GetBucket(bIdx); idx != 0 {
+			// insert into proper map
+			hIdx, _ := choices.Exists(idx)
+			encodings[hIdx][choices.BucketIndices(t[bIdx])[0]] = idx
+		}
+	}
+
+	return encodings, nil
 }

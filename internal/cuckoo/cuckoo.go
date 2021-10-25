@@ -95,6 +95,11 @@ func NewTestingCuckoo(buckets [][]byte) *Cuckoo {
 	}
 }
 
+// GetHasher returns the first seeded hash function from a cuckoo struct.
+func (c *Cuckoo) GetHasher() hash.Hasher {
+	return c.hashers[0]
+}
+
 // BucketIndices returns the 3 possible bucket indices of an item
 func (c *Cuckoo) BucketIndices(item []byte) (idxs [Nhash]uint64) {
 	for i := range idxs {

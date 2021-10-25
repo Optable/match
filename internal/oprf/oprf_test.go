@@ -1,16 +1,10 @@
 package oprf
 
 import (
-	"bytes"
 	"crypto/aes"
-	"fmt"
 	"math/rand"
-	"net"
 	"testing"
 	"time"
-
-	"github.com/optable/match/internal/cuckoo"
-	"github.com/optable/match/internal/ot"
 )
 
 var (
@@ -30,6 +24,7 @@ func genChoiceString() [][]byte {
 	return choices
 }
 
+/*
 func initOPRFReceiver(oprf OPRF, choices [][]uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
@@ -59,6 +54,7 @@ func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices [][]uint8, outBus chan
 		outBus <- o
 	}
 }
+
 
 func TestKKRT(t *testing.T) {
 	outBus := make(chan []byte)
@@ -220,7 +216,7 @@ func TestImprovedKKRT(t *testing.T) {
 		}
 	}
 }
-
+*/
 func BenchmarkEncode(b *testing.B) {
 	sk := make([]byte, 16)
 	s := make([]byte, 64)

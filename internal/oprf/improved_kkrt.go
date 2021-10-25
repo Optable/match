@@ -16,6 +16,7 @@ import (
 	"crypto/aes"
 	"crypto/rand"
 	"io"
+	"runtime"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
@@ -92,7 +93,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 			return Key{}, err
 		}
 	}
-
+	runtime.GC()
 	q = util.TransposeByteMatrix(q)[:ext.m]
 
 	// store oprf keys
@@ -101,15 +102,15 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]byte, err error) {
+func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
 	if int(choices.Len()) != ext.m {
-		return nil, ot.ErrBaseCountMissMatch
+		return encodings, ot.ErrBaseCountMissMatch
 	}
 
 	// receive AES-128 secret key
 	sk := make([]byte, 16)
 	if _, err = io.ReadFull(rw, sk); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
 	// compute code word using pseudorandom code on choice stirng r in a separate thread
@@ -128,7 +129,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]by
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
 	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*k, k)
 	if err != nil {
-		return nil, err
+		return encodings, err
 	}
 
 	baseMsgs := make([][][]byte, k)
@@ -140,12 +141,12 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]by
 
 	// act as sender in baseOT to send k columns
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
 	d := <-pseudorandomChan
 
-	t = make([][]byte, k)
+	t := make([][]byte, k)
 	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
@@ -153,28 +154,49 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (t [][]by
 	for col := range d {
 		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
 		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
 		err = util.ConcurrentInPlaceXorBytes(u, t[col])
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 		err = util.ConcurrentInPlaceXorBytes(u, d[col])
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
 		// send u
 		if _, err = rw.Write(u); err != nil {
-			return nil, err
+			return encodings, err
 		}
 	}
 
-	return util.TransposeByteMatrix(t)[:ext.m], nil
+	runtime.GC()
+	t = util.TransposeByteMatrix(t)[:ext.m]
+
+	// Hash and index all local encodings
+	// the hash value of the oprf encoding is the key
+	// the index of the corresponding ID is the value
+	for i := range encodings {
+		encodings[i] = make(map[uint64]uint64, ext.m)
+	}
+	hasher := choices.GetHasher()
+	// hash local oprf output
+	for bIdx := uint64(0); bIdx < uint64(len(t)); bIdx++ {
+		// check if it was an empty input
+		if idx, _ := choices.GetBucket(bIdx); idx != 0 {
+			// insert into proper map
+			hIdx, _ := choices.Exists(idx)
+			encodings[hIdx][hasher.Hash64(t[bIdx])] = idx
+		}
+	}
+
+	//runtime.GC()
+	return encodings, nil
 }
