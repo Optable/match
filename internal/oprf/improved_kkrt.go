@@ -15,6 +15,7 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 import (
 	"crypto/aes"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"runtime"
 
@@ -120,8 +121,11 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 		aesBlock, _ := aes.NewCipher(sk)
 		for i := 0; i < ext.m; i++ {
 			idx, _ := choices.GetBucket(uint64(i))
-			src, _ := choices.GetItem(idx)
-			d[i] = crypto.PseudorandomCode(aesBlock, src)
+			item, hIdx := choices.GetItemWithHash(idx)
+			if item == nil {
+				fmt.Errorf("failed to retrieve item #%v", idx)
+			}
+			d[i] = crypto.PseudorandomCode(aesBlock, append(item, hIdx))
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
@@ -192,7 +196,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 		// check if it was an empty input
 		if idx, _ := choices.GetBucket(bIdx); idx != 0 {
 			// insert into proper map
-			hIdx, _ := choices.Exists(idx)
+			_, hIdx := choices.GetItemWithHash(idx)
 			encodings[hIdx][hasher.Hash64(t[bIdx])] = idx
 		}
 	}

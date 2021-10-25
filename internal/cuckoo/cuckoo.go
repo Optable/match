@@ -118,15 +118,24 @@ func (c *Cuckoo) GetBucket(bIdx uint64) (uint64, error) {
 	return c.bucketLookup[bIdx], nil
 }
 
-// GetItem return the item from it's index in the list
-func (c *Cuckoo) GetItem(idx uint64) ([]byte, error) {
+// Exists returns the hash index and true if an item is inserted in cuckoo, false otherwise
+func (c *Cuckoo) GetItemWithHash(idx uint64) (item []byte, hIdx uint8) {
 	if idx > uint64(len(c.items)-1) {
-		return nil, fmt.Errorf("failed to retrieve item #%v", idx)
+		return nil, 0
 	}
 	if c.items[idx] == nil {
-		return nil, fmt.Errorf("failed to retrieve item #%v", idx)
+		return nil, 0
 	}
-	return c.items[idx], nil
+
+	item = c.items[idx]
+
+	bucketIndices := c.BucketIndices(item)
+	for hIdx, bIdx := range bucketIndices {
+		if bytes.Equal(c.items[c.bucketLookup[bIdx]], item) {
+			return item, uint8(hIdx)
+		}
+	}
+	return nil, 0
 }
 
 // Insert tries to insert a given item (at index, idx) to the bucket
@@ -154,7 +163,7 @@ func (c *Cuckoo) insert(idx uint64, item []byte) error {
 	bucketIndices := c.BucketIndices(item)
 
 	// check if item has already been inserted:
-	if _, found := c.Exists(idx); found {
+	if item, _ := c.GetItemWithHash(idx); item != nil {
 		return nil
 	}
 
@@ -214,21 +223,6 @@ func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLess
 	}
 
 	return idx, false
-}
-
-// Exists returns the hash index and true if an item is inserted in cuckoo, false otherwise
-func (c *Cuckoo) Exists(idx uint64) (hIdx uint8, found bool) {
-	item, err := c.GetItem(idx)
-	if err != nil {
-		return 0, false
-	}
-	bucketIndices := c.BucketIndices(item)
-	for hIdx, bIdx := range bucketIndices {
-		if bytes.Equal(c.items[c.bucketLookup[bIdx]], item) {
-			return uint8(hIdx), true
-		}
-	}
-	return 0, false
 }
 
 // LoadFactor returns the ratio of occupied buckets with the overall bucketSize

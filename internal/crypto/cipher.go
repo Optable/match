@@ -31,16 +31,23 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	// effectively pad src
 	copy(dst, src)
 
-	if len(src) < aes.BlockSize {
+	// encrypt
+	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
+	if len(src) <= aes.BlockSize {
 		return dst
 	}
 
-	// encrypt
-	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
 	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
+	if len(src) <= aes.BlockSize*2 {
+		return dst
+	}
 
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
+	if len(src) <= aes.BlockSize*3 {
+		return dst
+	}
+
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
 	return dst
 }
 
