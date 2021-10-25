@@ -64,8 +64,8 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	//test GetHashIdx
 	for i, item := range testData {
 		bIndices := cuckoo.BucketIndices(item)
-		foundItem, hIdx := cuckoo.GetItemWithHash(uint64(i + 1))
-		if foundItem == nil {
+		found, hIdx := cuckoo.Exists(item)
+		if !found {
 			t.Fatalf("Cuckoo GetHashIdx, %dth item: %v not inserted.", i+1, item)
 		}
 
@@ -93,7 +93,7 @@ func BenchmarkCuckooExists(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		benchCuckoo.GetItemWithHash(uint64(i % int(benchN)))
+		benchCuckoo.Exists(benchData[uint64(i%int(benchN))])
 	}
 }
 

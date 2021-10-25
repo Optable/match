@@ -35,6 +35,7 @@ var collision int
 // of the input slice you use.
 type Cuckoo struct {
 	items        [][]byte
+	hashIndices  []byte
 	bucketLookup []uint64
 	// Total bucket count, len(bucket)
 	bucketSize uint64
@@ -55,6 +56,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 		// extra element is "keeper" to which the bucketLookup can be directed
 		// when there is no element present in the bucket.
 		items:        make([][]byte, size+1),
+		hashIndices:  make([]byte, size+1),
 		bucketLookup: make([]uint64, bSize),
 		bucketSize:   bSize,
 		hashers:      hashers,
@@ -90,6 +92,7 @@ func NewTestingCuckoo(buckets [][]byte) *Cuckoo {
 
 	return &Cuckoo{
 		items:        items,
+		hashIndices:  make([]byte, len(items)),
 		bucketSize:   uint64(len(lookup)),
 		bucketLookup: lookup,
 	}
@@ -118,24 +121,24 @@ func (c *Cuckoo) GetBucket(bIdx uint64) (uint64, error) {
 	return c.bucketLookup[bIdx], nil
 }
 
-// Exists returns the hash index and true if an item is inserted in cuckoo, false otherwise
+// TODO
 func (c *Cuckoo) GetItemWithHash(idx uint64) (item []byte, hIdx uint8) {
 	if idx > uint64(len(c.items)-1) {
 		return nil, 0
 	}
-	if c.items[idx] == nil {
-		return nil, 0
-	}
 
-	item = c.items[idx]
+	return c.items[idx], c.hashIndices[idx]
+}
 
+// Exists returns true if an item is inserted in cuckoo, false otherwise
+func (c *Cuckoo) Exists(item []byte) (bool, byte) {
 	bucketIndices := c.BucketIndices(item)
 	for hIdx, bIdx := range bucketIndices {
 		if bytes.Equal(c.items[c.bucketLookup[bIdx]], item) {
-			return item, uint8(hIdx)
+			return true, byte(hIdx)
 		}
 	}
-	return nil, 0
+	return false, 0
 }
 
 // Insert tries to insert a given item (at index, idx) to the bucket
@@ -163,7 +166,7 @@ func (c *Cuckoo) insert(idx uint64, item []byte) error {
 	bucketIndices := c.BucketIndices(item)
 
 	// check if item has already been inserted:
-	if item, _ := c.GetItemWithHash(idx); item != nil {
+	if found, _ := c.Exists(item); found {
 		return nil
 	}
 
@@ -183,7 +186,7 @@ func (c *Cuckoo) insert(idx uint64, item []byte) error {
 // tryAdd finds a free slot and inserts the item (at index, idx)
 // if ignore is true, it will not insert into exceptBIdx
 func (c *Cuckoo) tryAdd(idx uint64, bucketIndices [Nhash]uint64, ignore bool, exceptBIdx uint64) (added bool) {
-	for _, bIdx := range bucketIndices {
+	for hIdx, bIdx := range bucketIndices {
 		if ignore && exceptBIdx == bIdx {
 			continue
 		}
@@ -191,6 +194,7 @@ func (c *Cuckoo) tryAdd(idx uint64, bucketIndices [Nhash]uint64, ignore bool, ex
 		if c.bucketLookup[bIdx] == 0 {
 			// this is a free slot
 			c.bucketLookup[bIdx] = idx
+			c.hashIndices[idx] = uint8(hIdx)
 			return true
 		}
 	}
@@ -208,6 +212,7 @@ func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLess
 		evictedIdx := c.bucketLookup[evictedBIdx]
 		// insert the item in the evicted slot
 		c.bucketLookup[evictedBIdx] = idx
+		c.hashIndices[idx] = byte(evictedHIdx)
 
 		evictedBucketIndices := c.BucketIndices(c.items[evictedIdx])
 		// try to reinsert the evicted items
