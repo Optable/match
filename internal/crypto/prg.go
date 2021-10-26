@@ -22,6 +22,7 @@ const (
 var (
 	ErrUnknownPRG     = fmt.Errorf("unknown pseudorandom generators")
 	ErrNotImplemented = fmt.Errorf("drbg not implemented")
+	ErrDstTooShort    = fmt.Errorf("destination is shorter than seed")
 )
 
 func PseudorandomGenerate(drbg int, seed []byte, length int) ([]byte, error) {
@@ -90,4 +91,18 @@ func blake3XOF(seed []byte, length int) (dst []byte, err error) {
 	_, err = drbg.Read(dst)
 
 	return dst, err
+}
+
+func PseudorandomGenerateWithBlake3XOF(dst []byte, seed []byte, h *blake3.Hasher) error {
+	// need expand?
+	if len(dst) < len(seed) {
+		return ErrDstTooShort
+	}
+
+	h.Write(seed)
+	drbg := h.Digest()
+
+	_, err := drbg.Read(dst)
+
+	return err
 }

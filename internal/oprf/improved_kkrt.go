@@ -23,6 +23,7 @@ import (
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
+	"github.com/zeebo/blake3"
 )
 
 type imprvKKRT struct {
@@ -80,15 +81,19 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	u := make([]byte, paddedLen)
 	q := make([][]byte, k)
+	h := blake3.New()
 	for row := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return Key{}, err
 		}
 
-		q[row], err = crypto.PseudorandomGenerate(ext.drbg, seeds[row], paddedLen)
+		q[row] = make([]byte, paddedLen)
+		err = crypto.PseudorandomGenerateWithBlake3XOF(q[row], seeds[row], h)
+		//q[row], err = crypto.PseudorandomGenerate(ext.drbg, seeds[row], paddedLen)
 		if err != nil {
 			return Key{}, err
 		}
+		h.Reset()
 		err = util.ConcurrentInPlaceXorBytes(q[row], util.AndByte(util.TestBitSetInByte(s, row), u))
 		if err != nil {
 			return Key{}, err
@@ -114,7 +119,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 		return encodings, err
 	}
 
-	// compute code word using pseudorandom code on choice stirng r in a separate thread
+	// compute code word using pseudorandom code on choice string r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		d := make([][]byte, ext.m)
@@ -125,22 +130,16 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 			if item == nil {
 				fmt.Errorf("failed to retrieve item #%v", idx)
 			}
-			d[i] = crypto.PseudorandomCode(aesBlock, append(item, hIdx))
+
+			d[i] = crypto.PseudorandomCode2(aesBlock, item, hIdx)
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*k, k)
+	baseMsgs, err := util.SampleRandom3DBitMatrix(rand.Reader, k, 2, k)
 	if err != nil {
 		return encodings, err
-	}
-
-	baseMsgs := make([][][]byte, k)
-	for j := range baseMsgs {
-		baseMsgs[j] = make([][]byte, 2)
-		baseMsgs[j][0] = seeds[2*j]
-		baseMsgs[j][1] = seeds[2*j+1]
 	}
 
 	// act as sender in baseOT to send k columns
@@ -155,22 +154,23 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
+	h := blake3.New()
 	for col := range d {
-		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
+		t[col] = make([]byte, paddedLen)
+		err = crypto.PseudorandomGenerateWithBlake3XOF(t[col], baseMsgs[col][0], h)
+		//t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
 		if err != nil {
 			return encodings, err
 		}
+		h.Reset()
+		err = crypto.PseudorandomGenerateWithBlake3XOF(u, baseMsgs[col][1], h)
+		//u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
+		if err != nil {
+			return encodings, err
+		}
+		h.Reset()
 
-		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
-		if err != nil {
-			return encodings, err
-		}
-
-		err = util.ConcurrentInPlaceXorBytes(u, t[col])
-		if err != nil {
-			return encodings, err
-		}
-		err = util.ConcurrentInPlaceXorBytes(u, d[col])
+		err = util.ConcurrentInPlaceDoubleXorBytes(u, t[col], d[col])
 		if err != nil {
 			return encodings, err
 		}

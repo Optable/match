@@ -55,10 +55,9 @@ func (k Key) Encode(j uint64, in []byte) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
 	out = crypto.PseudorandomCode(k.block, in)
 
-	if err = util.ConcurrentInPlaceAndBytes(out, k.s); err != nil {
+	if err = util.ConcurrentInPlaceAndXorBytes(out, k.s, k.q[j]); err != nil {
 		return nil, err
 	}
 
-	err = util.ConcurrentInPlaceXorBytes(out, k.q[j])
 	return
 }
