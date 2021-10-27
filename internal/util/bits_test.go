@@ -223,6 +223,7 @@ func BenchmarkConcurrentInPlaceXorBytes(b *testing.B) {
 		ConcurrentInPlaceXorBytes(a, a)
 	}
 }
+
 func BenchmarkInPlaceAndBytes(b *testing.B) {
 	a := make([]byte, 10000000)
 	if _, err := prng.Read(a); err != nil {

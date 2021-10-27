@@ -89,7 +89,6 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 
 		q[row] = make([]byte, paddedLen)
 		err = crypto.PseudorandomGenerateWithBlake3XOF(q[row], seeds[row], h)
-		//q[row], err = crypto.PseudorandomGenerate(ext.drbg, seeds[row], paddedLen)
 		if err != nil {
 			return Key{}, err
 		}
@@ -131,7 +130,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 				fmt.Errorf("failed to retrieve item #%v", idx)
 			}
 
-			d[i] = crypto.PseudorandomCode2(aesBlock, item, hIdx)
+			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
@@ -158,13 +157,11 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 	for col := range d {
 		t[col] = make([]byte, paddedLen)
 		err = crypto.PseudorandomGenerateWithBlake3XOF(t[col], baseMsgs[col][0], h)
-		//t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
 		if err != nil {
 			return encodings, err
 		}
 		h.Reset()
 		err = crypto.PseudorandomGenerateWithBlake3XOF(u, baseMsgs[col][1], h)
-		//u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
 		if err != nil {
 			return encodings, err
 		}

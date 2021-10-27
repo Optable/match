@@ -249,7 +249,7 @@ func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 	return nil
 }
 
-// InPlaceAndBytes performs the binary AND of each
+// InPlaceAndXorBytes performs the binary AND of each
 // byte in a and dst followed by XORing each byte in b and dst
 // if a, b and dst are the same length.
 func InPlaceAndXorBytes(dst, a, b []byte) error {

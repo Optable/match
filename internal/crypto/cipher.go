@@ -51,11 +51,11 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	return dst
 }
 
-// PseudorandomCode is implemented as follows:
+// PseudorandomCodeWithHashIndex is implemented as follows:
 // C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
 // secretKey is a 16 byte slice for AES-128
 // on success, pseudorandomCode returns a byte slice of 64 bytes.
-func PseudorandomCode2(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte) {
+func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte) {
 	dst = make([]byte, aes.BlockSize*4)
 	// effectively pad src
 	copy(dst, src)
