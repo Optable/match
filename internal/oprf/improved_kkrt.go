@@ -121,6 +121,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 	var pseudorandomChan = make(chan [][]byte)
 	var errChan = make(chan error, 1)
 	go func() {
+		defer close(errChan)
 		d := make([][]byte, ext.m)
 		aesBlock, err := aes.NewCipher(sk)
 		if err != nil {

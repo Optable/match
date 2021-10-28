@@ -103,6 +103,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
+		fmt.Println("Starting stage 3")
 		// read number of remote IDs
 		var remoteN int64
 		if err := binary.Read(r.rw, binary.BigEndian, &remoteN); err != nil {
@@ -124,7 +125,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				if idx, ok := oprfOutput[hashIdx][remoteHash]; ok {
 					id, _ := cuckooHashTable.GetItemWithHash(idx)
 					if id == nil {
-						fmt.Errorf("failed to retrieve item #%v", idx)
+						return fmt.Errorf("failed to retrieve item #%v", idx)
 					}
 					intersection = append(intersection, id)
 				}

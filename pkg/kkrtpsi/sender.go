@@ -80,17 +80,14 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// exhaust local ids, and precompute all potential
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
-		var hashChan = make(chan hash.Hasher)
 		go func() {
 			defer close(hashedIds)
-			defer close(hashChan)
 			cuckooHashTable := cuckoo.NewDummyCuckoo(uint64(remoteN), seeds)
-			hashChan <- cuckooHashTable.GetHasher()
 			for id := range identifiers {
 				hashedIds <- hashable{identifier: id, bucketIdx: cuckooHashTable.BucketIndices(id)}
 			}
-			// no longer need it.
-			cuckooHashTable = nil
+			hasher := cuckooHashTable.GetHasher()
+			hashChan <- hasher
 		}()
 
 		// end stage1
@@ -128,8 +125,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		hasher := <-hashChan
-		localEncodings := EncodeAndHashAllParallel(oprfKeys, hasher, hashedIds)
+		localEncodings := EncodeAndHashAllParallel(oprfKeys, <-hashChan, hashedIds)
 
 		// Add a buffer of 64k to amortize syscalls cost
 		var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
