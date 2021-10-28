@@ -15,7 +15,6 @@ Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
 import (
 	"crypto/aes"
 	"crypto/rand"
-	"fmt"
 	"io"
 
 	"github.com/optable/match/internal/crypto"
@@ -59,21 +58,21 @@ func (o kkrt) Send(rw io.ReadWriter) (keys Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]byte, 16)
 	if _, err = rand.Read(sk); err != nil {
-		return Key{}, nil
+		return keys, nil
 	}
 	// send the secret key
-	if _, err := rw.Write(sk); err != nil {
-		return Key{}, err
+	if _, err = rw.Write(sk); err != nil {
+		return keys, err
 	}
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
-		return Key{}, err
+		return keys, err
 	}
 	// act as receiver in baseOT to receive q^j
 	q := make([][]byte, k)
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
-		return Key{}, err
+		return keys, err
 	}
 
 	q = util.TransposeByteMatrix(q)
@@ -97,19 +96,23 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 
 	// compute code word using pseudorandom code on choice stirng r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
+	var errChan = make(chan error)
 	go func() {
 		d := make([][]byte, o.m)
-		aesBlock, _ := aes.NewCipher(sk)
-		for i := 0; i < o.m; i++ {
-			idx, _ := choices.GetBucket(uint64(i))
-			item, hIdx := choices.GetItemWithHash(idx)
-			if item == nil {
-				fmt.Errorf("failed to retrieve item #%v", idx)
-			}
-			d[i] = crypto.PseudorandomCode(aesBlock, append(item, hIdx))
+		aesBlock, err := aes.NewCipher(sk)
+		if err != nil {
+			errChan <- err
 		}
-		tr := util.TransposeByteMatrix(d)
-		pseudorandomChan <- tr
+		for i := 0; i < o.m; i++ {
+			idx, err := choices.GetBucket(uint64(i))
+			if err != nil {
+				errChan <- err
+			}
+			item, hIdx := choices.GetItemWithHash(idx)
+			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
+		}
+		pseudorandomChan <- util.TransposeByteMatrix(d)
+		errChan <- nil
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
@@ -118,7 +121,15 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 		return encodings, err
 	}
 
-	d := <-pseudorandomChan
+	// read error
+	var d [][]byte
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return encodings, err
+		}
+	case d = <-pseudorandomChan:
+	}
 
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, k)
@@ -143,17 +154,21 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 
 	// Hash and index all local encodings
 	// the hash value of the oprf encoding is the key
-	// the index of the corresponding ID is the value
+	// the index of the corresponding ID in the cuckoo Hash tabel is the value
 	for i := range encodings {
 		encodings[i] = make(map[uint64]uint64, o.m)
 	}
 	// hash local oprf output
+	hasher := choices.GetHasher()
 	for bIdx := uint64(0); bIdx < choices.Len(); bIdx++ {
 		// check if it was an empty input
-		if idx, _ := choices.GetBucket(bIdx); idx != 0 {
+		if idx, err := choices.GetBucket(bIdx); idx != 0 {
+			if err != nil {
+				return encodings, err
+			}
 			// insert into proper map
 			_, hIdx := choices.GetItemWithHash(idx)
-			encodings[hIdx][choices.BucketIndices(t[bIdx])[0]] = idx
+			encodings[hIdx][hasher.Hash64(t[bIdx])] = idx
 		}
 	}
 

@@ -99,6 +99,8 @@ func PseudorandomGenerateWithBlake3XOF(dst []byte, seed []byte, h *blake3.Hasher
 		return ErrDstTooShort
 	}
 
+	// reset internal state
+	h.Reset()
 	h.Write(seed)
 	drbg := h.Digest()
 

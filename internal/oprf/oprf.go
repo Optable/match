@@ -51,9 +51,9 @@ type Key struct {
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, in []byte) (out []byte, err error) {
+func (k Key) Encode(j uint64, in []byte, hIdx uint8) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCode(k.block, in)
+	out = crypto.PseudorandomCodeWithHashIndex(k.block, in, hIdx)
 
 	if err = util.ConcurrentInPlaceAndXorBytes(out, k.s, k.q[j]); err != nil {
 		return nil, err
