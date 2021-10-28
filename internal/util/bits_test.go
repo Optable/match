@@ -298,7 +298,7 @@ func TestConcurrentInPlaceAndBytes(t *testing.T) {
 }
 
 func BenchmarkXorBytes(b *testing.B) {
-	a := make([]byte, 10000)
+	a := make([]byte, 10000000)
 	prng.Read(a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
