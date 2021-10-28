@@ -55,6 +55,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 	var oprfKeys oprf.Key
 	var hashedIds = make(chan hashable, n)
+	var hashChan = make(chan hash.Hasher)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	// for cuckoo hashing parameters agreement.
@@ -80,13 +81,13 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
 		go func() {
+			defer close(hashedIds)
 			cuckooHashTable := cuckoo.NewDummyCuckoo(uint64(remoteN), seeds)
 			for id := range identifiers {
 				hashedIds <- hashable{identifier: id, bucketIdx: cuckooHashTable.BucketIndices(id)}
 			}
-			// no longer need it.
-			cuckooHashTable = nil
-			close(hashedIds)
+			hasher := cuckooHashTable.GetHasher()
+			hashChan <- hasher
 		}()
 
 		// end stage1
@@ -124,12 +125,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		hasher, err := hash.New(hash.HighwayMinio, seeds[0])
-		if err != nil {
-			return err
-		}
-
-		localEncodings := EncodeAndHashAllParallel(oprfKeys, hasher, hashedIds)
+		localEncodings := EncodeAndHashAllParallel(oprfKeys, <-hashChan, hashedIds)
 
 		// Add a buffer of 64k to amortize syscalls cost
 		var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
