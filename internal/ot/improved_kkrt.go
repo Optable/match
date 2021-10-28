@@ -78,7 +78,7 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// with q[col] just returns the same row so no need to do
 		// an operation
 		if util.TestBitSetInByte(s, col) == 1 {
-			q[col], _ = util.XorBytes(u, q[col])
+			util.ConcurrentBitOp(util.Xor, q[col], u)
 		}
 	}
 
@@ -91,8 +91,7 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
 			key = crypto.PseudorandomCode(aesBlock, []byte{byte(choice)})
-			util.ConcurrentInPlaceAndBytes(key, s)
-			util.ConcurrentInPlaceXorBytes(key, q[i])
+			util.ConcurrentDoubleBitOp(util.AndXor, key, s, q[i])
 
 			ciphertext, err = crypto.Encrypt(crypto.XORBlake3, key, uint8(choice), plaintext)
 			if err != nil {
@@ -166,11 +165,11 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		if err != nil {
 			return err
 		}
-		u, err = util.XorBytes(t[col], u)
+		err = util.ConcurrentBitOp(util.Xor, u, t[col])
 		if err != nil {
 			return err
 		}
-		u, err = util.XorBytes(u, d[col])
+		err = util.ConcurrentBitOp(util.Xor, u, d[col])
 		if err != nil {
 			return err
 		}

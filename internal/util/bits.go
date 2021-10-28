@@ -16,7 +16,7 @@ var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same len
 // The remaining elements that were not cast are XORed conventionally.
 // Of course a and dst must be the same length and the whole operation
 // is performed in place.
-func xor(dst, a []byte) error {
+func Xor(dst, a []byte) error {
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
 	}
@@ -44,7 +44,7 @@ func xor(dst, a []byte) error {
 // The remaining elements that were not cast are ANDed conventionally.
 // Of course a and dst must be the same length and the whole operation
 // is performed in place.
-func and(dst, a []byte) error {
+func And(dst, a []byte) error {
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
 	}
@@ -72,7 +72,7 @@ func and(dst, a []byte) error {
 // (first with a and then with b). The remaining elements that were not
 // cast are XORed conventionally. Of course a and dst must be the same
 // length and the whole operation is performed in place.
-func doubleXor(dst, a, b []byte) error {
+func DoubleXor(dst, a, b []byte) error {
 	if len(dst) != len(a) || len(dst) != len(b) {
 		return ErrByteLengthMissMatch
 	}
@@ -103,7 +103,7 @@ func doubleXor(dst, a, b []byte) error {
 // (with a) and then performs XOR (with b). The remaining elements
 // that were not cast are operated conventionally. Of course a and dst
 // must be the same length and the whole operation is performed in place.
-func andXor(dst, a, b []byte) error {
+func AndXor(dst, a, b []byte) error {
 	if len(dst) != len(a) || len(dst) != len(b) {
 		return ErrByteLengthMissMatch
 	}
@@ -257,23 +257,6 @@ func InPlaceXorBytes(dst, a []byte) error {
 	return nil
 }
 
-// InplaceDoubleXorBytes XORS each byte from a with dst in place
-// followed by XORing each byte from b with dst in place if a, b
-// and dst are all the same length
-func InPlaceDoubleXorBytes(dst, a, b []byte) error {
-	var n = len(dst)
-	if n != len(a) {
-		return ErrByteLengthMissMatch
-	}
-
-	for i := 0; i < n; i++ {
-		dst[i] ^= a[i]
-		dst[i] ^= b[i]
-	}
-
-	return nil
-}
-
 // ConcurrentInPlaceXorBytes XORS each byte from a with dst in place
 // if a and dst are the same length
 func ConcurrentInPlaceXorBytes(dst, a []byte) error {
@@ -324,125 +307,6 @@ func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 	wg.Wait()
 
 	return nil
-}
-
-// ConcurrentUnsafeInPlaceXorBytes XORS each byte from a with dst in place
-// if a and dst are the same length
-func ConcurrentUnsafeInPlaceXorBytes(dst, a []byte) error {
-	const blockSize int = 16384 // half of what L2 cache can hold
-	nworkers := runtime.GOMAXPROCS(0)
-	if len(dst) != len(a) {
-		return ErrByteLengthMissMatch
-	}
-
-	// no need to split into goroutines
-	if len(dst) < blockSize {
-		return xor(dst, a)
-	}
-
-	// determine number of blocks to split original matrix
-	nblks := len(dst) / blockSize
-	if len(dst)%blockSize != 0 {
-		nblks += 1
-	}
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
-
-	// Run a worker pool
-	var wg sync.WaitGroup
-	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		go func() {
-			defer wg.Done()
-			for blk := range ch {
-				step := blockSize * blk
-				if blk == nblks-1 { // last block
-					xor(dst[step:], a[step:])
-				} else {
-					xor(dst[step:step+blockSize], a[step:step+blockSize])
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	return nil
-}
-
-// ConcurrentInPlaceDoubleXorBytes XORS each byte from a with dst in place
-// followed by XORing each byte from b with dst in place if a, b and dst
-// are all the same length
-func ConcurrentInPlaceDoubleXorBytes(dst, a, b []byte) error {
-	const blockSize int = 16384 // half of what L2 cache can hold
-	nworkers := runtime.GOMAXPROCS(0)
-	var n = len(dst)
-	if n != len(a) {
-		return ErrByteLengthMissMatch
-	}
-
-	// no need to split into goroutines
-	if n < blockSize {
-		return InPlaceDoubleXorBytes(dst, a, b)
-	}
-
-	// determine number of blocks to split original matrix
-	nblks := n / blockSize
-	if n%blockSize != 0 {
-		nblks += 1
-	}
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
-
-	// Run a worker pool
-	var wg sync.WaitGroup
-	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		go func() {
-			defer wg.Done()
-			for blk := range ch {
-				step := blockSize * blk
-				if blk == nblks-1 { // last block
-					for i := step; i < n; i++ {
-						dst[i] ^= a[i]
-						dst[i] ^= b[i]
-					}
-				} else {
-					for i := step; i < step+blockSize; i++ {
-						dst[i] ^= a[i]
-						dst[i] ^= b[i]
-					}
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	return nil
-}
-
-// AndBytes returns the binary AND of each byte in a and b
-// and returns dst if a and b are the same length
-func AndBytes(a, b []byte) (dst []byte, err error) {
-	n := len(b)
-	if n != len(a) {
-		return nil, ErrByteLengthMissMatch
-	}
-
-	dst = make([]byte, n)
-
-	for i := 0; i < n; i++ {
-		dst[i] = a[i] & b[i]
-	}
-
-	return
 }
 
 // InPlaceAndBytes performs the binary AND of each byte in a
@@ -501,78 +365,6 @@ func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 				} else {
 					for i := step; i < step+blockSize; i++ {
 						dst[i] &= a[i]
-					}
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	return nil
-}
-
-// InPlaceAndXorBytes performs the binary AND of each
-// byte in a and dst followed by XORing each byte in b and dst
-// if a, b and dst are the same length.
-func InPlaceAndXorBytes(dst, a, b []byte) error {
-	n := len(dst)
-	if n != len(a) {
-		return ErrByteLengthMissMatch
-	}
-
-	for i := range dst {
-		dst[i] &= a[i]
-		dst[i] ^= b[i]
-	}
-
-	return nil
-}
-
-// ConcurrentInPlaceAndXorBytes performs the binary AND of each
-// byte in a and dst followed by XORing each byte in b and dst
-// if a, b and dst are the same length.
-func ConcurrentInPlaceAndXorBytes(dst, a, b []byte) error {
-	const blockSize int = 16384 // half of what L2 cache can hold
-	nworkers := runtime.GOMAXPROCS(0)
-	var n = len(dst)
-	if n != len(a) {
-		return ErrByteLengthMissMatch
-	}
-
-	// no need to split into goroutines
-	if n < blockSize {
-		return InPlaceAndXorBytes(dst, a, b)
-	}
-
-	// determine number of blocks to split original matrix
-	nblks := n / blockSize
-	if n%blockSize != 0 {
-		nblks += 1
-	}
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
-
-	// Run a worker pool
-	var wg sync.WaitGroup
-	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		go func() {
-			defer wg.Done()
-			for blk := range ch {
-				step := blockSize * blk
-				if blk == nblks-1 { // last block
-					for i := step; i < n; i++ {
-						dst[i] &= a[i]
-						dst[i] ^= b[i]
-					}
-				} else {
-					for i := step; i < step+blockSize; i++ {
-						dst[i] &= a[i]
-						dst[i] ^= b[i]
 					}
 				}
 			}

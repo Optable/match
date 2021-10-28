@@ -98,7 +98,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 		// with q[row] just returns the same row so no need to do
 		// an operation
 		if util.TestBitSetInByte(s, row) == 1 {
-			err = util.ConcurrentInPlaceXorBytes(q[row], u)
+			err = util.ConcurrentBitOp(util.Xor, q[row], u)
 			if err != nil {
 				return Key{}, err
 			}
@@ -184,7 +184,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 			return encodings, err
 		}
 
-		err = util.ConcurrentInPlaceDoubleXorBytes(u, t[col], d[col])
+		err = util.ConcurrentDoubleBitOp(util.DoubleXor, u, t[col], d[col])
 		if err != nil {
 			return encodings, err
 		}

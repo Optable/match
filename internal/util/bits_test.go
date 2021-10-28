@@ -163,7 +163,7 @@ func TestConcurrentUnsafeInPlaceXorBytes(t *testing.T) {
 		if _, err := prng.Read(a); err != nil {
 			t.Fatalf("error generating random bytes")
 		}
-		ConcurrentUnsafeInPlaceXorBytes(a, a)
+		ConcurrentBitOp(Xor, a, a)
 		for _, i := range a {
 			if i != 0 {
 				t.Fatalf("XOR operation was not performed correctly")
@@ -180,8 +180,8 @@ func TestConcurrentUnsafeInPlaceXorBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(d, c) // save original to check later
-		ConcurrentUnsafeInPlaceXorBytes(c, e)
-		ConcurrentUnsafeInPlaceXorBytes(c, e)
+		ConcurrentBitOp(Xor, c, e)
+		ConcurrentBitOp(Xor, c, e)
 		for i := range c {
 			if c[i] != d[i] {
 				t.Fatalf("performing concurrent XOR operation twice did not result in same slice")
@@ -198,7 +198,7 @@ func TestConcurrentUnsafeInPlaceXorBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(g, f)
-		ConcurrentUnsafeInPlaceXorBytes(f, h)
+		ConcurrentBitOp(Xor, f, h)
 		InPlaceXorBytes(g, h)
 		for i := range f {
 			if f[i] != g[i] {
@@ -215,7 +215,7 @@ func TestUnsafeInPlaceXorBytes(t *testing.T) {
 		if _, err := prng.Read(a); err != nil {
 			t.Fatalf("error generating random bytes")
 		}
-		xor(a, a)
+		Xor(a, a)
 		for _, i := range a {
 			if i != 0 {
 				t.Fatalf("XOR operation was not performed correctly")
@@ -232,8 +232,8 @@ func TestUnsafeInPlaceXorBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(d, c) // save original to check later
-		xor(c, e)
-		xor(c, e)
+		Xor(c, e)
+		Xor(c, e)
 		for i := range c {
 			if c[i] != d[i] {
 				t.Fatalf("performing concurrent XOR operation twice did not result in same slice")
@@ -250,7 +250,7 @@ func TestUnsafeInPlaceXorBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(g, f)
-		xor(f, h)
+		Xor(f, h)
 		InPlaceXorBytes(g, h)
 		for i := range f {
 			if f[i] != g[i] {
@@ -324,7 +324,7 @@ func BenchmarkUnsafeInPlaceXorBytes(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		xor(a, a)
+		Xor(a, a)
 	}
 }
 
@@ -339,17 +339,6 @@ func BenchmarkConcurrentInPlaceXorBytes(b *testing.B) {
 	}
 }
 
-func BenchmarkConcurrentUnsafeInPlaceXorBytes(b *testing.B) {
-	a := make([]byte, 10000000)
-	if _, err := prng.Read(a); err != nil {
-		b.Fatalf("error generating random bytes")
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ConcurrentUnsafeInPlaceXorBytes(a, a)
-	}
-}
-
 func BenchmarkConcurrentUnsafeBitOperation(b *testing.B) {
 	a := make([]byte, 10000000)
 	if _, err := prng.Read(a); err != nil {
@@ -357,7 +346,7 @@ func BenchmarkConcurrentUnsafeBitOperation(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ConcurrentBitOp(xor, a, a)
+		ConcurrentBitOp(Xor, a, a)
 	}
 }
 

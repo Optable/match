@@ -79,8 +79,7 @@ func (ext kkrt) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
 			key = crypto.PseudorandomCode(aesBlock, []byte{byte(choice)})
-			util.ConcurrentInPlaceAndBytes(key, s)
-			util.ConcurrentInPlaceXorBytes(key, q[i])
+			util.ConcurrentDoubleBitOp(util.AndXor, key, s, q[i])
 
 			ciphertext, err = crypto.Encrypt(crypto.XORBlake3, key, uint8(choice), plaintext)
 			if err != nil {
@@ -132,7 +131,7 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	baseMsgs := make([][][]byte, ext.k)
 	for i := range baseMsgs {
 
-		err = util.ConcurrentInPlaceXorBytes(d[i], t[i])
+		err = util.ConcurrentBitOp(util.Xor, d[i], t[i])
 		if err != nil {
 			return err
 		}

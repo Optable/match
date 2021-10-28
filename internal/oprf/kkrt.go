@@ -136,7 +136,7 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 	baseMsgs := make([][][]byte, k)
 	for i := range baseMsgs {
 
-		err = util.ConcurrentInPlaceXorBytes(d[i], t[i])
+		err = util.ConcurrentBitOp(util.Xor, d[i], t[i])
 		if err != nil {
 			return encodings, err
 		}
