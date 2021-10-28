@@ -17,14 +17,13 @@ const (
 	// with the item being reinserted, and then reinsert the kicked off egg
 	ReInsertLimit = 200
 	Factor        = 1.4
+	HashFunc = hash.HighwayMinio
 )
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// to check number of collisions for testing purposes
-var collision int
 
 // A Cuckoo represents a 3-way Cuckoo hash table data structure
 // that contains the items, bucket indices of each item and the 3
@@ -43,7 +42,7 @@ type Cuckoo struct {
 	hashers [Nhash]hash.Hasher
 }
 
-// NewCuckoo instantiate the struct Cuckoo with a bucket of size 1.4 * size,
+// NewCuckoo instantiate the struct Cuckoo with a bucket of size Factor * size,
 // a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
@@ -191,7 +190,7 @@ func (c *Cuckoo) tryAdd(idx uint64, bucketIndices [Nhash]uint64, ignore bool, ex
 			continue
 		}
 
-		if c.bucketLookup[bIdx] == 0 {
+		if c.isEmpty(bIdx) {
 			// this is a free slot
 			c.bucketLookup[bIdx] = idx
 			c.hashIndices[idx] = uint8(hIdx)
@@ -247,9 +246,9 @@ func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize
 }
 
-// IsEmpty returns true if bucket at bidx doesn't contain the index of an identifier
-func (c *Cuckoo) IsEmpty(bidx uint64) bool {
-	return c.bucketLookup[bidx] != 0
+// isEmpty returns true if bucket at bidx doesn't contain the index of an identifier
+func (c *Cuckoo) isEmpty(bidx uint64) bool {
+	return c.bucketLookup[bidx] == 0
 }
 
 func max(a, b uint64) uint64 {

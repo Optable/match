@@ -81,24 +81,23 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 	u := make([]byte, paddedLen)
 	q := make([][]byte, k)
 	h := blake3.New()
-	for row := range q {
+	for col := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
 			return keys, err
 		}
 
 		q[row] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerateWithBlake3XOF(q[row], seeds[row], h)
+		err = crypto.PseudorandomGenerateWithBlake3XOF(q[col], seeds[col], h)
 		if err != nil {
 			return keys, err
 		}
-		h.Reset()
 		// Binary AND of each byte in u with the test bit
 		// if bit is 1, we get whole row u to XOR with q[row]
 		// if bit is 0, we get a row of 0s which when XORed
 		// with q[row] just returns the same row so no need to do
 		// an operation
-		if util.TestBitSetInByte(s, row) == 1 {
-			err = util.ConcurrentBitOp(util.Xor, q[row], u)
+		if util.TestBitSetInByte(s, col) == 1 {
+			err = util.ConcurrentBitOp(util.Xor, q[col], u)
 			if err != nil {
 				return Key{}, err
 			}

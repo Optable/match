@@ -124,7 +124,6 @@ func (ext kkrt) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	if err != nil {
 		return err
 	}
-	fmt.Println("bor4")
 	d := <-pseudorandomChan
 
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}

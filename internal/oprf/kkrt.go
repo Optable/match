@@ -113,7 +113,6 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
-		errChan <- nil
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
