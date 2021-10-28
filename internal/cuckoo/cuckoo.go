@@ -17,13 +17,12 @@ const (
 	// with the item being reinserted, and then reinsert the kicked off egg
 	ReInsertLimit = 200
 	Factor        = 1.4
-	HashFunc = hash.HighwayMinio
+	HashFunc      = hash.HighwayMinio
 )
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
-
 
 // A Cuckoo represents a 3-way Cuckoo hash table data structure
 // that contains the items, bucket indices of each item and the 3
@@ -48,7 +47,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
-		hashers[i], _ = hash.New(hash.HighwayMinio, s)
+		hashers[i], _ = hash.New(HashFunc, s)
 	}
 
 	return &Cuckoo{
@@ -67,33 +66,12 @@ func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	for i, s := range seeds {
-		hashers[i], _ = hash.New(hash.HighwayMinio, s)
+		hashers[i], _ = hash.New(HashFunc, s)
 	}
 
 	return &Cuckoo{
 		bucketSize: bSize,
 		hashers:    hashers,
-	}
-}
-
-// NewTestingCuckoo creates a testing cuckoo that has the same number of
-// buckets as identifiers. Each bucket points directly to the respective
-// identifier (skipping the nil "keeper" value): bucket 0 -> id 1, bucket
-// 1 -> id 2, . . .
-func NewTestingCuckoo(buckets [][]byte) *Cuckoo {
-	items := make([][]byte, len(buckets)+1)
-	copy(items[1:], buckets[:])
-
-	lookup := make([]uint64, len(buckets))
-	for i := range lookup {
-		lookup[i] = uint64(i + 1)
-	}
-
-	return &Cuckoo{
-		items:        items,
-		hashIndices:  make([]byte, len(items)),
-		bucketSize:   uint64(len(lookup)),
-		bucketLookup: lookup,
 	}
 }
 
@@ -120,7 +98,8 @@ func (c *Cuckoo) GetBucket(bIdx uint64) (uint64, error) {
 	return c.bucketLookup[bIdx], nil
 }
 
-// TODO
+// GetItemWithHash returns the item at a given index along with its
+// hash index.
 func (c *Cuckoo) GetItemWithHash(idx uint64) (item []byte, hIdx uint8) {
 	if idx > uint64(len(c.items)-1) {
 		return nil, 0
@@ -216,7 +195,6 @@ func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLess
 		evictedBucketIndices := c.BucketIndices(c.items[evictedIdx])
 		// try to reinsert the evicted items
 		// ignore the evictedBIdx since we newly inserted the item there
-		collision++
 		if c.tryAdd(evictedIdx, evictedBucketIndices, true, evictedBIdx) {
 			return 0, true
 		}

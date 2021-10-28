@@ -59,5 +59,5 @@ func (k Key) Encode(j uint64, in []byte, hIdx uint8) (out []byte, err error) {
 		return nil, err
 	}
 
-	return
+	return out, nil
 }

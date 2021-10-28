@@ -118,7 +118,10 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 
 	e := make([][]byte, 2)
 	for i := 0; i < ext.m; i++ {
-		choiceBit := util.TestBitSetInByte(choices, i)
+		var choiceBit byte
+		if util.BitSetInByte(choices, i) {
+			choiceBit = 1
+		}
 		// compute # of bytes to be read
 		l := crypto.EncryptLen(crypto.XORBlake3, ext.msgLen[i])
 		// read both msg

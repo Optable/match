@@ -11,7 +11,7 @@ import (
 
 var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for bit operations")
 
-// xor casts the first part of the byte slices (length divisible
+// Xor casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs XOR on the slices of uint64.
 // The remaining elements that were not cast are XORed conventionally.
 // Of course a and dst must be the same length and the whole operation
@@ -39,7 +39,7 @@ func Xor(dst, a []byte) error {
 	return nil
 }
 
-// and casts the first part of the byte slices (length divisible
+// And casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs AND on the slices of uint64.
 // The remaining elements that were not cast are ANDed conventionally.
 // Of course a and dst must be the same length and the whole operation
@@ -67,7 +67,7 @@ func And(dst, a []byte) error {
 	return nil
 }
 
-// doubleXor casts the first part of the byte slices (length divisible
+// DoubleXor casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs XOR on the slices of uint64
 // (first with a and then with b). The remaining elements that were not
 // cast are XORed conventionally. Of course a and dst must be the same
@@ -98,7 +98,7 @@ func DoubleXor(dst, a, b []byte) error {
 	return nil
 }
 
-// andXor casts the first part of the byte slices (length divisible
+// AndXor casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs AND on the slices of uint64
 // (with a) and then performs XOR (with b). The remaining elements
 // that were not cast are operated conventionally. Of course a and dst
@@ -376,14 +376,11 @@ func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 	return nil
 }
 
-// TestBitSetInByte returns 1 if bit i is set in a byte slice.
+// BitIsSetInByte returns 1 if bit i is set in a byte slice.
 // It extracts bits from the least significant bit (i = 0) to the
 // most significant bit (i = 7).
-func TestBitSetInByte(b []byte, i int) byte {
-	if b[i/8]&(1<<(i%8)) == 0 {
-		return 0
-	}
-	return 1
+func BitSetInByte(b []byte, i int) bool {
+	return b[i/8]&(1<<(i%8)) > 0
 }
 
 // Transpose returns the transpose of a 2D slices of bytes

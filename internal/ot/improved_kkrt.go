@@ -77,7 +77,7 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// if bit is 0, we get a row of 0s which when XORed
 		// with q[col] just returns the same row so no need to do
 		// an operation
-		if util.TestBitSetInByte(s, col) == 1 {
+		if util.BitSetInByte(s, col) {
 			err = util.ConcurrentBitOp(util.Xor, q[col], u)
 			if err != nil {
 				return err

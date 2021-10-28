@@ -114,7 +114,7 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		bSecrets[i], pointB = crypto.GenerateRistrettoKeys()
 
 		// for each choice bit, compute the resultant point B and send it
-		if util.TestBitSetInByte(choices, i) == 0 {
+		if !util.BitSetInByte(choices, i) {
 			if err := w.Write(&pointB); err != nil {
 				return err
 			}
@@ -149,7 +149,10 @@ func (s simplestRistretto) Receive(choices []uint8, messages [][]byte, rw io.Rea
 		}
 
 		// decrypt the message indexed by choice bit
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		messages[i], err = crypto.Decrypt(s.cipherMode, key, bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)

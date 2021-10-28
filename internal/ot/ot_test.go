@@ -199,7 +199,10 @@ func TestSimplest(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		if !bytes.Equal(m, messages[i][bit]) {
 			t.Fatalf("OT failed got: %s, want %s", m, messages[i][choices[i]])
 		}
@@ -268,7 +271,10 @@ func TestNaorPinkas(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		if !bytes.Equal(m, messages[i][bit]) {
 			t.Fatalf("OT failed got: %s, want %s", m, messages[i][bit])
 		}
@@ -336,7 +342,10 @@ func TestSimplestRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		if !bytes.Equal(m, messages[i][bit]) {
 			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}
@@ -405,7 +414,10 @@ func TestNaorPinkasRistretto(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		if !bytes.Equal(m, messages[i][bit]) {
 			t.Fatalf("OT failed got: %v, want %v", m, messages[i][choices[i]])
 		}

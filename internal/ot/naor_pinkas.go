@@ -130,7 +130,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		}
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
-		if util.TestBitSetInByte(choices, i) == 0 {
+		if !util.BitSetInByte(choices, i) {
 			// K0 = Kc = B
 			if err := writer.Write(pointB); err != nil {
 				return err
@@ -163,7 +163,10 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		pointK = pointR.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		messages[i], err = crypto.Decrypt(n.cipherMode, pointK.DeriveKeyFromECPoints(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)

@@ -86,7 +86,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 			return keys, err
 		}
 
-		q[row] = make([]byte, paddedLen)
+		q[col] = make([]byte, paddedLen)
 		err = crypto.PseudorandomGenerateWithBlake3XOF(q[col], seeds[col], h)
 		if err != nil {
 			return keys, err
@@ -96,7 +96,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 		// if bit is 0, we get a row of 0s which when XORed
 		// with q[row] just returns the same row so no need to do
 		// an operation
-		if util.TestBitSetInByte(s, col) == 1 {
+		if util.BitSetInByte(s, col) {
 			err = util.ConcurrentBitOp(util.Xor, q[col], u)
 			if err != nil {
 				return Key{}, err
@@ -127,7 +127,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 	var pseudorandomChan = make(chan [][]byte)
 	var errChan = make(chan error, 1)
 	go func() {
-		defer close(errChan)
+		//defer close(errChan)
 		d := make([][]byte, ext.m)
 		aesBlock, err := aes.NewCipher(sk)
 		if err != nil {
