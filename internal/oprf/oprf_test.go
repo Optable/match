@@ -143,6 +143,7 @@ func TestKKRT(t *testing.T) {
 	}
 
 	go func() {
+		defer close(errs)
 		conn, err := net.Dial(network, addr)
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
@@ -219,6 +220,7 @@ func TestImprovedKKRT(t *testing.T) {
 	}
 
 	go func() {
+		defer close(errs)
 		conn, err := net.Dial(network, addr)
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
