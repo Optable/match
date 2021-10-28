@@ -5,9 +5,225 @@ import (
 	"io"
 	"runtime"
 	"sync"
+
+	"github.com/alecthomas/unsafeslice"
 )
 
 var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for bit operations")
+
+// xor casts the first part of the byte slices (length divisible
+// by 8) into uint64 and then performs XOR on the slices of uint64.
+// The remaining elements that were not cast are XORed conventionally.
+// Of course a and dst must be the same length and the whole operation
+// is performed in place.
+func xor(dst, a []byte) error {
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
+	castA := unsafeslice.Uint64SliceFromByteSlice(a)
+
+	for i := range castDst {
+		castDst[i] ^= castA[i]
+	}
+
+	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
+
+	// deal with excess bytes which couldn't be cast to uint64
+	// in the conventional manner
+	for j := 0; j < len(dst)%8; j++ {
+		dst[len(dst)-j-1] ^= a[len(a)-j-1]
+	}
+
+	return nil
+}
+
+// and casts the first part of the byte slices (length divisible
+// by 8) into uint64 and then performs AND on the slices of uint64.
+// The remaining elements that were not cast are ANDed conventionally.
+// Of course a and dst must be the same length and the whole operation
+// is performed in place.
+func and(dst, a []byte) error {
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
+	castA := unsafeslice.Uint64SliceFromByteSlice(a)
+
+	for i := range castDst {
+		castDst[i] &= castA[i]
+	}
+
+	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
+
+	// deal with excess bytes which couldn't be cast to uint64
+	// in the conventional manner
+	for j := 0; j < len(dst)%8; j++ {
+		dst[len(dst)-j-1] &= a[len(a)-j-1]
+	}
+
+	return nil
+}
+
+// doubleXor casts the first part of the byte slices (length divisible
+// by 8) into uint64 and then performs XOR on the slices of uint64
+// (first with a and then with b). The remaining elements that were not
+// cast are XORed conventionally. Of course a and dst must be the same
+// length and the whole operation is performed in place.
+func doubleXor(dst, a, b []byte) error {
+	if len(dst) != len(a) || len(dst) != len(b) {
+		return ErrByteLengthMissMatch
+	}
+
+	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
+	castA := unsafeslice.Uint64SliceFromByteSlice(a)
+	castB := unsafeslice.Uint64SliceFromByteSlice(b)
+
+	for i := range castDst {
+		castDst[i] ^= castA[i]
+		castDst[i] ^= castB[i]
+	}
+
+	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
+
+	// deal with excess bytes which couldn't be cast to uint64
+	// in the conventional manner
+	for j := 0; j < len(dst)%8; j++ {
+		dst[len(dst)-j-1] ^= a[len(a)-j-1]
+		dst[len(dst)-j-1] ^= b[len(b)-j-1]
+	}
+
+	return nil
+}
+
+// andXor casts the first part of the byte slices (length divisible
+// by 8) into uint64 and then performs AND on the slices of uint64
+// (with a) and then performs XOR (with b). The remaining elements
+// that were not cast are operated conventionally. Of course a and dst
+// must be the same length and the whole operation is performed in place.
+func andXor(dst, a, b []byte) error {
+	if len(dst) != len(a) || len(dst) != len(b) {
+		return ErrByteLengthMissMatch
+	}
+
+	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
+	castA := unsafeslice.Uint64SliceFromByteSlice(a)
+	castB := unsafeslice.Uint64SliceFromByteSlice(b)
+
+	for i := range castDst {
+		castDst[i] &= castA[i]
+		castDst[i] ^= castB[i]
+	}
+
+	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
+
+	// deal with excess bytes which couldn't be cast to uint64
+	// in the conventional manner
+	for j := 0; j < len(dst)%8; j++ {
+		dst[len(dst)-j-1] &= a[len(a)-j-1]
+		dst[len(dst)-j-1] ^= b[len(b)-j-1]
+	}
+
+	return nil
+}
+
+// ConcurrentBitOp performs an in-place bitwise operation, f, on each
+// byte from a with dst if they are both the same length
+func ConcurrentBitOp(f func([]byte, []byte) error, dst, a []byte) error {
+	const blockSize int = 16384 // half of what L2 cache can hold
+	nworkers := runtime.GOMAXPROCS(0)
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	// no need to split into goroutines
+	if len(dst) < blockSize {
+		return f(dst, a)
+	}
+
+	// determine number of blocks to split original matrix
+	nblks := len(dst) / blockSize
+	if len(dst)%blockSize != 0 {
+		nblks += 1
+	}
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			var step int
+			for blk := range ch {
+				step = blockSize * blk
+				if blk == nblks-1 { // last block
+					f(dst[step:], a[step:])
+				} else {
+					f(dst[step:step+blockSize], a[step:step+blockSize])
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+// ConcurrentDoubleBitOp performs an in-place double bitwise operation, f,
+// on each byte from a with dst if they are both the same length
+func ConcurrentDoubleBitOp(f func([]byte, []byte, []byte) error, dst, a, b []byte) error {
+	const blockSize int = 16384 // half of what L2 cache can hold
+	nworkers := runtime.GOMAXPROCS(0)
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	// no need to split into goroutines
+	if len(dst) < blockSize {
+		return f(dst, a, b)
+	}
+
+	// determine number of blocks to split original matrix
+	nblks := len(dst) / blockSize
+	if len(dst)%blockSize != 0 {
+		nblks += 1
+	}
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			var step int
+			for blk := range ch {
+				step = blockSize * blk
+				if blk == nblks-1 { // last block
+					f(dst[step:], a[step:], b[step:])
+				} else {
+					f(dst[step:step+blockSize], a[step:step+blockSize], b[step:step+blockSize])
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return nil
+}
 
 // XorBytes XORS each byte from a with b and returns dst
 // if a and b are the same length
@@ -26,7 +242,7 @@ func XorBytes(a, b []byte) (dst []byte, err error) {
 	return
 }
 
-// InplaceXorBytes XORS each byte from a with dst in place
+// InPlaceXorBytes XORS each byte from a with dst in place
 // if a and dst are the same length
 func InPlaceXorBytes(dst, a []byte) error {
 	var n = len(dst)
@@ -100,6 +316,53 @@ func ConcurrentInPlaceXorBytes(dst, a []byte) error {
 					for i := step; i < step+blockSize; i++ {
 						dst[i] ^= a[i]
 					}
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+// ConcurrentUnsafeInPlaceXorBytes XORS each byte from a with dst in place
+// if a and dst are the same length
+func ConcurrentUnsafeInPlaceXorBytes(dst, a []byte) error {
+	const blockSize int = 16384 // half of what L2 cache can hold
+	nworkers := runtime.GOMAXPROCS(0)
+	if len(dst) != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	// no need to split into goroutines
+	if len(dst) < blockSize {
+		return xor(dst, a)
+	}
+
+	// determine number of blocks to split original matrix
+	nblks := len(dst) / blockSize
+	if len(dst)%blockSize != 0 {
+		nblks += 1
+	}
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			for blk := range ch {
+				step := blockSize * blk
+				if blk == nblks-1 { // last block
+					xor(dst[step:], a[step:])
+				} else {
+					xor(dst[step:step+blockSize], a[step:step+blockSize])
 				}
 			}
 		}()
@@ -319,15 +582,6 @@ func ConcurrentInPlaceAndXorBytes(dst, a, b []byte) error {
 	wg.Wait()
 
 	return nil
-}
-
-// AndByte returns the binary AND of each byte in b with a.
-func AndByte(a uint8, b []byte) []byte {
-	if a == 1 {
-		return b
-	}
-
-	return make([]byte, len(b))
 }
 
 // TestBitSetInByte returns 1 if bit i is set in a byte slice.

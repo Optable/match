@@ -72,7 +72,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 	}
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
-	seeds := make([][]uint8, k)
+	seeds := make([][]byte, k)
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
 		return Key{}, err
 	}
@@ -93,9 +93,16 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 			return Key{}, err
 		}
 		h.Reset()
-		err = util.ConcurrentInPlaceXorBytes(q[row], util.AndByte(util.TestBitSetInByte(s, row), u))
-		if err != nil {
-			return Key{}, err
+		// Binary AND of each byte in u with the test bit
+		// if bit is 1, we get whole row u to XOR with q[row]
+		// if bit is 0, we get a row of 0s which when XORed
+		// with q[row] just returns the same row so no need to do
+		// an operation
+		if util.TestBitSetInByte(s, row) == 1 {
+			err = util.ConcurrentInPlaceXorBytes(q[row], u)
+			if err != nil {
+				return Key{}, err
+			}
 		}
 	}
 	runtime.GC()

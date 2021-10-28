@@ -17,6 +17,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"runtime"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
@@ -106,7 +107,7 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 			if item == nil {
 				fmt.Errorf("failed to retrieve item #%v", idx)
 			}
-			d[i] = crypto.PseudorandomCode(aesBlock, append(item, hIdx))
+			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
 		}
 		tr := util.TransposeByteMatrix(d)
 		pseudorandomChan <- tr
@@ -139,6 +140,7 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 		return encodings, err
 	}
 
+	runtime.GC()
 	t = util.TransposeByteMatrix(t)[:o.m]
 
 	// Hash and index all local encodings
@@ -147,13 +149,14 @@ func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuck
 	for i := range encodings {
 		encodings[i] = make(map[uint64]uint64, o.m)
 	}
+	hasher := choices.GetHasher()
 	// hash local oprf output
 	for bIdx := uint64(0); bIdx < choices.Len(); bIdx++ {
 		// check if it was an empty input
 		if idx, _ := choices.GetBucket(bIdx); idx != 0 {
 			// insert into proper map
 			_, hIdx := choices.GetItemWithHash(idx)
-			encodings[hIdx][choices.BucketIndices(t[bIdx])[0]] = idx
+			encodings[hIdx][hasher.Hash64(t[bIdx])] = idx
 		}
 	}
 

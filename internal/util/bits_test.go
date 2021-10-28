@@ -156,6 +156,110 @@ func TestConcurrentInPlaceXorBytes(t *testing.T) {
 	}
 }
 
+func TestConcurrentUnsafeInPlaceXorBytes(t *testing.T) {
+	for _, l := range []int{10, 16384, 10000000} {
+		// XOR with itself
+		a := make([]byte, l)
+		if _, err := prng.Read(a); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		ConcurrentUnsafeInPlaceXorBytes(a, a)
+		for _, i := range a {
+			if i != 0 {
+				t.Fatalf("XOR operation was not performed correctly")
+			}
+		}
+		// doubly XOR with another slice to get back original
+		c := make([]byte, l)
+		d := make([]byte, l)
+		e := make([]byte, l)
+		if _, err := prng.Read(c); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		if _, err := prng.Read(e); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		copy(d, c) // save original to check later
+		ConcurrentUnsafeInPlaceXorBytes(c, e)
+		ConcurrentUnsafeInPlaceXorBytes(c, e)
+		for i := range c {
+			if c[i] != d[i] {
+				t.Fatalf("performing concurrent XOR operation twice did not result in same slice")
+			}
+		}
+		// XOR same original slice with concurrent and non-concurrent versions and then compare output
+		f := make([]byte, l)
+		g := make([]byte, l)
+		h := make([]byte, l)
+		if _, err := prng.Read(f); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		if _, err := prng.Read(h); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		copy(g, f)
+		ConcurrentUnsafeInPlaceXorBytes(f, h)
+		InPlaceXorBytes(g, h)
+		for i := range f {
+			if f[i] != g[i] {
+				t.Fatalf("result of concurrent XOR operation did not match with result of non-concurrent equivalent")
+			}
+		}
+	}
+}
+
+func TestUnsafeInPlaceXorBytes(t *testing.T) {
+	for _, l := range []int{10, 16384, 10000000} {
+		// XOR with itself
+		a := make([]byte, l)
+		if _, err := prng.Read(a); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		xor(a, a)
+		for _, i := range a {
+			if i != 0 {
+				t.Fatalf("XOR operation was not performed correctly")
+			}
+		}
+		// doubly XOR with another slice to get back original
+		c := make([]byte, l)
+		d := make([]byte, l)
+		e := make([]byte, l)
+		if _, err := prng.Read(c); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		if _, err := prng.Read(e); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		copy(d, c) // save original to check later
+		xor(c, e)
+		xor(c, e)
+		for i := range c {
+			if c[i] != d[i] {
+				t.Fatalf("performing concurrent XOR operation twice did not result in same slice")
+			}
+		}
+		// XOR same original slice with concurrent and non-concurrent versions and then compare output
+		f := make([]byte, l)
+		g := make([]byte, l)
+		h := make([]byte, l)
+		if _, err := prng.Read(f); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		if _, err := prng.Read(h); err != nil {
+			t.Fatalf("error generating random bytes")
+		}
+		copy(g, f)
+		xor(f, h)
+		InPlaceXorBytes(g, h)
+		for i := range f {
+			if f[i] != g[i] {
+				t.Fatalf("result of concurrent XOR operation did not match with result of non-concurrent equivalent")
+			}
+		}
+	}
+}
+
 func TestConcurrentInPlaceAndBytes(t *testing.T) {
 	for _, l := range []int{10, 16384, 10000000} {
 		// XOR with itself
@@ -213,6 +317,17 @@ func BenchmarkInPlaceXorBytes(b *testing.B) {
 	}
 }
 
+func BenchmarkUnsafeInPlaceXorBytes(b *testing.B) {
+	a := make([]byte, 10000000)
+	if _, err := prng.Read(a); err != nil {
+		b.Fatalf("error generating random bytes")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		xor(a, a)
+	}
+}
+
 func BenchmarkConcurrentInPlaceXorBytes(b *testing.B) {
 	a := make([]byte, 10000000)
 	if _, err := prng.Read(a); err != nil {
@@ -221,6 +336,28 @@ func BenchmarkConcurrentInPlaceXorBytes(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentInPlaceXorBytes(a, a)
+	}
+}
+
+func BenchmarkConcurrentUnsafeInPlaceXorBytes(b *testing.B) {
+	a := make([]byte, 10000000)
+	if _, err := prng.Read(a); err != nil {
+		b.Fatalf("error generating random bytes")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ConcurrentUnsafeInPlaceXorBytes(a, a)
+	}
+}
+
+func BenchmarkConcurrentUnsafeBitOperation(b *testing.B) {
+	a := make([]byte, 10000000)
+	if _, err := prng.Read(a); err != nil {
+		b.Fatalf("error generating random bytes")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ConcurrentBitOp(xor, a, a)
 	}
 }
 

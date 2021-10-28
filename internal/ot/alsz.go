@@ -69,9 +69,16 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			return err
 		}
 
-		q[col], err = util.XorBytes(util.AndByte(util.TestBitSetInByte(s, col), u), q[col])
-		if err != nil {
-			return err
+		// Binary AND of each byte in u with the test bit
+		// if bit is 1, we get whole row u to XOR with q[col]
+		// if bit is 0, we get a row of 0s which when XORed
+		// with q[col] just returns the same row so no need to do
+		// an operation
+		if util.TestBitSetInByte(s, col) == 1 {
+			q[col], err = util.XorBytes(u, q[col])
+			if err != nil {
+				return err
+			}
 		}
 	}
 
