@@ -376,7 +376,7 @@ func ConcurrentInPlaceAndBytes(dst, a []byte) error {
 	return nil
 }
 
-// BitIsSetInByte returns 1 if bit i is set in a byte slice.
+// BitSetInByte returns true if bit i is set in a byte slice.
 // It extracts bits from the least significant bit (i = 0) to the
 // most significant bit (i = 7).
 func BitSetInByte(b []byte, i int) bool {
