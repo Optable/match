@@ -9,12 +9,12 @@ import (
 )
 
 var (
-	bench_cuckoo *Cuckoo
-	test_n       = uint64(1e6) // 1 Million
-	bench_n      = uint64(1e6) // 1 Million
-	seeds        = makeSeeds()
-	testData     = genBytes(int(test_n))
-	benchData    = genBytes(int(bench_n))
+	benchCuckoo *Cuckoo
+	testN       = uint64(1e6) // 1 Million
+	benchN      = uint64(1e6) // 1 Million
+	seeds       = makeSeeds()
+	testData    = genBytes(int(testN))
+	benchData   = genBytes(int(benchN))
 )
 
 func makeSeeds() [Nhash][]byte {
@@ -48,59 +48,52 @@ func TestNewCuckoo(t *testing.T) {
 }
 
 func TestInsertAndGetHashIdx(t *testing.T) {
-	cuckoo := NewCuckoo(test_n, seeds)
+	cuckoo := NewCuckoo(testN, seeds)
 	errCount := 0
 
-	insert_time := time.Now()
-	for _, item := range testData {
-		if err := cuckoo.Insert(item); err != nil {
+	insertTime := time.Now()
+	for idx, item := range testData {
+		if err := cuckoo.insert(uint64(idx+1), item); err != nil {
 			errCount += 1
 		}
 	}
 
-	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, took: %v",
-		test_n, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, time.Since(insert_time))
+	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, taken %v",
+		testN, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, time.Since(insertTime))
 
 	//test GetHashIdx
-	for _, item := range testData {
-		hIdx, found := cuckoo.GetHashIdx(item)
+	for i, item := range testData {
+		bIndices := cuckoo.BucketIndices(item)
+		found, hIdx := cuckoo.Exists(item)
 		if !found {
-			t.Fatalf("Cuckoo GetHashIdx, item: %v not inserted.", item[:])
+			t.Fatalf("Cuckoo GetHashIdx, %dth item: %v not inserted.", i+1, item)
 		}
 
-		bIdx := cuckoo.BucketIndices(item)[hIdx]
-		if !bytes.Equal(cuckoo.buckets[bIdx].item, item) {
-			t.Fatalf("Cuckoo GetHashIdx, hashIdx not correct for item: %v, with hIdx: %d, item : %v", item[:], hIdx, cuckoo.buckets[bIdx].item)
+		checkIndex, _ := cuckoo.GetBucket(bIndices[hIdx])
+		checkItem, _ := cuckoo.GetItemWithHash(checkIndex)
+		if !bytes.Equal(checkItem, item) {
+			t.Fatalf("Cuckoo GetHashIdx, hashIdx not correct for item: %v, with hIdx: %d, item : %v", item, hIdx, checkItem)
 		}
 	}
 }
 
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
-	bench_cuckoo = NewCuckoo(bench_n, seeds)
+	benchCuckoo = NewCuckoo(benchN, seeds)
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		bench_cuckoo.Insert(benchData[i%int(bench_n)])
+	for i := 1; i < b.N; i++ {
+		idx := uint64(i % int(benchN))
+		benchCuckoo.insert(idx, benchData[idx])
 	}
 }
 
-// Benchmark find hash index
-func BenchmarkCuckooGetHashIdx(b *testing.B) {
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		bench_cuckoo.GetHashIdx(benchData[i%int(bench_n)])
-	}
-}
-
-// Benchmark Exists
+// Benchmark finding hash index and checking existance
 func BenchmarkCuckooExists(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		d := benchData[i%int(bench_n)]
-		bench_cuckoo.Exists(d, bench_cuckoo.BucketIndices(d))
+		benchCuckoo.Exists(benchData[uint64(i%int(benchN))])
 	}
 }
 

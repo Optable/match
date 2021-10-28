@@ -69,9 +69,16 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			return err
 		}
 
-		q[col], err = util.XorBytes(util.AndByte(util.TestBitSetInByte(s, col), u), q[col])
-		if err != nil {
-			return err
+		// Binary AND of each byte in u with the test bit
+		// if bit is 1, we get whole row u to XOR with q[col]
+		// if bit is 0, we get a row of 0s which when XORed
+		// with q[col] just returns the same row so no need to do
+		// an operation
+		if util.BitSetInByte(s, col) {
+			q[col], err = util.XorBytes(u, q[col])
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -170,7 +177,10 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	// receive encrypted messages.
 	e := make([][]byte, 2)
 	for i := 0; i < ext.m; i++ {
-		choiceBit := util.TestBitSetInByte(choices, i)
+		var choiceBit byte
+		if util.BitSetInByte(choices, i) {
+			choiceBit = 1
+		}
 		// compute nb of bytes to be read
 		l := crypto.EncryptLen(crypto.XORBlake3, ext.msgLen[i])
 		// read both msg

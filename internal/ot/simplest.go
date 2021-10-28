@@ -117,7 +117,7 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		}
 
 		// for each choice bit, compute the resultant point B and send it
-		if util.TestBitSetInByte(choices, i) == 0 {
+		if !util.BitSetInByte(choices, i) {
 			// B
 			if err := writer.Write(pointB); err != nil {
 				return err
@@ -149,7 +149,10 @@ func (s simplest) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) 
 		pointK = pointA.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		messages[i], err = crypto.Decrypt(s.cipherMode, pointK.DeriveKeyFromECPoints(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)

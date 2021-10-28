@@ -126,7 +126,7 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		bSecrets[i], pointB = crypto.GenerateRistrettoKeys()
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
-		if util.TestBitSetInByte(choices, i) == 0 {
+		if !util.BitSetInByte(choices, i) {
 			// K0 = Kc = B
 			// K1 = K1-c = A - B
 			if err := writer.Write(&pointB); err != nil {
@@ -165,7 +165,10 @@ func (n naorPinkasRistretto) Receive(choices []uint8, messages [][]byte, rw io.R
 		}
 
 		// decrypt the message indexed by choice bit
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		messages[i], err = crypto.Decrypt(n.cipherMode, key, bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)

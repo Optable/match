@@ -44,9 +44,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	var seeds [cuckoo.Nhash][]byte
 	var intersection [][]byte
-	var oprfOutput [][]byte
+	var oprfOutput [cuckoo.Nhash]map[uint64]uint64
 	var cuckooHashTable *cuckoo.Cuckoo
-	var oprfInputs [][]byte
 
 	// stage 1: read the hash seeds from the remote side
 	//          initiate a cuckoo hash table and insert all local
@@ -61,14 +60,10 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// instantiate cuckoo hash table
 		cuckooHashTable = cuckoo.NewCuckoo(uint64(n), seeds)
-		for identifier := range identifiers {
-			err := cuckooHashTable.Insert(identifier)
-			if err != nil {
-				return err
-			}
+		err := cuckooHashTable.Insert(identifiers)
+		if err != nil {
+			return err
 		}
-
-		oprfInputs = cuckooHashTable.OPRFInput()
 
 		// send size
 		if err := binary.Write(r.rw, binary.BigEndian, &n); err != nil {
@@ -82,11 +77,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
-		oprfInputSize := int64(len(oprfInputs))
+		oprfInputSize := int64(cuckooHashTable.Len())
 
 		// inform the sender of the size
 		// its about to receive
-		if err := binary.Write(r.rw, binary.BigEndian, &oprfInputSize); err != nil {
+		if err := binary.Write(r.rw, binary.BigEndian, oprfInputSize); err != nil {
 			return err
 		}
 
@@ -95,14 +90,9 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oprfOutput, err = oReceiver.Receive(oprfInputs, r.rw)
+		oprfOutput, err = oReceiver.Receive(cuckooHashTable, r.rw)
 		if err != nil {
 			return err
-		}
-
-		// sanity check
-		if len(oprfOutput) != int(oprfInputSize) {
-			return fmt.Errorf("received number of OPRF outputs should be the same as cuckoohash bucket size")
 		}
 
 		// end stage2
@@ -113,24 +103,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
-
-		// Hash and index all local encodings
-		// the hash value of the oprf encoding is the key
-		// the corresponding ID is the value
-		var localEncodings [cuckoo.Nhash]map[uint64][]byte
-		for i := range localEncodings {
-			localEncodings[i] = make(map[uint64][]byte, n)
-		}
-		// hash local oprf output
-		hasher, _ := hash.New(hash.Highway, seeds[0])
-		for i, input := range oprfInputs {
-			// check if it was an empty input
-			if !cuckoo.IsEmpty(input) {
-				// insert into proper map
-				localEncodings[cuckoo.GetHashIdx(input)][hasher.Hash64(oprfOutput[i])] = cuckoo.GetItem(input)
-			}
-		}
-
 		// read number of remote IDs
 		var remoteN int64
 		if err := binary.Read(r.rw, binary.BigEndian, &remoteN); err != nil {
@@ -147,17 +119,17 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			if err := EncodesRead(bufferedReader, &remoteEncodings); err != nil {
 				return err
 			}
-
 			// intersect
 			for hashIdx, remoteHash := range remoteEncodings {
-				if id, ok := localEncodings[hashIdx][remoteHash]; ok {
+				if idx, ok := oprfOutput[hashIdx][remoteHash]; ok {
+					id, _ := cuckooHashTable.GetItemWithHash(idx)
+					if id == nil {
+						return fmt.Errorf("failed to retrieve item #%v", idx)
+					}
 					intersection = append(intersection, id)
-					// dedup
-					delete(localEncodings[hashIdx], remoteHash)
 				}
 			}
 		}
-
 		// end stage3
 		_, _ = printStageStats("Stage 3", timer, start, mem)
 		return nil

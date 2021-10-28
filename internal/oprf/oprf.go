@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/util"
 )
 
@@ -24,7 +25,7 @@ var ErrUnknownOPRF = fmt.Errorf("cannot create an OPRF that follows an unknown p
 
 type OPRF interface {
 	Send(rw io.ReadWriter) (Key, error)
-	Receive(choices [][]uint8, rw io.ReadWriter) ([][]byte, error)
+	Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
 }
 
 // NewOPRF returns an OPRF of type t
@@ -50,14 +51,13 @@ type Key struct {
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, in []byte) (out []byte, err error) {
+func (k Key) Encode(j uint64, in []byte, hIdx uint8) (out []byte, err error) {
 	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCode(k.block, in)
+	out = crypto.PseudorandomCodeWithHashIndex(k.block, in, hIdx)
 
-	if err = util.ConcurrentInPlaceAndBytes(out, k.s); err != nil {
+	if err = util.ConcurrentDoubleBitOp(util.AndXor, out, k.s, k.q[j]); err != nil {
 		return nil, err
 	}
 
-	err = util.ConcurrentInPlaceXorBytes(out, k.q[j])
-	return
+	return out, nil
 }

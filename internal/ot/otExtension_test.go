@@ -107,7 +107,10 @@ func TestIKNP(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		bit := util.TestBitSetInByte(otExtensionChoices, i)
+		var bit byte
+		if util.BitSetInByte(otExtensionChoices, i) {
+			bit = 1
+		}
 		if !bytes.Equal(m, otExtensionMessages[i][bit]) {
 			t.Fatalf("IKNP OT extension failed at message %d, got: %v, want %v", i, m, otExtensionMessages[i][bit])
 		}
@@ -179,7 +182,10 @@ func TestALSZ(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		bit := util.TestBitSetInByte(otExtensionChoices, i)
+		var bit byte
+		if util.BitSetInByte(otExtensionChoices, i) {
+			bit = 1
+		}
 		if !bytes.Equal(m, otExtensionMessages[i][bit]) {
 			t.Fatalf("ALSZ OT extension failed at message %d, got: %v, want %v", i, m, otExtensionMessages[i][bit])
 		}

@@ -72,7 +72,17 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 			return err
 		}
 
-		q[col], _ = util.XorBytes(util.AndByte(util.TestBitSetInByte(s, col), u), q[col])
+		// Binary AND of each byte in u with the test bit
+		// if bit is 1, we get whole row u to XOR with q[col]
+		// if bit is 0, we get a row of 0s which when XORed
+		// with q[col] just returns the same row so no need to do
+		// an operation
+		if util.BitSetInByte(s, col) {
+			err = util.ConcurrentBitOp(util.Xor, q[col], u)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	q = util.TransposeByteMatrix(q)
@@ -84,8 +94,7 @@ func (ext imprvKKRT) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			// compute q_i ^ (C(r) & s)
 			key = crypto.PseudorandomCode(aesBlock, []byte{byte(choice)})
-			util.ConcurrentInPlaceAndBytes(key, s)
-			util.ConcurrentInPlaceXorBytes(key, q[i])
+			util.ConcurrentDoubleBitOp(util.AndXor, key, s, q[i])
 
 			ciphertext, err = crypto.Encrypt(crypto.XORBlake3, key, uint8(choice), plaintext)
 			if err != nil {
@@ -159,11 +168,11 @@ func (ext imprvKKRT) Receive(choices []uint8, messages [][]byte, rw io.ReadWrite
 		if err != nil {
 			return err
 		}
-		u, err = util.XorBytes(t[col], u)
+		err = util.ConcurrentBitOp(util.Xor, u, t[col])
 		if err != nil {
 			return err
 		}
-		u, err = util.XorBytes(u, d[col])
+		err = util.ConcurrentBitOp(util.Xor, u, d[col])
 		if err != nil {
 			return err
 		}

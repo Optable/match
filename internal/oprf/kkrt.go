@@ -16,8 +16,10 @@ import (
 	"crypto/aes"
 	"crypto/rand"
 	"io"
+	"runtime"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
@@ -57,71 +59,85 @@ func (o kkrt) Send(rw io.ReadWriter) (keys Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]byte, 16)
 	if _, err = rand.Read(sk); err != nil {
-		return Key{}, nil
+		return keys, nil
 	}
-
 	// send the secret key
-	if _, err := rw.Write(sk); err != nil {
-		return Key{}, err
+	if _, err = rw.Write(sk); err != nil {
+		return keys, err
 	}
-
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
-		return Key{}, err
+		return keys, err
 	}
-
 	// act as receiver in baseOT to receive q^j
 	q := make([][]byte, k)
 	if err = o.baseOT.Receive(s, q, rw); err != nil {
-		return Key{}, err
+		return keys, err
 	}
 
 	q = util.TransposeByteMatrix(q)
 
 	aesBlock, err := aes.NewCipher(sk)
+
 	return Key{block: aesBlock, s: s, q: q}, err
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error) {
-	if len(choices) != o.m {
-		return nil, ot.ErrBaseCountMissMatch
+func (o kkrt) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
+	if int(choices.Len()) != o.m {
+		return encodings, ot.ErrBaseCountMissMatch
 	}
 
 	// receive AES-128 secret key
 	sk := make([]byte, 16)
 	if _, err = io.ReadFull(rw, sk); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
 	// compute code word using pseudorandom code on choice stirng r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
+	var errChan = make(chan error)
 	go func() {
 		d := make([][]byte, o.m)
-		aesBlock, _ := aes.NewCipher(sk)
-		for i := 0; i < o.m; i++ {
-			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
+		aesBlock, err := aes.NewCipher(sk)
+		if err != nil {
+			errChan <- err
 		}
-		tr := util.TransposeByteMatrix(d)
-		pseudorandomChan <- tr
+		for i := 0; i < o.m; i++ {
+			idx, err := choices.GetBucket(uint64(i))
+			if err != nil {
+				errChan <- err
+			}
+			item, hIdx := choices.GetItemWithHash(idx)
+			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
+		}
+		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
 	// Sample k x m (padded column-wise to multiple of 8 uint64 (512 bits)) matrix T
-	t, err = util.SampleRandomBitMatrix(rand.Reader, k, o.m)
+	t, err := util.SampleRandomBitMatrix(rand.Reader, k, o.m)
 	if err != nil {
-		return nil, err
+		return encodings, err
 	}
 
-	d := <-pseudorandomChan
+	// read error
+	var d [][]byte
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return encodings, err
+		}
+	case d = <-pseudorandomChan:
+	}
 
 	// make k pairs of m bytes baseOT messages: {t_i, t_i xor C(choices[i])}
 	baseMsgs := make([][][]byte, k)
 	for i := range baseMsgs {
 
-		err = util.ConcurrentInPlaceXorBytes(d[i], t[i])
+		err = util.ConcurrentBitOp(util.Xor, d[i], t[i])
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
 		baseMsgs[i] = make([][]byte, 2)
@@ -131,8 +147,31 @@ func (o kkrt) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error
 
 	// act as sender in baseOT to send k columns
 	if err = o.baseOT.Send(baseMsgs, rw); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
-	return util.TransposeByteMatrix(t)[:o.m], nil
+	runtime.GC()
+	t = util.TransposeByteMatrix(t)[:o.m]
+
+	// Hash and index all local encodings
+	// the hash value of the oprf encoding is the key
+	// the index of the corresponding ID in the cuckoo Hash tabel is the value
+	for i := range encodings {
+		encodings[i] = make(map[uint64]uint64, o.m)
+	}
+	// hash local oprf output
+	hasher := choices.GetHasher()
+	for bIdx := uint64(0); bIdx < choices.Len(); bIdx++ {
+		// check if it was an empty input
+		if idx, err := choices.GetBucket(bIdx); idx != 0 {
+			if err != nil {
+				return encodings, err
+			}
+			// insert into proper map
+			_, hIdx := choices.GetItemWithHash(idx)
+			encodings[hIdx][hasher.Hash64(t[bIdx])] = idx
+		}
+	}
+
+	return encodings, nil
 }

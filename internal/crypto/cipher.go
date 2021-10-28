@@ -31,16 +31,55 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	// effectively pad src
 	copy(dst, src)
 
-	if len(src) < aes.BlockSize {
+	// encrypt
+	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
+	if len(src) <= aes.BlockSize {
 		return dst
+	}
+
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
+	if len(src) <= aes.BlockSize*2 {
+		return dst
+	}
+
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
+	if len(src) <= aes.BlockSize*3 {
+		return dst
+	}
+
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
+	return dst
+}
+
+// PseudorandomCodeWithHashIndex is implemented as follows:
+// C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
+// secretKey is a 16 byte slice for AES-128
+// on success, pseudorandomCode returns a byte slice of 64 bytes.
+func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte) {
+	dst = make([]byte, aes.BlockSize*4)
+	// effectively pad src
+	copy(dst, src)
+	if len(src) < aes.BlockSize*4 {
+		dst[len(src)] = hIdx
 	}
 
 	// encrypt
 	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
+	if len(src)+1 <= aes.BlockSize {
+		return dst
+	}
 
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
+	if len(src)+1 <= aes.BlockSize*2 {
+		return dst
+	}
+
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
+	if len(src)+1 <= aes.BlockSize*3 {
+		return dst
+	}
+
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
 	return dst
 }
 

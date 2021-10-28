@@ -16,10 +16,13 @@ import (
 	"crypto/aes"
 	"crypto/rand"
 	"io"
+	"runtime"
 
 	"github.com/optable/match/internal/crypto"
+	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
+	"github.com/zeebo/blake3"
 )
 
 type imprvKKRT struct {
@@ -53,7 +56,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 	// sample random 16 byte secret key for AES-128
 	sk := make([]byte, 16)
 	if _, err = rand.Read(sk); err != nil {
-		return Key{}, err
+		return keys, err
 	}
 
 	// send the secret key
@@ -64,34 +67,43 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
-		return Key{}, err
+		return keys, err
 	}
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
-	seeds := make([][]uint8, k)
+	seeds := make([][]byte, k)
 	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
-		return Key{}, err
+		return keys, err
 	}
 
 	// receive masked columns u
 	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	u := make([]byte, paddedLen)
 	q := make([][]byte, k)
-	for row := range q {
+	h := blake3.New()
+	for col := range q {
 		if _, err = io.ReadFull(rw, u); err != nil {
-			return Key{}, err
+			return keys, err
 		}
 
-		q[row], err = crypto.PseudorandomGenerate(ext.drbg, seeds[row], paddedLen)
+		q[col] = make([]byte, paddedLen)
+		err = crypto.PseudorandomGenerateWithBlake3XOF(q[col], seeds[col], h)
 		if err != nil {
-			return Key{}, err
+			return keys, err
 		}
-		err = util.ConcurrentInPlaceXorBytes(q[row], util.AndByte(util.TestBitSetInByte(s, row), u))
-		if err != nil {
-			return Key{}, err
+		// Binary AND of each byte in u with the test bit
+		// if bit is 1, we get whole row u to XOR with q[row]
+		// if bit is 0, we get a row of 0s which when XORed
+		// with q[row] just returns the same row so no need to do
+		// an operation
+		if util.BitSetInByte(s, col) {
+			err = util.ConcurrentBitOp(util.Xor, q[col], u)
+			if err != nil {
+				return Key{}, err
+			}
 		}
 	}
-
+	runtime.GC()
 	q = util.TransposeByteMatrix(q)[:ext.m]
 
 	// store oprf keys
@@ -100,78 +112,111 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext imprvKKRT) Receive(choices [][]byte, rw io.ReadWriter) (t [][]byte, err error) {
-	if len(choices) != ext.m {
-		return nil, ot.ErrBaseCountMissMatch
+func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
+	if int(choices.Len()) != ext.m {
+		return encodings, ot.ErrBaseCountMissMatch
 	}
 
 	// receive AES-128 secret key
 	sk := make([]byte, 16)
 	if _, err = io.ReadFull(rw, sk); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
-	// compute code word using pseudorandom code on choice stirng r in a separate thread
+	// compute code word using pseudorandom code on choice string r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
+	var errChan = make(chan error, 1)
 	go func() {
+		defer close(errChan)
 		d := make([][]byte, ext.m)
-		aesBlock, _ := aes.NewCipher(sk)
+		aesBlock, err := aes.NewCipher(sk)
+		if err != nil {
+			errChan <- err
+		}
 		for i := 0; i < ext.m; i++ {
-			d[i] = crypto.PseudorandomCode(aesBlock, choices[i])
+			idx, err := choices.GetBucket(uint64(i))
+			if err != nil {
+				errChan <- err
+			}
+			item, hIdx := choices.GetItemWithHash(idx)
+			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
-	seeds, err := util.SampleRandomBitMatrix(rand.Reader, 2*k, k)
+	baseMsgs, err := util.SampleRandom3DBitMatrix(rand.Reader, k, 2, k)
 	if err != nil {
-		return nil, err
-	}
-
-	baseMsgs := make([][][]byte, k)
-	for j := range baseMsgs {
-		baseMsgs[j] = make([][]byte, 2)
-		baseMsgs[j][0] = seeds[2*j]
-		baseMsgs[j][1] = seeds[2*j+1]
+		return encodings, err
 	}
 
 	// act as sender in baseOT to send k columns
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
-		return nil, err
+		return encodings, err
 	}
 
-	d := <-pseudorandomChan
+	// read error
+	var d [][]byte
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return encodings, err
+		}
+	case d = <-pseudorandomChan:
+	}
 
-	t = make([][]byte, k)
+	t := make([][]byte, k)
 	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
 	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
+	h := blake3.New()
 	for col := range d {
-		t[col], err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][0], paddedLen)
+		t[col] = make([]byte, paddedLen)
+		err = crypto.PseudorandomGenerateWithBlake3XOF(t[col], baseMsgs[col][0], h)
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
-		u, err = crypto.PseudorandomGenerate(ext.drbg, baseMsgs[col][1], paddedLen)
+		err = crypto.PseudorandomGenerateWithBlake3XOF(u, baseMsgs[col][1], h)
 		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
-		err = util.ConcurrentInPlaceXorBytes(u, t[col])
+		err = util.ConcurrentDoubleBitOp(util.DoubleXor, u, t[col], d[col])
 		if err != nil {
-			return nil, err
-		}
-		err = util.ConcurrentInPlaceXorBytes(u, d[col])
-		if err != nil {
-			return nil, err
+			return encodings, err
 		}
 
 		// send u
 		if _, err = rw.Write(u); err != nil {
-			return nil, err
+			return encodings, err
 		}
 	}
 
-	return util.TransposeByteMatrix(t)[:ext.m], nil
+	runtime.GC()
+	t = util.TransposeByteMatrix(t)[:ext.m]
+
+	// Hash and index all local encodings
+	// the hash value of the oprf encoding is the key
+	// the index of the corresponding ID in the cuckoo hash table is the value
+	for i := range encodings {
+		encodings[i] = make(map[uint64]uint64, ext.m)
+	}
+	hasher := choices.GetHasher()
+	// hash local oprf output
+	for bIdx := uint64(0); bIdx < uint64(len(t)); bIdx++ {
+		// check if it was an empty input
+		if idx, err := choices.GetBucket(bIdx); idx != 0 {
+			if err != nil {
+				return encodings, err
+			}
+			// insert into proper map
+			_, hIdx := choices.GetItemWithHash(idx)
+			encodings[hIdx][hasher.Hash64(t[bIdx])] = idx
+		}
+	}
+
+	//runtime.GC()
+	return encodings, nil
 }

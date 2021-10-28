@@ -91,3 +91,20 @@ func blake3XOF(seed []byte, length int) (dst []byte, err error) {
 
 	return dst, err
 }
+
+func PseudorandomGenerateWithBlake3XOF(dst []byte, seed []byte, h *blake3.Hasher) error {
+	// need expand?
+	if len(dst) < len(seed) {
+		copy(dst, seed)
+		return nil
+	}
+
+	// reset internal state
+	h.Reset()
+	h.Write(seed)
+	drbg := h.Digest()
+
+	_, err := drbg.Read(dst)
+
+	return err
+}

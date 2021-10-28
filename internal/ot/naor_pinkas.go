@@ -106,23 +106,19 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	if len(choices)*8 != len(messages) || len(choices)*8 != n.baseCount {
 		return ErrBaseCountMissMatch
 	}
-
 	// instantiate Reader, Writer
 	reader := crypto.NewECPointsReader(rw, n.encodeLen)
 	writer := crypto.NewECPointsWriter(rw)
-
 	// receive point A from sender
 	pointA := crypto.NewPoints(n.curve)
 	if err := reader.Read(pointA); err != nil {
 		return err
 	}
-
 	// recieve point R from sender
 	pointR := crypto.NewPoints(n.curve)
 	if err := reader.Read(pointR); err != nil {
 		return err
 	}
-
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, n.baseCount)
 	var pointB crypto.Points
@@ -134,7 +130,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		}
 
 		// for each choice bit, compute the resultant point Kc, K1-c and send K0
-		if util.TestBitSetInByte(choices, i) == 0 {
+		if !util.BitSetInByte(choices, i) {
 			// K0 = Kc = B
 			if err := writer.Write(pointB); err != nil {
 				return err
@@ -167,7 +163,10 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		pointK = pointR.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		bit := util.TestBitSetInByte(choices, i)
+		var bit byte
+		if util.BitSetInByte(choices, i) {
+			bit = 1
+		}
 		messages[i], err = crypto.Decrypt(n.cipherMode, pointK.DeriveKeyFromECPoints(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
