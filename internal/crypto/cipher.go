@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
-	"hash"
 
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
@@ -18,14 +17,15 @@ Various cipher suite implementation in golang
 const (
 	GCM = iota
 	XORBlake3
-
-	nonceSize = 12 //aesgcm NonceSize
 )
+
+const nonceSize = 12 //aesgcm NonceSize
 
 // PseudorandomCode is implemented as follows:
 // C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
-// secretKey is a 16 byte slice for AES-128
-// on success, pseudorandomCode returns a byte slice of 64 bytes.
+// src is padded to 64 bytes before being encrypted in blocks of 16 bytes.
+// Blocks consisting only of padding are not encrypted. On success,
+// PseudorandomCode returns an encrypted byte slice of 64 bytes.
 func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 	dst = make([]byte, aes.BlockSize*4)
 	// effectively pad src
@@ -53,8 +53,13 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
 
 // PseudorandomCodeWithHashIndex is implemented as follows:
 // C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
-// secretKey is a 16 byte slice for AES-128
-// on success, pseudorandomCode returns a byte slice of 64 bytes.
+// PseudorandomCodeWithHashIndex is passed the src as well as the
+// associated hash index. When padding the src to 64 bytes, if there
+// is an empty byte, instead the hash index is placed there
+// (effectively appending the hash index). Blocks of 16 bytes are then
+// encrypted. Blocks consisting only of padding are not encrypted. On
+// success, PseudorandomCodeWithHashIndex returns an encrypted byte
+// slice of 64 bytes.
 func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte) {
 	dst = make([]byte, aes.BlockSize*4)
 	// effectively pad src
@@ -80,23 +85,6 @@ func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte)
 	}
 
 	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
-	return dst
-}
-
-// PseudorandomCodeHmacSHA256 is implemented as follows:
-// C(x) = HmacSHA256_key(x[:32]) || HmacSHA256_key(x[32:]
-// secretKey is a 32 byte slice for Hmac-SHA256
-// on success, pseudorandomCode returns a byte slice of 64 bytes.
-func PseudorandomCodeHmacSHA256(prf hash.Hash, src []byte) (dst []byte) {
-	dst = make([]byte, 64)
-
-	// PRF
-	prf.Write(src[:32])
-	copy(dst[:32], prf.Sum(nil))
-
-	prf.Write(src[32:])
-	copy(dst[32:], prf.Sum(nil))
-
 	return dst
 }
 
