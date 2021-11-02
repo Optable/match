@@ -3,6 +3,8 @@ package util
 import (
 	"bytes"
 	"math/rand"
+	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,6 +24,172 @@ func sampleUint64Slice(prng *rand.Rand, u []uint64) {
 	for i := range u {
 		u[i] = prng.Uint64()
 	}
+}
+
+// naiveXorBytes XORS each byte from a with b and returns dst
+// if a and b are the same length
+func naiveXorBytes(a, b []byte) (dst []byte, err error) {
+	var n = len(b)
+	if n != len(a) {
+		return nil, ErrByteLengthMissMatch
+	}
+
+	dst = make([]byte, n)
+
+	for i := 0; i < n; i++ {
+		dst[i] = a[i] ^ b[i]
+	}
+
+	return
+}
+
+// inPlaceXorBytes XORS each byte from a with dst in place
+// if a and dst are the same length
+func inPlaceXorBytes(dst, a []byte) error {
+	var n = len(dst)
+	if n != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := 0; i < n; i++ {
+		dst[i] ^= a[i]
+	}
+
+	return nil
+}
+
+// concurrentInPlaceXorBytes XORS each byte from a with dst in place
+// if a and dst are the same length
+func concurrentInPlaceXorBytes(dst, a []byte) error {
+	const blockSize int = 16384 // half of what L2 cache can hold
+	nworkers := runtime.GOMAXPROCS(0)
+	var n = len(dst)
+	if n != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	// no need to split into goroutines
+	if n < blockSize {
+		return inPlaceXorBytes(dst, a)
+	}
+
+	// determine number of blocks to split original matrix
+	nblks := n / blockSize
+	if n%blockSize != 0 {
+		nblks += 1
+	}
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			for blk := range ch {
+				step := blockSize * blk
+				if blk == nblks-1 { // last block
+					for i := step; i < n; i++ {
+						dst[i] ^= a[i]
+					}
+				} else {
+					for i := step; i < step+blockSize; i++ {
+						dst[i] ^= a[i]
+					}
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+// inPlaceAndBytes performs the binary AND of each byte in a
+// and dst in place if a and dst are the same length.
+func inPlaceAndBytes(dst, a []byte) error {
+	n := len(dst)
+	if n != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	for i := range dst {
+		dst[i] = dst[i] & a[i]
+	}
+
+	return nil
+}
+
+// concurrentInPlaceAndBytes performs the binary AND of each
+// byte in a and dst if a and dst are the same length.
+func concurrentInPlaceAndBytes(dst, a []byte) error {
+	const blockSize int = 16384 // half of what L2 cache can hold
+	nworkers := runtime.GOMAXPROCS(0)
+	var n = len(dst)
+	if n != len(a) {
+		return ErrByteLengthMissMatch
+	}
+
+	// no need to split into goroutines
+	if n < blockSize {
+		return inPlaceAndBytes(dst, a)
+	}
+
+	// determine number of blocks to split original matrix
+	nblks := n / blockSize
+	if n%blockSize != 0 {
+		nblks += 1
+	}
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			for blk := range ch {
+				step := blockSize * blk
+				if blk == nblks-1 { // last block
+					for i := step; i < n; i++ {
+						dst[i] &= a[i]
+					}
+				} else {
+					for i := step; i < step+blockSize; i++ {
+						dst[i] &= a[i]
+					}
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+// naiveTranspose returns the transpose of a 2D slices of bytes
+// from (m x k) to (k x m) by naively swapping.
+func naiveTranspose(matrix [][]uint8) [][]uint8 {
+	n := len(matrix)
+	tr := make([][]uint8, len(matrix[0]))
+
+	for row := range tr {
+		tr[row] = make([]uint8, n)
+		for col := range tr[row] {
+			tr[row][col] = matrix[col][row]
+		}
+	}
+	return tr
 }
 
 func TestTestBitSetInByte(t *testing.T) {
@@ -98,7 +266,7 @@ func TestNaiveTranspose(t *testing.T) {
 	}
 
 	for m := range b {
-		if !bytes.Equal(b[m], Transpose(Transpose(b))[m]) {
+		if !bytes.Equal(b[m], naiveTranspose(naiveTranspose(b))[m]) {
 			t.Fatalf("Transpose of transpose should be equal")
 		}
 	}
@@ -111,7 +279,7 @@ func TestConcurrentInPlaceXorBytes(t *testing.T) {
 		if _, err := prng.Read(a); err != nil {
 			t.Fatalf("error generating random bytes")
 		}
-		ConcurrentInPlaceXorBytes(a, a)
+		concurrentInPlaceXorBytes(a, a)
 		for _, i := range a {
 			if i != 0 {
 				t.Fatalf("XOR operation was not performed correctly")
@@ -128,8 +296,8 @@ func TestConcurrentInPlaceXorBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(d, c) // save original to check later
-		ConcurrentInPlaceXorBytes(c, e)
-		ConcurrentInPlaceXorBytes(c, e)
+		concurrentInPlaceXorBytes(c, e)
+		concurrentInPlaceXorBytes(c, e)
 		for i := range c {
 			if c[i] != d[i] {
 				t.Fatalf("performing concurrent XOR operation twice did not result in same slice")
@@ -146,8 +314,8 @@ func TestConcurrentInPlaceXorBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(g, f)
-		ConcurrentInPlaceXorBytes(f, h)
-		InPlaceXorBytes(g, h)
+		concurrentInPlaceXorBytes(f, h)
+		inPlaceXorBytes(g, h)
 		for i := range f {
 			if f[i] != g[i] {
 				t.Fatalf("result of concurrent XOR operation did not match with result of non-concurrent equivalent")
@@ -199,7 +367,7 @@ func TestConcurrentUnsafeInPlaceXorBytes(t *testing.T) {
 		}
 		copy(g, f)
 		ConcurrentBitOp(Xor, f, h)
-		InPlaceXorBytes(g, h)
+		inPlaceXorBytes(g, h)
 		for i := range f {
 			if f[i] != g[i] {
 				t.Fatalf("result of concurrent XOR operation did not match with result of non-concurrent equivalent")
@@ -251,7 +419,7 @@ func TestUnsafeInPlaceXorBytes(t *testing.T) {
 		}
 		copy(g, f)
 		Xor(f, h)
-		InPlaceXorBytes(g, h)
+		inPlaceXorBytes(g, h)
 		for i := range f {
 			if f[i] != g[i] {
 				t.Fatalf("result of concurrent XOR operation did not match with result of non-concurrent equivalent")
@@ -269,7 +437,7 @@ func TestConcurrentInPlaceAndBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(b, a)
-		ConcurrentInPlaceAndBytes(a, a)
+		concurrentInPlaceAndBytes(a, a)
 		for i := range a {
 			if a[i] != b[i] {
 				t.Fatalf("AND operation was not performed correctly")
@@ -286,8 +454,8 @@ func TestConcurrentInPlaceAndBytes(t *testing.T) {
 			t.Fatalf("error generating random bytes")
 		}
 		copy(g, f)
-		ConcurrentInPlaceAndBytes(f, h)
-		InPlaceAndBytes(g, h)
+		concurrentInPlaceAndBytes(f, h)
+		inPlaceAndBytes(g, h)
 		for i := range f {
 			if f[i] != g[i] {
 				t.Fatalf("result of concurrent AND operation did not match with result of non-concurrent equivalent")
@@ -297,12 +465,12 @@ func TestConcurrentInPlaceAndBytes(t *testing.T) {
 
 }
 
-func BenchmarkXorBytes(b *testing.B) {
+func BenchmarkNaiveXorBytes(b *testing.B) {
 	a := make([]byte, 10000000)
 	prng.Read(a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		XorBytes(a, a)
+		naiveXorBytes(a, a)
 	}
 }
 
@@ -313,7 +481,7 @@ func BenchmarkInPlaceXorBytes(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		InPlaceXorBytes(a, a)
+		inPlaceXorBytes(a, a)
 	}
 }
 
@@ -335,7 +503,7 @@ func BenchmarkConcurrentInPlaceXorBytes(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ConcurrentInPlaceXorBytes(a, a)
+		concurrentInPlaceXorBytes(a, a)
 	}
 }
 
@@ -357,7 +525,7 @@ func BenchmarkInPlaceAndBytes(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		InPlaceAndBytes(a, a)
+		inPlaceAndBytes(a, a)
 	}
 }
 
@@ -368,6 +536,6 @@ func BenchmarkConcurrentInPlaceAndBytes(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ConcurrentInPlaceAndBytes(a, a)
+		concurrentInPlaceAndBytes(a, a)
 	}
 }

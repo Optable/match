@@ -60,7 +60,7 @@ func (ext iknp) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			key = q[i]
 			if choice == 1 {
-				key, err = util.XorBytes(q[i], s)
+				err = util.ConcurrentBitOp(util.Xor, key, s)
 				if err != nil {
 					return err
 				}
@@ -102,7 +102,9 @@ func (ext iknp) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 	for i := range baseMsgs {
 		baseMsgs[i] = make([][]byte, 2)
 		baseMsgs[i][0] = t[i]
-		baseMsgs[i][1], err = util.XorBytes(t[i], paddedChoice)
+		baseMsgs[i][1] = make([]byte, len(t[i]))
+		copy(baseMsgs[i][1], t[i])
+		err = util.ConcurrentBitOp(util.Xor, baseMsgs[i][1], paddedChoice)
 		if err != nil {
 			return err
 		}

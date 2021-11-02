@@ -31,7 +31,7 @@ type imprvKKRT struct {
 	drbg   int
 }
 
-// NewKKRT returns a KKRT OPRF
+// newImprovedKKRT returns an Improved KKRT OPRF
 // m: number of message tuples
 // k: width of OT extension binary matrix
 // baseOT: select which baseOT to use under the hood

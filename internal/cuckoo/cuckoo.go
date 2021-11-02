@@ -24,7 +24,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// A Cuckoo represents a 3-way Cuckoo hash table data structure
+// Cuckoo represents a 3-way Cuckoo hash table data structure
 // that contains the items, bucket indices of each item and the 3
 // hash functions. The bucket lookup is a lookup table on items which
 // tells us which item should be in the bucket at that index. Upon
@@ -41,7 +41,7 @@ type Cuckoo struct {
 	hashers [Nhash]hash.Hasher
 }
 
-// NewCuckoo instantiate the struct Cuckoo with a bucket of size Factor * size,
+// NewCuckoo instantiates a Cuckoo struct with a bucket of size Factor * size,
 // a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
@@ -61,7 +61,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	}
 }
 
-// Dummy cuckoo that does not allocate buckets.
+// NewDummyCuckoo instantiates a Cuckoo struct that does not allocate buckets.
 func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher

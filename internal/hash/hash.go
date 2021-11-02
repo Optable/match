@@ -194,6 +194,8 @@ type hwMinio struct {
 	salt []byte
 }
 
+// NewHighwayHasherMinio returns a hwMinio hasher that uses salt
+// as the 4 lanes for the hashing
 func NewHighwayHasherMinio(salt []byte) (hwMinio, error) {
 	if len(salt) != SaltLength {
 		return hwMinio{}, ErrSaltLengthMismatch

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 )
 
@@ -77,30 +76,6 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 	}
 }
 
-func TestXORBytes(t *testing.T) {
-	a := make([]byte, 32)
-	prng.Read(a)
-
-	b := make([]byte, 32)
-	prng.Read(b)
-	c, err := util.XorBytes(a, b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Equal(c, a) || bytes.Equal(c, b) {
-		t.Fatalf("c should not be equal to a nor b")
-	}
-
-	c, err = util.XorBytes(a, c)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(c, b) {
-		t.Fatalf("c should be equal to b")
-	}
-}
-
 func TestPrgWithSeed(t *testing.T) {
 	seed := make([]byte, 512)
 	prng.Read(seed)
@@ -165,15 +140,32 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 	}
 }
 
-func BenchmarkNormalPseudorandomCode(b *testing.B) {
-	// the normal input is a 64 byte sha256 digest plus a byte indicating
-	// which hash function is used to compute the cuckoo hash bucket index.
-	in := make([]byte, 65)
+func BenchmarkPseudorandomCode(b *testing.B) {
+	// the normal input is a 64 byte sha256 digest with an appended byte
+	// indicating which hash function is used to compute the cuckoo hash
+	// bucket index.
+	in := make([]byte, 64)
 	prng.Read(in)
-	b.ResetTimer()
+	var hIdx byte
 	aesBlock, _ := aes.NewCipher(aesKey)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		in = append(in, hIdx)
 		PseudorandomCode(aesBlock, in)
+	}
+}
+
+func BenchmarkPseudorandomCodeWithHashIndex(b *testing.B) {
+	// the normal input is a 64 byte sha256 digest with an appended byte
+	// indicating which hash function is used to compute the cuckoo hash
+	// bucket index.
+	in := make([]byte, 64)
+	prng.Read(in)
+	var hIdx byte
+	aesBlock, _ := aes.NewCipher(aesKey)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PseudorandomCodeWithHashIndex(aesBlock, in, hIdx)
 	}
 }
 
@@ -226,6 +218,6 @@ func BenchmarkXORCipherWithPRG(b *testing.B) {
 	s := blake3.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		XorCipherWithPRG(s, xorKey, p)
+		xorCipherWithPRG(s, xorKey, p)
 	}
 }

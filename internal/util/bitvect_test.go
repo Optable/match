@@ -11,16 +11,6 @@ var (
 	nworkers    = runtime.NumCPU()
 	byteBlock   = sampleRandomTall(prng, nmsg)
 	randomBlock = unravelTall(byteBlock, 0)
-
-	oneMil         = 1000000
-	fiveMil        = 5000000
-	tenMil         = 10000000
-	thirtyMil      = 30000000
-	fiftyMil       = 50000000
-	eightyMil      = 80000000
-	oneHundredMil  = 100000000
-	fiveHundredMil = 500000000
-	oneBil         = 1000000000
 )
 
 func genOrigBlock() BitVect {
