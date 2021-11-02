@@ -16,7 +16,8 @@ Various cipher suite implementations in golang
 type CipherMode int64
 
 const (
-	GCM CipherMode = iota
+	Unsupported CipherMode = iota
+	GCM
 	XORBlake3
 )
 
@@ -164,6 +165,8 @@ func gcmDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
 
 func Encrypt(mode CipherMode, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
 	switch mode {
+	case Unsupported:
+		return nil, fmt.Errorf("unsupported encrypt mode")
 	case GCM:
 		return gcmEncrypt(key, plaintext)
 	case XORBlake3:
@@ -175,6 +178,8 @@ func Encrypt(mode CipherMode, key []byte, ind uint8, plaintext []byte) ([]byte, 
 
 func Decrypt(mode CipherMode, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
 	switch mode {
+	case Unsupported:
+		return nil, fmt.Errorf("unsupported decrypt mode")
 	case GCM:
 		return gcmDecrypt(key, ciphertext)
 	case XORBlake3:
@@ -187,6 +192,8 @@ func Decrypt(mode CipherMode, key []byte, ind uint8, ciphertext []byte) ([]byte,
 // compute ciphertext length in bytes
 func EncryptLen(mode CipherMode, msgLen int) int {
 	switch mode {
+	case Unsupported:
+		return msgLen
 	case GCM:
 		return nonceSize + aes.BlockSize + msgLen
 	case XORBlake3:
