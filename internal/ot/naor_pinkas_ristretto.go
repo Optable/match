@@ -21,10 +21,10 @@ Naor-Pinkas OT implemented using Ristretto points for the elliptic curve operati
 type naorPinkasRistretto struct {
 	baseCount  int
 	msgLen     []int
-	cipherMode int
+	cipherMode crypto.CipherMode
 }
 
-func newNaorPinkasRistretto(baseCount int, msgLen []int, cipherMode int) (naorPinkasRistretto, error) {
+func newNaorPinkasRistretto(baseCount int, msgLen []int, cipherMode crypto.CipherMode) (naorPinkasRistretto, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkasRistretto{}, ErrBaseCountMissMatch
 	}

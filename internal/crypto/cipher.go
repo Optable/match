@@ -11,11 +11,13 @@ import (
 )
 
 /*
-Various cipher suite implementation in golang
+Various cipher suite implementations in golang
 */
+type CipherMode int64
 
 const (
-	GCM = iota
+	Unsupported CipherMode = iota
+	GCM
 	XORBlake3
 )
 
@@ -161,8 +163,10 @@ func gcmDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
 	return
 }
 
-func Encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
+func Encrypt(mode CipherMode, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
 	switch mode {
+	case Unsupported:
+		return nil, fmt.Errorf("unsupported encrypt mode")
 	case GCM:
 		return gcmEncrypt(key, plaintext)
 	case XORBlake3:
@@ -172,8 +176,10 @@ func Encrypt(mode int, key []byte, ind uint8, plaintext []byte) ([]byte, error) 
 	return nil, fmt.Errorf("wrong encrypt mode")
 }
 
-func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
+func Decrypt(mode CipherMode, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
 	switch mode {
+	case Unsupported:
+		return nil, fmt.Errorf("unsupported decrypt mode")
 	case GCM:
 		return gcmDecrypt(key, ciphertext)
 	case XORBlake3:
@@ -184,8 +190,10 @@ func Decrypt(mode int, key []byte, ind uint8, ciphertext []byte) ([]byte, error)
 }
 
 // compute ciphertext length in bytes
-func EncryptLen(mode int, msgLen int) int {
+func EncryptLen(mode CipherMode, msgLen int) int {
 	switch mode {
+	case Unsupported:
+		return msgLen
 	case GCM:
 		return nonceSize + aes.BlockSize + msgLen
 	case XORBlake3:

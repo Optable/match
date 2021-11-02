@@ -21,10 +21,10 @@ type naorPinkas struct {
 	curve      elliptic.Curve
 	encodeLen  int
 	msgLen     []int
-	cipherMode int
+	cipherMode crypto.CipherMode
 }
 
-func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode int) (naorPinkas, error) {
+func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode crypto.CipherMode) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}

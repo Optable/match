@@ -21,10 +21,10 @@ Simplest OT but implemented with Ristretto points for the elliptic curve operati
 type simplestRistretto struct {
 	baseCount  int
 	msgLen     []int
-	cipherMode int
+	cipherMode crypto.CipherMode
 }
 
-func newSimplestRistretto(baseCount int, msgLen []int, cipherMode int) (simplestRistretto, error) {
+func newSimplestRistretto(baseCount int, msgLen []int, cipherMode crypto.CipherMode) (simplestRistretto, error) {
 	if len(msgLen) != baseCount {
 		return simplestRistretto{}, ErrBaseCountMissMatch
 	}

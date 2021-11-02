@@ -3,6 +3,8 @@ package ot
 import (
 	"fmt"
 	"io"
+
+	"github.com/optable/match/internal/crypto"
 )
 
 /*
@@ -28,7 +30,7 @@ type OT interface {
 }
 
 // NewBaseOT returns an OT of type t
-func NewBaseOT(t int, ristretto bool, baseCount int, curveName string, msgLen []int, cipherMode int) (OT, error) {
+func NewBaseOT(t int, ristretto bool, baseCount int, curveName string, msgLen []int, cipherMode crypto.CipherMode) (OT, error) {
 	switch t {
 	case NaorPinkas:
 		if ristretto {
