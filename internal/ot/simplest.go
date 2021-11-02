@@ -21,10 +21,10 @@ type simplest struct {
 	curve      elliptic.Curve
 	encodeLen  int
 	msgLen     []int
-	cipherMode int
+	cipherMode crypto.CipherMode
 }
 
-func newSimplest(baseCount int, curveName string, msgLen []int, cipherMode int) (simplest, error) {
+func newSimplest(baseCount int, curveName string, msgLen []int, cipherMode crypto.CipherMode) (simplest, error) {
 	if len(msgLen) != baseCount {
 		return simplest{}, ErrBaseCountMissMatch
 	}
