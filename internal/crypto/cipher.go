@@ -96,7 +96,8 @@ func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, er
 	s.Write(seed)
 	d := s.Digest()
 	d.Read(dst)
-	return util.XorBytes(src, dst)
+	err = util.ConcurrentBitOp(util.Xor, dst, src)
+	return dst, err
 }
 
 // Blake3 has XOF which is perfect for doing xor cipher.
@@ -106,7 +107,8 @@ func xorCipherWithBlake3(key []byte, ind uint8, src []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return util.XorBytes(hash, src)
+	err = util.ConcurrentBitOp(util.Xor, hash, src)
+	return hash, err
 }
 
 func getBlake3Hash(key []byte, ind uint8, dst []byte) error {

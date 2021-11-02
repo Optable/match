@@ -75,7 +75,7 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// with q[col] just returns the same row so no need to do
 		// an operation
 		if util.BitSetInByte(s, col) {
-			q[col], err = util.XorBytes(u, q[col])
+			err = util.ConcurrentBitOp(util.Xor, q[col], u)
 			if err != nil {
 				return err
 			}
@@ -90,7 +90,7 @@ func (ext alsz) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		for choice, plaintext := range messages[i] {
 			key = q[i]
 			if choice == 1 {
-				key, err = util.XorBytes(key, s)
+				err = util.ConcurrentBitOp(util.Xor, key, s)
 				if err != nil {
 					return err
 				}
@@ -155,12 +155,12 @@ func (ext alsz) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (e
 			return err
 		}
 
-		u, err = util.XorBytes(u, t[col])
+		err = util.ConcurrentBitOp(util.Xor, u, t[col])
 		if err != nil {
 			return err
 		}
 
-		u, err = util.XorBytes(u, paddedChoice)
+		err = util.ConcurrentBitOp(util.Xor, u, paddedChoice)
 		if err != nil {
 			return err
 		}

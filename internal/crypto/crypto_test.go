@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
 )
 
@@ -74,30 +73,6 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 
 	if !bytes.Equal(p, plain) {
 		t.Fatalf("Decryption should have worked")
-	}
-}
-
-func TestXORBytes(t *testing.T) {
-	a := make([]byte, 32)
-	prng.Read(a)
-
-	b := make([]byte, 32)
-	prng.Read(b)
-	c, err := util.XorBytes(a, b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Equal(c, a) || bytes.Equal(c, b) {
-		t.Fatalf("c should not be equal to a nor b")
-	}
-
-	c, err = util.XorBytes(a, c)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(c, b) {
-		t.Fatalf("c should be equal to b")
 	}
 }
 
