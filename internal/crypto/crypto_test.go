@@ -165,15 +165,32 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 	}
 }
 
-func BenchmarkNormalPseudorandomCode(b *testing.B) {
-	// the normal input is a 64 byte sha256 digest plus a byte indicating
-	// which hash function is used to compute the cuckoo hash bucket index.
-	in := make([]byte, 65)
+func BenchmarkPseudorandomCode(b *testing.B) {
+	// the normal input is a 64 byte sha256 digest with an appended byte
+	// indicating which hash function is used to compute the cuckoo hash
+	// bucket index.
+	in := make([]byte, 64)
 	prng.Read(in)
-	b.ResetTimer()
+	var hIdx byte
 	aesBlock, _ := aes.NewCipher(aesKey)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		in = append(in, hIdx)
 		PseudorandomCode(aesBlock, in)
+	}
+}
+
+func BenchmarkPseudorandomCodeWithHashIndex(b *testing.B) {
+	// the normal input is a 64 byte sha256 digest with an appended byte
+	// indicating which hash function is used to compute the cuckoo hash
+	// bucket index.
+	in := make([]byte, 64)
+	prng.Read(in)
+	var hIdx byte
+	aesBlock, _ := aes.NewCipher(aesKey)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PseudorandomCodeWithHashIndex(aesBlock, in, hIdx)
 	}
 }
 
@@ -226,6 +243,6 @@ func BenchmarkXORCipherWithPRG(b *testing.B) {
 	s := blake3.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		XorCipherWithPRG(s, xorKey, p)
+		xorCipherWithPRG(s, xorKey, p)
 	}
 }

@@ -62,22 +62,22 @@ func (p Points) SetX(newX *big.Int) Points {
 	return p
 }
 
-// SetY sets the y coordiante of a point on elliptic curve
+// SetY sets the y coordinate of a point on an elliptic curve
 func (p Points) SetY(newY *big.Int) Points {
 	p.y.Set(newY)
 	return p
 }
 
-// Marshal converts a points to a byte slice representation
+// Marshal converts a Points to a byte slice representation
 func (p Points) Marshal() []byte {
 	return elliptic.Marshal(p.curve, p.x, p.y)
 }
 
-// Unmarshal takes in a marshaledPoint byte slice and extracts the points object
+// Unmarshal takes in a marshaledPoint byte slice and extracts the Points object
 func (p Points) Unmarshal(marshaledPoint []byte) error {
 	x, y := elliptic.Unmarshal(p.curve, marshaledPoint)
 
-	// on error of unmarshal, x is nil
+	// on error of Unmarshal, x is nil
 	if x == nil {
 		return fmt.Errorf("error unmarshal elliptic curve point")
 	}

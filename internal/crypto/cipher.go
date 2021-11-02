@@ -10,9 +10,8 @@ import (
 	"github.com/zeebo/blake3"
 )
 
-/*
-Various cipher suite implementations in golang
-*/
+// CipherMode represents a particular cipher implementation chosen from
+// the various cipher suite implementations in Go
 type CipherMode int64
 
 const (
@@ -91,7 +90,7 @@ func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte)
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.
-func XorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
+func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
 	dst = make([]byte, len(src))
 	s.Reset()
 	s.Write(seed)
@@ -189,7 +188,7 @@ func Decrypt(mode CipherMode, key []byte, ind uint8, ciphertext []byte) ([]byte,
 	return nil, fmt.Errorf("wrong decrypt mode")
 }
 
-// compute ciphertext length in bytes
+// EncryptLen computes ciphertext length in bytes
 func EncryptLen(mode CipherMode, msgLen int) int {
 	switch mode {
 	case Unsupported:
