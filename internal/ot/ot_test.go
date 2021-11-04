@@ -13,20 +13,16 @@ import (
 )
 
 var (
-	network             = "tcp"
-	address             = "127.0.0.1:"
-	curve               = "P256"
-	cipherMode          = crypto.XORBlake3
-	baseCount           = 512
-	otExtensionCount    = 1400
-	tuple               = 10
-	messages            = genMsg(baseCount, 2)
-	otExtensionMessages = genMsg(otExtensionCount, 2)
-	nchooseOneMessages  = genMsg(otExtensionCount, tuple)
-	msgLen              = make([]int, len(messages))
-	choices             = genChoiceBits(baseCount / 8)
-	otExtensionChoices  = genChoiceBits(otExtensionCount / 8)
-	r                   = rand.New(rand.NewSource(time.Now().UnixNano()))
+	network          = "tcp"
+	address          = "127.0.0.1:"
+	curve            = "P256"
+	cipherMode       = crypto.XORBlake3
+	baseCount        = 512
+	otExtensionCount = 1400
+	messages         = genMsg(baseCount, 2)
+	msgLen           = make([]int, len(messages))
+	choices          = genChoiceBits(baseCount / 8)
+	r                = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func TestNewNaorPinkas(t *testing.T) {

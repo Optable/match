@@ -1,15 +1,21 @@
 package oprf
 
 /*
-Oblivious pseudorandom function (OPRF)
+Improved oblivious pseudorandom function (OPRF)
 based on KKRT 1 out of 2 OT extension
-from the paper: Efficient Batched Oblivious PRF with Applications to Private Set Intersection
-by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016, and improved by Justin Li.
-Reference:	http://dx.doi.org/10.1145/2976749.2978381 (KKRT)
+from the paper: "Efficient Batched Oblivious PRF with Applications to Private Set Intersection"
+by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016, and
+the paper "More Efficient Oblivious Transfer Extensions"
+by  Gilad Asharov, Yehuda Lindell, Thomas Schneider, and Michael Zohner
+and the paper "Extending oblivious transfers efficiently" by
+Yuval Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank for ot-extension using
+short secrets.
 
-It is effectively KKRT OT, but instead of encrypting and decrypting messages,
-Send returns the OPRF Keys
-Receive returns the OPRF evaluated on inputs using the key: OPRF(k, r)
+Reference:
+- http://dx.doi.org/10.1145/2976749.2978381 (KKRT)
+- https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf (IKNP)
+- https://dl.acm.org/doi/10.1007/s00145-016-9236-6 (ALSZ)
+
 */
 
 import (
