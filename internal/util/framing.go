@@ -44,24 +44,3 @@ func Exhaust(n int64, r io.Reader) <-chan []byte {
 
 	return identifiers
 }
-
-// Exhaust2 scans for identifiers in r.
-// It expects that each identifier is line separated with \n
-// at the end of each line.
-func Exhaust2(n int64, r io.Reader) <-chan []byte {
-	// make the output channel
-	var identifiers = make(chan []byte)
-	// wrap r in a bufio reader
-	src := bufio.NewScanner(r)
-	go func() {
-		defer close(identifiers)
-		for src.Scan() {
-			identifiers <- src.Bytes()
-		}
-		if err := src.Err(); err != nil {
-			log.Printf("error reading identifiers: %v", err)
-		}
-	}()
-
-	return identifiers
-}
