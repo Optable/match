@@ -165,8 +165,12 @@ func TestReadWritePoints(t *testing.T) {
 		t.Fatal("Read point should not be equal to point")
 	}
 
-	w.Write(&point)
-	r.Read(&readPoint)
+	if err := w.Write(&point); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Read(&readPoint); err != nil {
+		t.Fatal(err)
+	}
 
 	if !point.Equals(&readPoint) {
 		t.Fatalf("Read point is not the same as the written point, want: %v, got: %v", point.Bytes(), readPoint.Bytes())

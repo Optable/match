@@ -13,20 +13,6 @@ var (
 	randomBlock = unravelTall(byteBlock, 0)
 )
 
-func genOrigBlock() BitVect {
-	origBlock2D := make([][]byte, 512)
-	for row := range origBlock2D {
-		origBlock2D[row] = make([]byte, 64)
-		for c := 0; c < 64; c++ {
-			// alternating rows of all 0s and all 1s (bits)
-			if row%2 == 1 {
-				origBlock2D[row][c] = ^byte(0)
-			}
-		}
-	}
-	return unravelTall(origBlock2D, 0)
-}
-
 func genTranBlock() BitVect {
 	tranBlock2D := make([][]byte, 512)
 	for row := range tranBlock2D {
@@ -36,26 +22,6 @@ func genTranBlock() BitVect {
 		}
 	}
 	return unravelTall(tranBlock2D, 0)
-}
-
-func genOnesBlock() BitVect {
-	onesBlock2D := make([][]byte, 512)
-	for row := range onesBlock2D {
-		onesBlock2D[row] = make([]byte, 64)
-		for c := 0; c < 64; c++ {
-			onesBlock2D[row][c] = ^byte(0)
-		}
-	}
-	return unravelTall(onesBlock2D, 0)
-}
-
-// this is convenient for visualizing steps of the transposition
-func genProbeBlock() BitVect {
-	probeBlock2D := make([][]byte, 512)
-	for row := range probeBlock2D {
-		probeBlock2D[row] = []byte{0, 1, 2, 3, 4, 5, 6, 7}
-	}
-	return unravelTall(probeBlock2D, 0)
 }
 
 // sampleRandomTall fills an m by 64 byte matrix (512 bits wide) with

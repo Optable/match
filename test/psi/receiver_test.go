@@ -24,6 +24,7 @@ func r_receiverInit(protocol int, common []byte, commonLen, receiverLen int, int
 			conn, err := ln.Accept()
 			if err != nil {
 				// handle error
+				errs <- err
 			}
 			go r_receiverHandle(protocol, common, commonLen, receiverLen, conn, intersectionsBus, errs)
 		}
@@ -41,7 +42,6 @@ func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, c
 		intersectionsBus <- intersection
 	}
 	if err != nil {
-		// hmm - send this to the main thread with a channel
 		errs <- err
 	}
 }

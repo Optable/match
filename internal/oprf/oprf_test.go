@@ -201,6 +201,8 @@ func BenchmarkEncode(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		key.Encode(0, q[0], 0)
+		if _, err := key.Encode(0, q[0], 0); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

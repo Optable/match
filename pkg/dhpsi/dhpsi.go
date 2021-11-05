@@ -1,11 +1,9 @@
 package dhpsi
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/optable/match/internal/permutations"
 )
@@ -212,30 +210,4 @@ func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 // this decoder will receive
 func (r *Reader) Max() int64 {
 	return r.max
-}
-
-// init the permutations slice matrix
-func initP(n int64) []int64 {
-	var p = make([]int64, n)
-	var max = big.NewInt(n - 1)
-	// Chooses a uniform random int64
-	choose := func() int64 {
-		i, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			return 0
-		}
-		return i.Int64()
-	}
-	// Initialize a trivial permutation
-	for i := int64(0); i < n; i++ {
-		p[i] = i
-	}
-	// and then shuffle it by random swaps
-	for i := int64(0); i < n; i++ {
-		if j := choose(); j != i {
-			p[j], p[i] = p[i], p[j]
-		}
-	}
-
-	return p
 }
