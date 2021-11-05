@@ -191,6 +191,7 @@ func ConcurrentDoubleBitOp(f func([]byte, []byte, []byte) error, dst, a, b []byt
 	var wg sync.WaitGroup
 	wg.Add(nworkers)
 	for w := 0; w < nworkers; w++ {
+		w := w
 		go func() {
 			defer wg.Done()
 			step := blockSize * w
