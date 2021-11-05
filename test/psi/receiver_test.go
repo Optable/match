@@ -14,7 +14,7 @@ import (
 )
 
 // test receiver and return the addr string
-func r_receiverInit(protocol int, common []byte, commonLen, receiverLen int, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
+func r_receiverInit(protocol int, common []byte, commonLen, receiverLen, hashLen int, intersectionsBus chan<- []byte, errs chan<- error) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return "", err
@@ -26,15 +26,15 @@ func r_receiverInit(protocol int, common []byte, commonLen, receiverLen int, int
 				// handle error
 				errs <- err
 			}
-			go r_receiverHandle(protocol, common, commonLen, receiverLen, conn, intersectionsBus, errs)
+			go r_receiverHandle(protocol, common, commonLen, receiverLen, hashLen, conn, intersectionsBus, errs)
 		}
 	}()
 	return ln.Addr().String(), nil
 }
 
-func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
+func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen, hashLen int, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
 	defer close(intersectionsBus)
-	r := initTestDataSource(common, receiverLen-commonLen)
+	r := initTestDataSource(common, receiverLen-commonLen, hashLen)
 
 	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
 	ii, err := rec.Intersect(context.Background(), int64(receiverLen), r)
@@ -48,14 +48,14 @@ func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, c
 
 // take the common chunk from the emails generator
 // and turn it into prefixed sha512 hashes
-func parseCommon(b []byte) (out []string) {
-	for i := 0; i < len(b)/emails.HashLen; i++ {
+func parseCommon(b []byte, hashLen int) (out []string) {
+	for i := 0; i < len(b)/hashLen; i++ {
 		// make one
-		one := make([]byte, len(emails.Prefix)+hex.EncodedLen(len(b[i*emails.HashLen:i*emails.HashLen+emails.HashLen])))
+		one := make([]byte, len(emails.Prefix)+hex.EncodedLen(len(b[i*hashLen:i*hashLen+hashLen])))
 		// copy the prefix first and then the
 		// hex string
 		copy(one, emails.Prefix)
-		hex.Encode(one[len(emails.Prefix):], b[i*emails.HashLen:i*emails.HashLen+emails.HashLen])
+		hex.Encode(one[len(emails.Prefix):], b[i*hashLen:i*hashLen+hashLen])
 		out = append(out, string(one))
 	}
 	return
@@ -65,14 +65,14 @@ func testReceiver(protocol int, common []byte, s test_size, deterministic bool) 
 	// setup channels
 	var intersectionsBus = make(chan []byte)
 	var errs = make(chan error, 2)
-	addr, err := r_receiverInit(protocol, common, s.commonLen, s.receiverLen, intersectionsBus, errs)
+	addr, err := r_receiverInit(protocol, common, s.commonLen, s.receiverLen, s.hashLen, intersectionsBus, errs)
 	if err != nil {
 		return err
 	}
 
 	// send operation
 	go func() {
-		r := initTestDataSource(common, s.senderLen-s.commonLen)
+		r := initTestDataSource(common, s.senderLen-s.commonLen, s.hashLen)
 		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
@@ -98,7 +98,7 @@ func testReceiver(protocol int, common []byte, s test_size, deterministic bool) 
 
 	// turn the common chunk into a slice of
 	// string IDs
-	var c = parseCommon(common)
+	var c = parseCommon(common, s.hashLen)
 	// is this a deterministic PSI? if not remove all false positives first
 	if !deterministic {
 		// filter out intersections to
@@ -107,8 +107,8 @@ func testReceiver(protocol int, common []byte, s test_size, deterministic bool) 
 	}
 
 	// right amount?
-	if len(common)/emails.HashLen != len(intersections) {
-		return fmt.Errorf("expected %d intersections and got %d", len(common)/emails.HashLen, len(intersections))
+	if len(common)/s.hashLen != len(intersections) {
+		return fmt.Errorf("expected %d intersections and got %d", len(common)/s.hashLen, len(intersections))
 	}
 	// sort intersections
 	sort.Slice(intersections, func(i, j int) bool {
@@ -152,10 +152,22 @@ func TestDHPSIReceiver(t *testing.T) {
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
-		common := emails.Common(s.commonLen)
+		common := emails.Common(s.commonLen, s.hashLen)
 		// test
 		if err := testReceiver(psi.DHPSI, common, s, true); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
+
+	for _, hashLen := range hashLenSizes {
+		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		t.Logf("testing scenario %s", scenario)
+		// generate common data
+		common := emails.Common(hashLenTest.commonLen, hashLen)
+		// test
+		if err := testReceiver(psi.DHPSI, common, hashLenTest, true); err != nil {
+			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
 }
@@ -164,10 +176,22 @@ func TestNPSIReceiver(t *testing.T) {
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
-		common := emails.Common(s.commonLen)
+		common := emails.Common(s.commonLen, s.hashLen)
 		// test
 		if err := testReceiver(psi.NPSI, common, s, true); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
+
+	for _, hashLen := range hashLenSizes {
+		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		t.Logf("testing scenario %s", scenario)
+		// generate common data
+		common := emails.Common(hashLenTest.commonLen, hashLen)
+		// test
+		if err := testReceiver(psi.DHPSI, common, hashLenTest, true); err != nil {
+			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
 }
@@ -176,10 +200,22 @@ func TestBPSIReceiver(t *testing.T) {
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
-		common := emails.Common(s.commonLen)
+		common := emails.Common(s.commonLen, s.hashLen)
 		// test
 		if err := testReceiver(psi.BPSI, common, s, false); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
+
+	for _, hashLen := range hashLenSizes {
+		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		t.Logf("testing scenario %s", scenario)
+		// generate common data
+		common := emails.Common(hashLenTest.commonLen, hashLen)
+		// test
+		if err := testReceiver(psi.DHPSI, common, hashLenTest, true); err != nil {
+			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
 }
@@ -188,10 +224,22 @@ func TestKKRTReceiver(t *testing.T) {
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
-		common := emails.Common(s.commonLen)
+		common := emails.Common(s.commonLen, s.hashLen)
 		// test
 		if err := testReceiver(psi.KKRTPSI, common, s, true); err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
+
+	for _, hashLen := range hashLenSizes {
+		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		t.Logf("testing scenario %s", scenario)
+		// generate common data
+		common := emails.Common(hashLenTest.commonLen, hashLen)
+		// test
+		if err := testReceiver(psi.DHPSI, common, hashLenTest, true); err != nil {
+			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
 }

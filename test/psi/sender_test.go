@@ -3,6 +3,7 @@ package psi_test
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -11,12 +12,12 @@ import (
 )
 
 // will output len(common)+bodyLen identifiers
-func initTestDataSource(common []byte, bodyLen int) <-chan []byte {
-	return emails.Mix(common, bodyLen)
+func initTestDataSource(common []byte, bodyLen, hashLen int) <-chan []byte {
+	return emails.Mix(common, bodyLen, hashLen)
 }
 
 // test receiver and return the addr string
-func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int, errs chan<- error) (addr string, err error) {
+func s_receiverInit(protocol int, common []byte, commonLen, receiverLen, hashLen int, errs chan<- error) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return "", err
@@ -28,14 +29,14 @@ func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int, err
 				// handle error
 				errs <- err
 			}
-			go s_receiverHandle(protocol, common, commonLen, receiverLen, conn, errs)
+			go s_receiverHandle(protocol, common, commonLen, receiverLen, hashLen, conn, errs)
 		}
 	}()
 	return ln.Addr().String(), nil
 }
 
-func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn, errs chan<- error) {
-	r := initTestDataSource(common, receiverLen-commonLen)
+func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen, hashLen int, conn net.Conn, errs chan<- error) {
+	r := initTestDataSource(common, receiverLen-commonLen, hashLen)
 	// do a nil receive, ignore the results
 	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
 	_, err := rec.Intersect(context.Background(), int64(receiverLen), r)
@@ -44,9 +45,9 @@ func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, c
 	}
 }
 
-func testSender(protocol int, addr string, common []byte, commonLen, senderLen int) error {
+func testSender(protocol int, addr string, common []byte, commonLen, senderLen, hashLen int) error {
 	// test sender
-	r := initTestDataSource(common, senderLen-commonLen)
+	r := initTestDataSource(common, senderLen-commonLen, hashLen)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
@@ -65,9 +66,9 @@ func testSenderByProtocol(p int, t *testing.T) {
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
-		common := emails.Common(s.commonLen)
+		common := emails.Common(s.commonLen, s.hashLen)
 		// init a test receiver server
-		addr, err := s_receiverInit(p, common, s.commonLen, s.receiverLen, errs)
+		addr, err := s_receiverInit(p, common, s.commonLen, s.receiverLen, s.hashLen, errs)
 		if err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
@@ -80,9 +81,35 @@ func testSenderByProtocol(p int, t *testing.T) {
 		}
 
 		// test sender
-		err = testSender(p, addr, common, s.commonLen, s.senderLen)
+		err = testSender(p, addr, common, s.commonLen, s.senderLen, 32)
 		if err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
+		}
+	}
+
+	for _, hashLen := range hashLenSizes {
+		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		t.Logf("testing scenario %s", scenario)
+		// generate common data
+		common := emails.Common(hashLenTest.commonLen, hashLen)
+		// init a test receiver server
+		addr, err := s_receiverInit(p, common, hashLenTest.commonLen, hashLenTest.receiverLen, hashLenTest.hashLen, errs)
+		if err != nil {
+			t.Fatalf("%s: %v", scenario, err)
+		}
+
+		// errors?
+		select {
+		case err := <-errs:
+			t.Fatalf("%s: %v", scenario, err)
+		default:
+		}
+
+		// test sender
+		err = testSender(p, addr, common, hashLenTest.commonLen, hashLenTest.senderLen, hashLenTest.hashLen)
+		if err != nil {
+			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
 }
