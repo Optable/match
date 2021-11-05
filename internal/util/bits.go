@@ -29,8 +29,6 @@ func Xor(dst, a []byte) error {
 		castDst[i] ^= castA[i]
 	}
 
-	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
-
 	// deal with excess bytes which couldn't be cast to uint64
 	// in the conventional manner
 	for j := 0; j < len(dst)%8; j++ {
@@ -57,8 +55,6 @@ func And(dst, a []byte) error {
 	for i := range castDst {
 		castDst[i] &= castA[i]
 	}
-
-	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
 
 	// deal with excess bytes which couldn't be cast to uint64
 	// in the conventional manner
@@ -88,8 +84,6 @@ func DoubleXor(dst, a, b []byte) error {
 		castDst[i] ^= castA[i]
 		castDst[i] ^= castB[i]
 	}
-
-	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
 
 	// deal with excess bytes which couldn't be cast to uint64
 	// in the conventional manner
@@ -121,8 +115,6 @@ func AndXor(dst, a, b []byte) error {
 		castDst[i] &= castA[i]
 		castDst[i] ^= castB[i]
 	}
-
-	copy(dst, unsafeslice.ByteSliceFromUint64Slice(castDst))
 
 	// deal with excess bytes which couldn't be cast to uint64
 	// in the conventional manner
