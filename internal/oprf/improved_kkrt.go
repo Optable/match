@@ -7,11 +7,11 @@ from the paper: "Efficient Batched Oblivious PRF with Applications to Private Se
 by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016, and
 the paper "More Efficient Oblivious Transfer Extensions"
 by  Gilad Asharov, Yehuda Lindell, Thomas Schneider, and Michael Zohner
-and the paper "Extending oblivious transfers efficiently" by
-Yuval Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank for ot-extension using
+and the paper "Extending oblivious transfers efficiently" 
+by Yuval Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank for ot-extension using
 short secrets.
 
-Reference:
+References:
 - http://dx.doi.org/10.1145/2976749.2978381 (KKRT)
 - https://www.iacr.org/archive/crypto2003/27290145/27290145.pdf (IKNP)
 - https://dl.acm.org/doi/10.1007/s00145-016-9236-6 (ALSZ)
