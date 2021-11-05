@@ -3,7 +3,6 @@ package psi_test
 
 import (
 	"context"
-	"log"
 	"net"
 	"testing"
 
@@ -17,7 +16,7 @@ func initTestDataSource(common []byte, bodyLen int) <-chan []byte {
 }
 
 // test receiver and return the addr string
-func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int) (addr string, err error) {
+func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int, errs chan<- error) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return "", err
@@ -27,21 +26,21 @@ func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int) (ad
 			conn, err := ln.Accept()
 			if err != nil {
 				// handle error
+				errs <- err
 			}
-			go s_receiverHandle(protocol, common, commonLen, receiverLen, conn)
+			go s_receiverHandle(protocol, common, commonLen, receiverLen, conn, errs)
 		}
 	}()
 	return ln.Addr().String(), nil
 }
 
-func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn) {
+func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn, errs chan<- error) {
 	r := initTestDataSource(common, receiverLen-commonLen)
 	// do a nil receive, ignore the results
 	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
 	_, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	if err != nil {
-		// hmm - send this to the main thread with a channel
-		log.Print(err)
+		errs <- err
 	}
 }
 
@@ -61,15 +60,25 @@ func testSender(protocol int, addr string, common []byte, commonLen, senderLen i
 }
 
 func testSenderByProtocol(p int, t *testing.T) {
+	var errs = make(chan error, 2)
+	defer close(errs)
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
 		common := emails.Common(s.commonLen)
 		// init a test receiver server
-		addr, err := s_receiverInit(p, common, s.commonLen, s.receiverLen)
+		addr, err := s_receiverInit(p, common, s.commonLen, s.receiverLen, errs)
 		if err != nil {
 			t.Fatalf("%s: %v", s.scenario, err)
 		}
+
+		// errors?
+		select {
+		case err := <-errs:
+			t.Fatalf("%s: %v", s.scenario, err)
+		default:
+		}
+
 		// test sender
 		err = testSender(p, addr, common, s.commonLen, s.senderLen)
 		if err != nil {

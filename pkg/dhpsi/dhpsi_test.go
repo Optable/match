@@ -38,9 +38,8 @@ func compare(b1 [EncodedLen]byte, b2 []byte) bool {
 func sender(e ShufflerEncoder, r Ristretto, matchables <-chan []byte) ([][]byte, permutations.Permutations, error) {
 	// save test matchables
 	var sent [][]byte
-	var encoder ShufflerEncoder
 	// setup stage 1
-	encoder = e
+	var encoder = e
 	// save the permutations
 	p := encoder.Permutations()
 	for matchable := range matchables {

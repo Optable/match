@@ -84,7 +84,9 @@ func BenchmarkCuckooInsert(b *testing.B) {
 
 	for i := 1; i < b.N; i++ {
 		idx := uint64(i % int(benchN))
-		benchCuckoo.insert(idx, benchData[idx])
+		if err := benchCuckoo.insert(idx, benchData[idx]); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

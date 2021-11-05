@@ -93,9 +93,13 @@ func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte)
 func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
 	dst = make([]byte, len(src))
 	s.Reset()
-	s.Write(seed)
+	if _, err := s.Write(seed); err != nil {
+		return nil, err
+	}
 	d := s.Digest()
-	d.Read(dst)
+	if _, err := d.Read(dst); err != nil {
+		return nil, err
+	}
 	err = util.ConcurrentBitOp(util.Xor, dst, src)
 	return dst, err
 }
@@ -113,8 +117,12 @@ func xorCipherWithBlake3(key []byte, ind uint8, src []byte) ([]byte, error) {
 
 func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 	h := blake3.New()
-	h.Write(key)
-	h.Write([]byte{ind})
+	if _, err := h.Write(key); err != nil {
+		return err
+	}
+	if _, err := h.Write([]byte{ind}); err != nil {
+		return err
+	}
 
 	// convert to *digest to take a snapshot of the hashstate for XOF
 	d := h.Digest()

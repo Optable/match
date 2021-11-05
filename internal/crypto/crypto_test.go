@@ -127,7 +127,9 @@ func BenchmarkPrgWithSeed(b *testing.B) {
 	prng.Read(seed)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		PseudorandomGenerate(AESCtrDrbg, seed, 10000000)
+		if _, err := PseudorandomGenerate(AESCtrDrbg, seed, 10000000); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -136,7 +138,9 @@ func BenchmarkAESCTRDrbg(b *testing.B) {
 	prng.Read(seed)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		PseudorandomGenerate(AESCtrDrbg, seed, 10000000)
+		if _, err := PseudorandomGenerate(AESCtrDrbg, seed, 10000000); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -183,7 +187,9 @@ func BenchmarkDummyPseudorandomCode(b *testing.B) {
 func BenchmarkXORCipherWithBlake3Encrypt(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		xorCipherWithBlake3(xorKey, 0, p)
+		if _, err := xorCipherWithBlake3(xorKey, 0, p); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -195,13 +201,17 @@ func BenchmarkXORCipherWithBlake3Decrypt(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		xorCipherWithBlake3(xorKey, 0, c)
+		if _, err := xorCipherWithBlake3(xorKey, 0, c); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
 func BenchmarkAesGcmEncrypt(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		gcmEncrypt(aesKey, p)
+		if _, err := gcmEncrypt(aesKey, p); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -210,7 +220,9 @@ func BenchmarkAesGcmDecrypt(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		gcmDecrypt(aesKey, c)
+		if _, err := gcmDecrypt(aesKey, c); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -218,6 +230,8 @@ func BenchmarkXORCipherWithPRG(b *testing.B) {
 	s := blake3.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		xorCipherWithPRG(s, xorKey, p)
+		if _, err := xorCipherWithPRG(s, xorKey, p); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

@@ -64,8 +64,9 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// sample Nhash hash seeds
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
-			// slower read, but we need robust pseudorandomness for the hash seeds.
-			rand.Read(seeds[i])
+			if _, err := rand.Read(seeds[i]); err != nil {
+				return err
+			}
 			// write it into rw
 			if _, err := s.rw.Write(seeds[i]); err != nil {
 				return err
@@ -103,7 +104,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err := oprf.NewOPRF(oprf.ImprvKKRT, int(oprfInputSize), ot.NaorPinkas)
+		oSender, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
 		if err != nil {
 			return err
 		}

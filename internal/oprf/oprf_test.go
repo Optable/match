@@ -110,83 +110,6 @@ func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, see
 	return nil
 }
 
-func TestKKRT(t *testing.T) {
-	outBus := make(chan [cuckoo.Nhash]map[uint64]uint64)
-	keyBus := make(chan Key)
-	errs := make(chan error)
-
-	// start timer
-	start := time.Now()
-	var seeds [cuckoo.Nhash][]byte
-	for i := range seeds {
-		seeds[i] = make([]byte, hash.SaltLength)
-		rand.Read(seeds[i])
-	}
-	choicesCuckoo, err := makeCuckoo(choices, seeds)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	receiverOPRF, err := NewOPRF(KKRT, int(choicesCuckoo.Len()), ot.NaorPinkas)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr, err := initOPRFReceiver(receiverOPRF, choicesCuckoo, outBus, errs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	senderOPRF, err := NewOPRF(KKRT, int(choicesCuckoo.Len()), ot.NaorPinkas)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	go func() {
-		defer close(errs)
-		conn, err := net.Dial(network, addr)
-		if err != nil {
-			errs <- fmt.Errorf("Cannot dial: %s", err)
-		}
-		if err != nil {
-			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
-		}
-
-		defer close(keyBus)
-		keys, err := senderOPRF.Send(conn)
-		if err != nil {
-			errs <- fmt.Errorf("Send encountered error: %s", err)
-			close(outBus)
-		}
-
-		keyBus <- keys
-
-	}()
-
-	// any errors?
-	select {
-	case err := <-errs:
-		t.Fatal(err)
-	default:
-	}
-
-	// Receive keys
-	keys := <-keyBus
-
-	// Receive msg
-	encodedHashMap := <-outBus
-
-	// stop timer
-	end := time.Now()
-	t.Logf("Time taken for %d KKRT OPRF is: %v\n", baseCount, end.Sub(start))
-
-	// Testing encodings
-	err = testEncodings(encodedHashMap, keys, seeds, choicesCuckoo)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestImprovedKKRT(t *testing.T) {
 	outBus := make(chan [cuckoo.Nhash]map[uint64]uint64)
 	keyBus := make(chan Key)
@@ -204,7 +127,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	receiverOPRF, err := NewOPRF(ImprvKKRT, int(choicesCuckoo.Len()), ot.NaorPinkas)
+	receiverOPRF, err := NewOPRF(int(choicesCuckoo.Len()), ot.NaorPinkas)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +137,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewOPRF(ImprvKKRT, int(choicesCuckoo.Len()), ot.NaorPinkas)
+	senderOPRF, err := NewOPRF(int(choicesCuckoo.Len()), ot.NaorPinkas)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,6 +201,8 @@ func BenchmarkEncode(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		key.Encode(0, q[0], 0)
+		if _, err := key.Encode(0, q[0], 0); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

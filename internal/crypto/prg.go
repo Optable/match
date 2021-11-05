@@ -83,7 +83,9 @@ func aesCTRDrbg(seed []byte, length int) (dst []byte) {
 // blake3XOF returns a byte slice generated with a seeded blake3 digest object.
 func blake3XOF(seed []byte, length int) (dst []byte, err error) {
 	h := blake3.New()
-	h.Write(seed)
+	if _, err := h.Write(seed); err != nil {
+		return nil, err
+	}
 	drbg := h.Digest()
 
 	dst = make([]byte, length)
@@ -101,7 +103,10 @@ func PseudorandomGenerateWithBlake3XOF(dst []byte, seed []byte, h *blake3.Hasher
 
 	// reset internal state
 	h.Reset()
-	h.Write(seed)
+	if _, err := h.Write(seed); err != nil {
+		return err
+	}
+
 	drbg := h.Digest()
 
 	_, err := drbg.Read(dst)
