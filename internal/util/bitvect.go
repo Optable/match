@@ -15,6 +15,7 @@ type BitVect struct {
 
 // unravelTall is a constructor used to create a BitVect from a 2D matrix of bytes.
 // The matrix must have 64 columns and 512 rows. idx is the block target.
+// Only tested on AMD64.
 func unravelTall(matrix [][]byte, idx int) BitVect {
 	set := [4096]uint64{}
 
@@ -26,6 +27,7 @@ func unravelTall(matrix [][]byte, idx int) BitVect {
 
 // unravelWide is a constructor used to create a BitVect from a 2D matrix of bytes.
 // The matrix must have 64 columns and 512 rows. idx is the block target.
+// Only tested on AMD64.
 func unravelWide(matrix [][]byte, idx int) BitVect {
 	set := [4096]uint64{}
 
@@ -36,6 +38,7 @@ func unravelWide(matrix [][]byte, idx int) BitVect {
 }
 
 // ravelToTall reconstructs a subsection of a tall (mx64) matrix from a BitVect.
+// Only tested on AMD64.
 func (b BitVect) ravelToTall(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[(idx*512)+i][:], unsafeslice.ByteSliceFromUint64Slice(b.set[i*8:(i+1)*8]))
@@ -43,6 +46,7 @@ func (b BitVect) ravelToTall(matrix [][]byte, idx int) {
 }
 
 // ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
+// Only tested on AMD64.
 func (b BitVect) ravelToWide(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[i][idx*64:(idx+1)*64], unsafeslice.ByteSliceFromUint64Slice(b.set[(i*8):(i+1)*8]))

@@ -224,6 +224,7 @@ func TestTestBitSetInByte(t *testing.T) {
 
 // Note the double conversion of bytes to uint64s to bytes does
 // result in added 0s.
+// Only tested on AMD64.
 func TestSliceConversions(t *testing.T) {
 	lengths := []int{8, 16, 24, 32, 40, 48}
 	for _, l := range lengths {

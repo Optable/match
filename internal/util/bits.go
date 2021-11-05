@@ -16,6 +16,7 @@ var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same len
 // The remaining elements that were not cast are XORed conventionally.
 // Of course a and dst must be the same length and the whole operation
 // is performed in place.
+// Only tested on AMD64.
 func Xor(dst, a []byte) error {
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
@@ -44,6 +45,7 @@ func Xor(dst, a []byte) error {
 // The remaining elements that were not cast are ANDed conventionally.
 // Of course a and dst must be the same length and the whole operation
 // is performed in place.
+// Only tested on AMD64.
 func And(dst, a []byte) error {
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
@@ -72,6 +74,7 @@ func And(dst, a []byte) error {
 // (first with a and then with b). The remaining elements that were not
 // cast are XORed conventionally. Of course a, b and dst must be the same
 // length and the whole operation is performed in place.
+// Only tested on AMD64.
 func DoubleXor(dst, a, b []byte) error {
 	if len(dst) != len(a) || len(dst) != len(b) {
 		return ErrByteLengthMissMatch
@@ -104,6 +107,7 @@ func DoubleXor(dst, a, b []byte) error {
 // that were not cast are operated on conventionally. Of course a, b
 // and dst must be the same length and the whole operation is
 // performed in place.
+// Only tested on AMD64.
 func AndXor(dst, a, b []byte) error {
 	if len(dst) != len(a) || len(dst) != len(b) {
 		return ErrByteLengthMissMatch
@@ -133,42 +137,31 @@ func AndXor(dst, a, b []byte) error {
 // ConcurrentBitOp performs an in-place bitwise operation, f, on each
 // byte from a with dst if they are both the same length
 func ConcurrentBitOp(f func([]byte, []byte) error, dst, a []byte) error {
-	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.GOMAXPROCS(0)
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
 	}
 
 	// no need to split into goroutines
-	if len(dst) < blockSize {
+	if len(dst) < nworkers*16384 {
 		return f(dst, a)
 	}
 
 	// determine number of blocks to split original matrix
-	nblks := len(dst) / blockSize
-	if len(dst)%blockSize != 0 {
-		nblks += 1
-	}
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
+	blockSize := len(dst) / nworkers
 
 	// Run a worker pool
 	var wg sync.WaitGroup
 	wg.Add(nworkers)
 	for w := 0; w < nworkers; w++ {
+		w := w
 		go func() {
 			defer wg.Done()
-			var step int
-			for blk := range ch {
-				step = blockSize * blk
-				if blk == nblks-1 { // last block
-					f(dst[step:], a[step:])
-				} else {
-					f(dst[step:step+blockSize], a[step:step+blockSize])
-				}
+			step := blockSize * w
+			if w == nworkers-1 { // last block
+				f(dst[step:], a[step:])
+			} else {
+				f(dst[step:step+blockSize], a[step:step+blockSize])
 			}
 		}()
 	}
@@ -181,27 +174,18 @@ func ConcurrentBitOp(f func([]byte, []byte) error, dst, a []byte) error {
 // ConcurrentDoubleBitOp performs an in-place double bitwise operation, f,
 // on each byte from a with dst if they are both the same length
 func ConcurrentDoubleBitOp(f func([]byte, []byte, []byte) error, dst, a, b []byte) error {
-	const blockSize int = 16384 // half of what L2 cache can hold
 	nworkers := runtime.GOMAXPROCS(0)
 	if len(dst) != len(a) {
 		return ErrByteLengthMissMatch
 	}
 
 	// no need to split into goroutines
-	if len(dst) < blockSize {
+	if len(dst) < nworkers*16384 {
 		return f(dst, a, b)
 	}
 
 	// determine number of blocks to split original matrix
-	nblks := len(dst) / blockSize
-	if len(dst)%blockSize != 0 {
-		nblks += 1
-	}
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
+	blockSize := len(dst) / nworkers
 
 	// Run a worker pool
 	var wg sync.WaitGroup
@@ -209,14 +193,11 @@ func ConcurrentDoubleBitOp(f func([]byte, []byte, []byte) error, dst, a, b []byt
 	for w := 0; w < nworkers; w++ {
 		go func() {
 			defer wg.Done()
-			var step int
-			for blk := range ch {
-				step = blockSize * blk
-				if blk == nblks-1 { // last block
-					f(dst[step:], a[step:], b[step:])
-				} else {
-					f(dst[step:step+blockSize], a[step:step+blockSize], b[step:step+blockSize])
-				}
+			step := blockSize * w
+			if w == nworkers-1 { // last block
+				f(dst[step:], a[step:], b[step:])
+			} else {
+				f(dst[step:step+blockSize], a[step:step+blockSize], b[step:step+blockSize])
 			}
 		}()
 	}

@@ -25,7 +25,7 @@ The [bloomfilter](https://en.wikipedia.org/wiki/Bloom_filter) based PSI: an *ins
 
 # testing
 
-A complete test suite for all PSIs is present [here](test/psi). Don't hesitate to take a look and help us improve the quality of the testing by reporting problems and observations!
+A complete test suite for all PSIs is present [here](test/psi). Don't hesitate to take a look and help us improve the quality of the testing by reporting problems and observations! The PSIs have only been tested on AMD64.
 
 # benchmarks
 
