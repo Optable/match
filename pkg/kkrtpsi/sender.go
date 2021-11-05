@@ -103,7 +103,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err := oprf.NewOPRF(oprf.ImprvKKRT, int(oprfInputSize), ot.NaorPinkas)
+		oSender, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
 		if err != nil {
 			return err
 		}
