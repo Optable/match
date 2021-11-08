@@ -78,6 +78,13 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
+		// calculate number of OPRF from the receiver based on
+		// number of buckets in cuckooHashTable
+		oprfInputSize = int64(cuckoo.Factor * float64(remoteN))
+		if 1 > oprfInputSize {
+			oprfInputSize = 1
+		}
+
 		// exhaust local ids, and precompute all potential
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
@@ -98,11 +105,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 	// stage 2: act as sender in OPRF, and receive OPRF keys
 	stage2 := func() error {
-		// receive the number of OPRF
-		if err := binary.Read(s.rw, binary.BigEndian, &oprfInputSize); err != nil {
-			return err
-		}
-
 		// instantiate OPRF sender with agreed parameters
 		oSender, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
 		if err != nil {

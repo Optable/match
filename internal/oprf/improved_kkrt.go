@@ -7,7 +7,7 @@ from the paper: "Efficient Batched Oblivious PRF with Applications to Private Se
 by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016, and
 the paper "More Efficient Oblivious Transfer Extensions"
 by  Gilad Asharov, Yehuda Lindell, Thomas Schneider, and Michael Zohner
-and the paper "Extending oblivious transfers efficiently" 
+and the paper "Extending oblivious transfers efficiently"
 by Yuval Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank for ot-extension using
 short secrets.
 
@@ -139,12 +139,24 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 		if err != nil {
 			errChan <- err
 		}
+		/*
+			hasher, err := highwayhash.New128(sk)
+			if err != nil {
+				errChan <- err
+			}
+		*/
 		for i := 0; i < ext.m; i++ {
 			idx, err := choices.GetBucket(uint64(i))
 			if err != nil {
 				errChan <- err
 			}
 			item, hIdx := choices.GetItemWithHash(idx)
+			/*
+				d[i], err = crypto.PseudorandomCodeWithHashIndex2(aesBlock, hasher, item, hIdx)
+				if err != nil {
+					errChan <- err
+				}
+			*/
 			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)

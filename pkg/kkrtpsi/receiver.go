@@ -79,12 +79,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	stage2 := func() error {
 		oprfInputSize := int64(cuckooHashTable.Len())
 
-		// inform the sender of the size
-		// its about to receive
-		if err := binary.Write(r.rw, binary.BigEndian, oprfInputSize); err != nil {
-			return err
-		}
-
 		oReceiver, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
 		if err != nil {
 			return err

@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
+	"hash"
 
 	"github.com/optable/match/internal/util"
 	"github.com/zeebo/blake3"
@@ -87,6 +88,44 @@ func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte)
 
 	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
 	return dst
+}
+
+// PseudorandomCodeWithHashIndex is implemented as follows:
+// C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
+// PseudorandomCodeWithHashIndex is passed the src as well as the
+// associated hash index. When padding the src to 64 bytes, if there
+// is an empty byte, instead the hash index is placed there
+// (effectively appending the hash index). Blocks of 16 bytes are then
+// encrypted. Blocks consisting only of padding are not encrypted. On
+// success, PseudorandomCodeWithHashIndex returns an encrypted byte
+// slice of 64 bytes.
+func PseudorandomCodeWithHashIndex2(aesBlock cipher.Block, hasher hash.Hash, src []byte, hIdx byte) (dst []byte, err error) {
+	// prepare our destination
+	dst = make([]byte, aes.BlockSize*4)
+	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
+
+	// hash id and the hash index
+	hasher.Reset()
+	if _, err = hasher.Write(src); err != nil {
+		return nil, err
+	}
+	if _, err = hasher.Write([]byte{hIdx}); err != nil {
+		return nil, err
+	}
+	h := hasher.Sum(nil)
+
+	// copy into destination slice
+	copy(dst[aes.BlockSize*3+1:], h[:aes.BlockSize-1])
+
+	// encrypt
+	aesBlock.Encrypt(dst[:aes.BlockSize], dst[aes.BlockSize*3:])
+	dst[aes.BlockSize*3] = 2
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize*3:])
+	dst[aes.BlockSize*3] = 3
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*3:])
+	dst[aes.BlockSize*3] = 4
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
+	return dst, nil
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.
