@@ -1,7 +1,6 @@
 package oprf
 
 import (
-	"crypto/cipher"
 	"errors"
 	"io"
 
@@ -24,7 +23,7 @@ var ErrUnknownOPRF = errors.New("cannot create an OPRF that follows an unknown p
 
 type OPRF interface {
 	Send(rw io.ReadWriter) (Key, error)
-	Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
+	Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
 }
 
 // NewOPRF returns an OPRF of type t
@@ -37,18 +36,16 @@ func NewOPRF(m, baseOT int) (OPRF, error) {
 // q stores the received OT extension matrix chosen with secret
 // seed s.
 type Key struct {
-	block cipher.Block
-	s     []byte   // secret choice bits
-	q     [][]byte // m x k bit matrice
+	s []byte   // secret choice bits
+	q [][]byte // m x k bit matrice
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, in []byte, hIdx uint8) (out []byte, err error) {
-	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCodeWithHashIndex(k.block, in, hIdx)
+func (k Key) Encode(j uint64, pseudorandomBytes []byte) (out []byte, err error) {
+	out = pseudorandomBytes
 
 	if err = util.ConcurrentDoubleBitOp(util.AndXor, out, k.s, k.q[j]); err != nil {
-		return nil, err
+		return out, err
 	}
 
 	return out, nil

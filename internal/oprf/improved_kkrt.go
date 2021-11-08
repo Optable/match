@@ -24,6 +24,7 @@ import (
 	"io"
 	"runtime"
 
+	"github.com/minio/highwayhash"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
@@ -59,17 +60,6 @@ func newImprovedKKRT(m, baseOT, drbg int, ristretto bool) (OPRF, error) {
 
 // Send returns the OPRF keys
 func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
-	// sample random 16 byte secret key for AES-128
-	sk := make([]byte, 16)
-	if _, err = rand.Read(sk); err != nil {
-		return keys, err
-	}
-
-	// send the secret key
-	if _, err := rw.Write(sk); err != nil {
-		return Key{}, err
-	}
-
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
@@ -113,20 +103,13 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 	q = util.TransposeByteMatrix(q)[:ext.m]
 
 	// store oprf keys
-	aesBlock, err := aes.NewCipher(sk)
-	return Key{block: aesBlock, s: s, q: q}, err
+	return Key{s: s, q: q}, err
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
+func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
 	if int(choices.Len()) != ext.m {
 		return encodings, ot.ErrBaseCountMissMatch
-	}
-
-	// receive AES-128 secret key
-	sk := make([]byte, 16)
-	if _, err = io.ReadFull(rw, sk); err != nil {
-		return encodings, err
 	}
 
 	// compute code word using pseudorandom code on choice string r in a separate thread
@@ -139,25 +122,20 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 		if err != nil {
 			errChan <- err
 		}
-		/*
-			hasher, err := highwayhash.New128(sk)
-			if err != nil {
-				errChan <- err
-			}
-		*/
+		hasher, err := highwayhash.New128(seed)
+		if err != nil {
+			errChan <- err
+		}
 		for i := 0; i < ext.m; i++ {
 			idx, err := choices.GetBucket(uint64(i))
 			if err != nil {
 				errChan <- err
 			}
 			item, hIdx := choices.GetItemWithHash(idx)
-			/*
-				d[i], err = crypto.PseudorandomCodeWithHashIndex2(aesBlock, hasher, item, hIdx)
-				if err != nil {
-					errChan <- err
-				}
-			*/
-			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
+			d[i], err = crypto.PseudorandomCodeWithHashIndex2(aesBlock, hasher, item, hIdx)
+			if err != nil {
+				errChan <- err
+			}
 		}
 		pseudorandomChan <- util.TransposeByteMatrix(d)
 	}()

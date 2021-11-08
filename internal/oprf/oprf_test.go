@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/minio/highwayhash"
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/ot"
@@ -42,7 +44,7 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 	return c, err
 }
 
-func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
+func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk, seed []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -54,15 +56,15 @@ func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, outBus chan<- [cuckoo.N
 			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
 
-		go oprfReceiveHandler(conn, oprf, choices, outBus, errs)
+		go oprfReceiveHandler(conn, oprf, choices, sk, seed, outBus, errs)
 	}()
 	return l.Addr().String(), nil
 }
 
-func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
+func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, sk, seed []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
 	defer close(outBus)
 
-	out, err := oprf.Receive(choices, conn)
+	out, err := oprf.Receive(choices, sk, seed, conn)
 	if err != nil {
 		errs <- err
 	}
@@ -70,15 +72,28 @@ func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, outBus
 	outBus <- out
 }
 
-func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo) error {
+func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo) error {
 	// Testing encodings
 	senderCuckoo := cuckoo.NewDummyCuckoo(uint64(baseCount), seeds)
 	hasher := senderCuckoo.GetHasher()
 	var hashes [cuckoo.Nhash]uint64
+
+	aesBlock, err := aes.NewCipher(sk)
+	if err != nil {
+		return err
+	}
+	hHash128, err := highwayhash.New128(seeds[0])
+	if err != nil {
+		return err
+	}
 	for i, id := range choices {
 		// compute encoding and hash
 		for hIdx, bIdx := range senderCuckoo.BucketIndices(id) {
-			encoded, err := keys.Encode(bIdx, id, uint8(hIdx))
+			pseudorandId, err := crypto.PseudorandomCodeWithHashIndex2(aesBlock, hHash128, id, byte(hIdx))
+			if err != nil {
+				return err
+			}
+			encoded, err := keys.Encode(bIdx, pseudorandId)
 			if err != nil {
 				return err
 			}
@@ -114,6 +129,7 @@ func TestImprovedKKRT(t *testing.T) {
 	outBus := make(chan [cuckoo.Nhash]map[uint64]uint64)
 	keyBus := make(chan Key)
 	errs := make(chan error, 5)
+	sk := make([]byte, 16)
 
 	// start timer
 	start := time.Now()
@@ -126,13 +142,15 @@ func TestImprovedKKRT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// generate AES secret key (16-byte)
+	prng.Read(sk)
 
 	receiverOPRF, err := NewOPRF(int(choicesCuckoo.Len()), ot.NaorPinkas)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr, err := initOPRFReceiver(receiverOPRF, choicesCuckoo, outBus, errs)
+	addr, err := initOPRFReceiver(receiverOPRF, choicesCuckoo, sk, seeds[0], outBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +199,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// Testing encodings
 	// Testing encodings
-	err = testEncodings(encodedHashMap, keys, seeds, choicesCuckoo)
+	err = testEncodings(encodedHashMap, keys, sk, seeds, choicesCuckoo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,19 +207,29 @@ func TestImprovedKKRT(t *testing.T) {
 
 func BenchmarkEncode(b *testing.B) {
 	sk := make([]byte, 16)
+	hk := make([]byte, 32)
 	s := make([]byte, 64)
 	q := make([][]byte, 1)
 	q[0] = make([]byte, 65)
 	prng.Read(sk)
+	prng.Read(hk)
 	prng.Read(s)
 	prng.Read(q[0])
-	aesBlock, _ := aes.NewCipher(sk)
-	key := Key{block: aesBlock, s: s, q: q}
+	aesBlock, err := aes.NewCipher(sk)
+	if err != nil {
+		b.Fatal(err)
+	}
+	hHash128, err := highwayhash.New128(hk)
+	if err != nil {
+		b.Fatal(err)
+	}
+	key := Key{s: s, q: q}
+	bytes, err := crypto.PseudorandomCodeWithHashIndex2(aesBlock, hHash128, s, 0)
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := key.Encode(0, q[0], 0); err != nil {
+		if _, err := key.Encode(0, bytes); err != nil {
 			b.Fatal(err)
 		}
 	}

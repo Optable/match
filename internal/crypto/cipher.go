@@ -100,6 +100,10 @@ func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte)
 // success, PseudorandomCodeWithHashIndex returns an encrypted byte
 // slice of 64 bytes.
 func PseudorandomCodeWithHashIndex2(aesBlock cipher.Block, hasher hash.Hash, src []byte, hIdx byte) (dst []byte, err error) {
+	if hasher == nil {
+		return nil, fmt.Errorf("nil hasher")
+	}
+
 	// prepare our destination
 	dst = make([]byte, aes.BlockSize*4)
 	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
@@ -107,10 +111,10 @@ func PseudorandomCodeWithHashIndex2(aesBlock cipher.Block, hasher hash.Hash, src
 	// hash id and the hash index
 	hasher.Reset()
 	if _, err = hasher.Write(src); err != nil {
-		return nil, err
+		return dst, err
 	}
 	if _, err = hasher.Write([]byte{hIdx}); err != nil {
-		return nil, err
+		return dst, err
 	}
 	h := hasher.Sum(nil)
 
