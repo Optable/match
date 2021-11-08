@@ -25,4 +25,4 @@ var test_sizes = []test_size{
 	{"bigSize", 10000, 100000, 100000, emails.HashLen},
 }
 
-var hashLenSizes = []int{8, 16, 32, 64}
+var hashLenSizes = []int{4, 8, 16, 32, 64}
