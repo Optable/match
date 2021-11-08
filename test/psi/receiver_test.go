@@ -190,7 +190,7 @@ func TestNPSIReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)
 		// test
-		if err := testReceiver(psi.DHPSI, common, hashLenTest, true); err != nil {
+		if err := testReceiver(psi.NPSI, common, hashLenTest, true); err != nil {
 			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
@@ -214,7 +214,7 @@ func TestBPSIReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)
 		// test
-		if err := testReceiver(psi.DHPSI, common, hashLenTest, true); err != nil {
+		if err := testReceiver(psi.BPSI, common, hashLenTest, true); err != nil {
 			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
@@ -238,7 +238,7 @@ func TestKKRTReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)
 		// test
-		if err := testReceiver(psi.DHPSI, common, hashLenTest, true); err != nil {
+		if err := testReceiver(psi.KKRTPSI, common, hashLenTest, true); err != nil {
 			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}
