@@ -17,7 +17,7 @@ func initDataSource(common []byte) *bufio.Reader {
 	i, o := io.Pipe()
 	b := bufio.NewReader(i)
 	go func() {
-		matchables := Mix(common, Cardinality-CommonCardinality)
+		matchables := Mix(common, Cardinality-CommonCardinality, HashLen)
 		for matchable := range matchables {
 			out := append(matchable, "\n"...)
 			if _, err := o.Write(out); err != nil {
@@ -30,7 +30,7 @@ func initDataSource(common []byte) *bufio.Reader {
 
 func TestGenerate(t *testing.T) {
 	// generate common data
-	common := Common(CommonCardinality)
+	common := Common(CommonCardinality, HashLen)
 	r := initDataSource(common)
 
 	// read N matchables from r
