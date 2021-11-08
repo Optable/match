@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/psi"
 	matchlog "github.com/optable/match/pkg/log"
+	"github.com/optable/match/pkg/psi"
 )
 
 const (
@@ -32,7 +33,15 @@ func showUsageAndExit(exitcode int) {
 	os.Exit(exitcode)
 }
 
+func exitOnErr(logger logr.Logger, err error, msg string) {
+	if err != nil {
+		logger.Error(err, msg)
+		os.Exit(1)
+	}
+}
+
 var out *string
+
 func main() {
 	var wg sync.WaitGroup
 	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (dhpsi,npsi)")
@@ -68,45 +77,31 @@ func main() {
 	log.Printf("operating with protocol %s", *protocol)
 	// fetch stdr logger
 	mlog := matchlog.GetLogger(*verbose)
-	
 
 	// open file
 	f, err := os.Open(*file)
-	if err != nil {
-		mlog.Error(err, "failed to open file")
-		os.Exit(1)
-	}
+	exitOnErr(mlog, err, "failed to open file")
 	defer f.Close()
 
 	// count lines
 	log.Printf("counting lines in %s", *file)
 	t := time.Now()
 	n, err := util.Count(f)
-	if err != nil {
-		mlog.Error(err, "failed to count")
-		os.Exit(1)
-	}
+	exitOnErr(mlog, err, "failed to count")
 	log.Printf("that took %v", time.Since(t))
 	log.Printf("operating on %s with %d IDs", *file, n)
 
 	// get a listener
 	l, err := net.Listen("tcp", *port)
-	if err != nil {
-		mlog.Error(err, "failed to listen on tcp port: %v", *port)
-		os.Exit(1)
-	}
+	exitOnErr(mlog, err, "failed to listen on tcp port")
 	log.Printf("receiver listening on %s", *port)
 	for {
 		if c, err := l.Accept(); err != nil {
-			mlog.Error(err, "failed to accept incoming connection")
-			os.Exit(1)
+			exitOnErr(mlog, err, "failed to accept incoming connection")
 		} else {
 			log.Printf("handling sender %s", c.RemoteAddr())
 			f, err := os.Open(*file)
-			if err != nil {
-				mlog.Error(err, "failed to open file")
-				os.Exit(1)
-			}
+			exitOnErr(mlog, err, "failed to open file")
 			// enable nagle
 			switch v := c.(type) {
 			// enable nagle
@@ -148,13 +143,11 @@ func handle(r psi.Receiver, n int64, f io.ReadCloser, ctx context.Context) {
 			for _, id := range i {
 				// and write it
 				if _, err := f.Write(append(id, "\n"...)); err != nil {
-					logger.Error(err, "failed to write intersected ID to file")
-					os.Exit(1)
+					exitOnErr(logger, err, "failed to write intersected ID to file")
 				}
 			}
 		} else {
-			logger.Error(err, "failed to perform PSI")
-			os.Exit(1)
+			exitOnErr(logger, err, "failed to perform PSI")
 		}
 	}
 }

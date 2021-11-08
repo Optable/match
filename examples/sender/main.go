@@ -8,9 +8,10 @@ import (
 	"net"
 	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/psi"
 	matchlog "github.com/optable/match/pkg/log"
+	"github.com/optable/match/pkg/psi"
 )
 
 const (
@@ -27,6 +28,13 @@ func usage() {
 func showUsageAndExit(exitcode int) {
 	usage()
 	os.Exit(exitcode)
+}
+
+func exitOnErr(logger logr.Logger, err error, msg string) {
+	if err != nil {
+		logger.Error(err, msg)
+		os.Exit(1)
+	}
 }
 
 func main() {
@@ -64,28 +72,19 @@ func main() {
 
 	// open file
 	f, err := os.Open(*file)
-	if err != nil {
-		slog.Error(err, "failed to open file")
-		os.Exit(1)
-	}
+	exitOnErr(slog, err, "failed to open file")
 
 	// count lines
 	log.Printf("counting lines in %s", *file)
 	n, err := util.Count(f)
-	if err != nil {
-		slog.Error(err, "failed to count")
-		os.Exit(1)
-	}
+	exitOnErr(slog, err, "failed to count")
 	log.Printf("operating on %s with %d IDs", *file, n)
 
 	// rewind
 	f.Seek(0, io.SeekStart)
 
 	c, err := net.Dial("tcp", *addr)
-	if err != nil {
-		slog.Error(err, "failed to dial")
-		os.Exit(1)
-	}
+	exitOnErr(slog, err, "failed to dial")
 	defer c.Close()
 	// enable nagle
 	switch v := c.(type) {
@@ -95,8 +94,5 @@ func main() {
 	s, _ := psi.NewSender(psiType, c)
 	ids := util.Exhaust(n, f)
 	err = s.Send(matchlog.ContextWithLogger(context.Background(), slog), n, ids)
-	if err != nil {
-		slog.Error(err, "failed to perform PSI")
-		os.Exit(1)
-	}
+	exitOnErr(slog, err, "failed to perform PSI")
 }
