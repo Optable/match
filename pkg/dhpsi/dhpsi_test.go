@@ -96,8 +96,8 @@ func TestDeriveMultiplyShuffler(t *testing.T) {
 	// get an io pipe to read results
 	rcv, snd := io.Pipe()
 	// setup a matchables generator
-	common := emails.Common(DHPSITestCommonLen)
-	matchables := emails.Mix(common, DHPSITestBodyLen)
+	common := emails.Common(DHPSITestCommonLen, emails.HashLen)
+	matchables := emails.Mix(common, DHPSITestBodyLen, emails.HashLen)
 
 	// save test matchables
 	var sent [][]byte
