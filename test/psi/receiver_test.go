@@ -160,8 +160,8 @@ func TestDHPSIReceiver(t *testing.T) {
 	}
 
 	for _, hashLen := range hashLenSizes {
-		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
-		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		hashLenTest := test_size{"same size with hash digest length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash digest length: " + fmt.Sprint(hashDigestLen(hashLen))
 		t.Logf("testing scenario %s", scenario)
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)
@@ -184,8 +184,8 @@ func TestNPSIReceiver(t *testing.T) {
 	}
 
 	for _, hashLen := range hashLenSizes {
-		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
-		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		hashLenTest := test_size{"same size with hash digest length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash digest length: " + fmt.Sprint(hashDigestLen(hashLen))
 		t.Logf("testing scenario %s", scenario)
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)
@@ -208,8 +208,8 @@ func TestBPSIReceiver(t *testing.T) {
 	}
 
 	for _, hashLen := range hashLenSizes {
-		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
-		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		hashLenTest := test_size{"same size with hash digest length", 100, 100, 200, hashLen}
+		scenario := hashLenTest.scenario + " with hash digest length: " + fmt.Sprint(hashDigestLen(hashLen))
 		t.Logf("testing scenario %s", scenario)
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)
@@ -233,7 +233,7 @@ func TestKKRTReceiver(t *testing.T) {
 
 	for _, hashLen := range hashLenSizes {
 		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
-		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashDigestLen(hashLen))
 		t.Logf("testing scenario %s", scenario)
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)

@@ -89,7 +89,7 @@ func testSenderByProtocol(p int, t *testing.T) {
 
 	for _, hashLen := range hashLenSizes {
 		hashLenTest := test_size{"same size with hash length", 100, 100, 200, hashLen}
-		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashLen)
+		scenario := hashLenTest.scenario + " with hash length: " + fmt.Sprint(hashDigestLen(hashLen))
 		t.Logf("testing scenario %s", scenario)
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)

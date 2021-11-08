@@ -26,3 +26,8 @@ var test_sizes = []test_size{
 }
 
 var hashLenSizes = []int{4, 8, 16, 32, 64}
+
+func hashDigestLen(hashLen int) int {
+	// hex encode + 2 byte for prefix
+	return 2*hashLen + 2
+}
