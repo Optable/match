@@ -77,9 +77,10 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
-		oprfInputSize := int64(cuckooHashTable.Len())
+		//oprfInputSize := int64(cuckooHashTable.Len())
 
-		oReceiver, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
+		//oReceiver, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
+		oReceiver, err := oprf.NewOPRF(int(cuckooHashTable.Len()), ot.NaorPinkas)
 		if err != nil {
 			return err
 		}
