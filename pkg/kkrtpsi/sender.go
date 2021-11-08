@@ -112,7 +112,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				errChan <- err
 			}
 
-			hHash128, err := highwayhash.New128(seeds[0][:5]) // seeds[0])
+			hHash128, err := highwayhash.New128(seeds[0])
 			if err != nil {
 				errChan <- err
 			}
@@ -165,9 +165,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		var hasher hash.Hasher
-		time.Sleep(time.Second * 1)
-		fmt.Println("no fuckin way")
-
 		// read error
 		select {
 		case err := <-errChan:
