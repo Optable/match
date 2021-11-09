@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	// Nhash is the number of hash function used for cuckoohash
+	// Nhash is the number of hash function used for cuckoo hash
 	Nhash = 3
-	// Maximum number of reinsertons.
-	// Each reinsertion kicked off 1 egg (item) and replace it
-	// with the item being reinserted, and then reinsert the kicked off egg
+	// Maximum number of reinsertions.
+	// Each reinsertion kicks off 1 egg (item) and replace it
+	// with the item being reinserted, and then reinserts the 
+	// kicked off egg
 	ReInsertLimit = 200
 	Factor        = 1.4
 	HashFunc      = hash.HighwayMinio
