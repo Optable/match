@@ -58,10 +58,9 @@ func PseudorandomCode(aesBlock cipher.Block, hasher hash.Hash, src []byte, hIdx 
 	if _, err = hasher.Write([]byte{hIdx}); err != nil {
 		return dst, err
 	}
-	h := hasher.Sum(nil)
 
 	// copy into destination slice
-	copy(dst[aes.BlockSize*3+1:], h[:aes.BlockSize-1])
+	copy(dst[aes.BlockSize*3+1:], hasher.Sum(nil))
 
 	// encrypt
 	aesBlock.Encrypt(dst[:aes.BlockSize], dst[aes.BlockSize*3:])
