@@ -210,7 +210,7 @@ func BenchmarkEncode(b *testing.B) {
 	hk := make([]byte, 32)
 	s := make([]byte, 64)
 	q := make([][]byte, 1)
-	q[0] = make([]byte, 65)
+	q[0] = make([]byte, 64)
 	prng.Read(sk)
 	prng.Read(hk)
 	prng.Read(s)
