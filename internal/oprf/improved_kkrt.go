@@ -132,7 +132,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.Read
 				errChan <- err
 			}
 			item, hIdx := choices.GetItemWithHash(idx)
-			d[i], err = crypto.PseudorandomCodeWithHashIndex2(aesBlock, hasher, item, hIdx)
+			d[i], err = crypto.PseudorandomCode(aesBlock, hasher, item, hIdx)
 			if err != nil {
 				errChan <- err
 			}

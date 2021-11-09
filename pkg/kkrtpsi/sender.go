@@ -122,7 +122,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				var bytes [cuckoo.Nhash][]byte
 				for hIdx := 0; hIdx < 3; hIdx++ {
 					// instead of sampling random 32 byte secret key for highway hash, we will use the first seed
-					bytes[hIdx], err = crypto.PseudorandomCodeWithHashIndex2(aesBlock, hHash128, id, byte(hIdx))
+					bytes[hIdx], err = crypto.PseudorandomCode(aesBlock, hHash128, id, byte(hIdx))
 					if err != nil {
 						errChan <- err
 					}

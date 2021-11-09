@@ -25,81 +25,23 @@ const nonceSize = 12 //aesgcm NonceSize
 
 // PseudorandomCode is implemented as follows:
 // C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
-// src is padded to 64 bytes before being encrypted in blocks of 16 bytes.
-// Blocks consisting only of padding are not encrypted. On success,
-// PseudorandomCode returns an encrypted byte slice of 64 bytes.
-func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
-	dst = make([]byte, aes.BlockSize*4)
-	// effectively pad src
-	copy(dst, src)
-
-	// encrypt
-	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
-	if len(src) <= aes.BlockSize {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
-	if len(src) <= aes.BlockSize*2 {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
-	if len(src) <= aes.BlockSize*3 {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
-	return dst
-}
-
-// PseudorandomCodeWithHashIndex is implemented as follows:
-// C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
-// PseudorandomCodeWithHashIndex is passed the src as well as the
-// associated hash index. When padding the src to 64 bytes, if there
-// is an empty byte, instead the hash index is placed there
-// (effectively appending the hash index). Blocks of 16 bytes are then
-// encrypted. Blocks consisting only of padding are not encrypted. On
-// success, PseudorandomCodeWithHashIndex returns an encrypted byte
-// slice of 64 bytes.
-func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte) {
-	dst = make([]byte, aes.BlockSize*4)
-	// effectively pad src
-	copy(dst, src)
-	if len(src) < aes.BlockSize*4 {
-		dst[len(src)] = hIdx
-	}
-
-	// encrypt
-	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
-	if len(src)+1 <= aes.BlockSize {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
-	if len(src)+1 <= aes.BlockSize*2 {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
-	if len(src)+1 <= aes.BlockSize*3 {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
-	return dst
-}
-
-// PseudorandomCodeWithHashIndex is implemented as follows:
-// C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
-// PseudorandomCodeWithHashIndex is passed the src as well as the
-// associated hash index. When padding the src to 64 bytes, if there
-// is an empty byte, instead the hash index is placed there
-// (effectively appending the hash index). Blocks of 16 bytes are then
-// encrypted. Blocks consisting only of padding are not encrypted. On
-// success, PseudorandomCodeWithHashIndex returns an encrypted byte
-// slice of 64 bytes.
-func PseudorandomCodeWithHashIndex2(aesBlock cipher.Block, hasher hash.Hash, src []byte, hIdx byte) (dst []byte, err error) {
+// PseudorandomCode is passed the src as well as the associated hash
+// index. It also requires an AES block cipher and a hashing function
+// that returns 15 or more bytes. The Highway Hash is recommended as
+// it is fast and returns 16 bytes.
+// The full pseudorandom code consists of four 16 byte encrypted AES
+// blocks that are encoded into a slice of 64 bytes. During construction
+// the last block (last 16 bytes) is used as a workspace.
+// For each block, first the block index (1, 2, 3, 4) is placed at the
+// 48th index (first element of the last block). The hash function is
+// fed the full ID source followed by its hash index. It returns a 16 byte
+// slice of which the first 15 bytes are copied into the remainder of the
+// last block (indices 49 - 64). Finally this block is used as the source
+// for the AES encode and the destination is the actual proper block
+// position. It should be noted, that since the hash function must be
+// instantiated before being passed to this function, it is reset each
+// time this function is called.
+func PseudorandomCode(aesBlock cipher.Block, hasher hash.Hash, src []byte, hIdx byte) (dst []byte, err error) {
 	if hasher == nil {
 		return nil, fmt.Errorf("nil hasher")
 	}

@@ -152,35 +152,6 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 	in := make([]byte, 64)
 	prng.Read(in)
 	var hIdx byte
-	aesBlock, _ := aes.NewCipher(aesKey)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		in = append(in, hIdx)
-		PseudorandomCode(aesBlock, in)
-	}
-}
-
-func BenchmarkPseudorandomCodeWithHashIndex(b *testing.B) {
-	// the normal input is a 64 byte sha256 digest with an appended byte
-	// indicating which hash function is used to compute the cuckoo hash
-	// bucket index.
-	in := make([]byte, 64)
-	prng.Read(in)
-	var hIdx byte
-	aesBlock, _ := aes.NewCipher(aesKey)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		PseudorandomCodeWithHashIndex(aesBlock, in, hIdx)
-	}
-}
-
-func BenchmarkPseudorandomCodeWithHashIndex2(b *testing.B) {
-	// the normal input is a 64 byte sha256 digest with an appended byte
-	// indicating which hash function is used to compute the cuckoo hash
-	// bucket index.
-	in := make([]byte, 64)
-	prng.Read(in)
-	var hIdx byte
 	key := make([]byte, 32)
 	aesBlock, _ := aes.NewCipher(aesKey)
 	hasher, err := highwayhash.New128(key)
@@ -189,21 +160,10 @@ func BenchmarkPseudorandomCodeWithHashIndex2(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := PseudorandomCodeWithHashIndex2(aesBlock, hasher, in, hIdx)
+		_, err := PseudorandomCode(aesBlock, hasher, in, hIdx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-}
-
-func BenchmarkDummyPseudorandomCode(b *testing.B) {
-	// when input is just a dummy byte value
-	in := make([]byte, 1)
-	prng.Read(in)
-	b.ResetTimer()
-	aesBlock, _ := aes.NewCipher(aesKey)
-	for i := 0; i < b.N; i++ {
-		PseudorandomCode(aesBlock, in)
 	}
 }
 
