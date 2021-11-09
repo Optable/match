@@ -269,5 +269,5 @@ func TransposeByteMatrix(b [][]byte) (tr [][]byte) {
 	for i := 0; i < pad; i++ {
 		b = append(b, make([]byte, 64))
 	}
-	return ConcurrentTranspose(b, runtime.NumCPU())
+	return ConcurrentTranspose(b, runtime.GOMAXPROCS(0))
 }
