@@ -24,7 +24,10 @@ const (
 const nonceSize = 12 //aesgcm NonceSize
 
 // PseudorandomCode is implemented as follows:
-// C(x) = AES(1||h(x)[:15]) || AES(2||h(x)[:15]) || AES(3||h(x)[:15]) || AES(4||h(x)[:15])
+// C(x) = AES(1||h(x)[:15]) ||
+//        AES(2||h(x)[:15]) ||
+//        AES(3||h(x)[:15]) ||
+//        AES(4||h(x)[:15])
 // where h() is a hashing function.
 // PseudorandomCode is passed the src as well as the associated hash
 // index. It also requires an AES block cipher and a hashing function
