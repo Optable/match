@@ -100,7 +100,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 		}
 	}
 	runtime.GC()
-	q = util.TransposeByteMatrix(q)[:ext.m]
+	q = util.ConcurrentTransposeWide(q, runtime.GOMAXPROCS(0))[:ext.m]
 
 	// store oprf keys
 	return Key{s: s, q: q}, err
@@ -137,7 +137,12 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.Read
 				errChan <- err
 			}
 		}
-		pseudorandomChan <- util.TransposeByteMatrix(d)
+		// pad matrix to ensure the number of rows is divisible by 512 for transposition
+		pad := util.PadTill512(len(d))
+		for i := 0; i < pad; i++ {
+			d = append(d, make([]byte, 64))
+		}
+		pseudorandomChan <- util.ConcurrentTransposeTall(d, runtime.GOMAXPROCS(0))
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
@@ -191,7 +196,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.Read
 	}
 
 	runtime.GC()
-	t = util.TransposeByteMatrix(t)[:ext.m]
+	t = util.ConcurrentTransposeWide(t, runtime.GOMAXPROCS(0))[:ext.m]
 
 	// Hash and index all local encodings
 	// the hash value of the oprf encoding is the key

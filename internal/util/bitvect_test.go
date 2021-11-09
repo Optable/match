@@ -153,13 +153,12 @@ func TestIfLittleEndianTranspose(t *testing.T) {
 	}
 }
 
-func TestConcurrentTranspose(t *testing.T) {
-	// TALL
+func TestConcurrentTransposeTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, m := range trange {
 		orig := sampleRandomTall(prng, m)
-		tr := ConcurrentTranspose(orig, nworkers)
-		dtr := ConcurrentTranspose(tr, nworkers)
+		tr := ConcurrentTransposeTall(orig, nworkers)
+		dtr := ConcurrentTransposeWide(tr, nworkers)
 		// test
 		for k := range orig {
 			for l := range orig[k] {
@@ -171,13 +170,14 @@ func TestConcurrentTranspose(t *testing.T) {
 			}
 		}
 	}
-	// WIDE
-	//trange = []int{64, 64 * 2, 64 * 3, 64 * 4}
-	trange = []int{64}
+}
+
+func TestConcurrentTransposeWide(t *testing.T) {
+	trange := []int{64, 64 * 2, 64 * 3, 64 * 4}
 	for _, m := range trange {
 		orig := sampleRandomWide(prng, m)
-		tr := ConcurrentTranspose(orig, nworkers)
-		dtr := ConcurrentTranspose(tr, nworkers)
+		tr := ConcurrentTransposeWide(orig, nworkers)
+		dtr := ConcurrentTransposeTall(tr, nworkers)
 		//test
 		for k := range dtr {
 			for l := range dtr[k] {
@@ -201,12 +201,12 @@ func BenchmarkTranspose512x512(b *testing.B) {
 // and writing to an output transpose matrix.
 func BenchmarkTranspose(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ConcurrentTranspose(byteBlock, 1)
+		ConcurrentTransposeTall(byteBlock, 1)
 	}
 }
 
 func BenchmarkConcurrentTranspose(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ConcurrentTranspose(byteBlock, nworkers)
+		ConcurrentTransposeTall(byteBlock, nworkers)
 	}
 }

@@ -84,33 +84,14 @@ func (b BitVect) printUints() {
 // at that index (with padding if necessary), performs a cache-oblivious, in-place,
 // contiguous transpose on the BitVect, and finally writes the result to a shared
 // final output matrix.
-func ConcurrentTranspose(matrix [][]byte, nworkers int) [][]byte {
-	// determine is original matrix is wide or tall
-	var tall bool
-	if len(matrix[0]) == 64 {
-		tall = true
-	}
-
+func ConcurrentTransposeTall(matrix [][]byte, nworkers int) [][]byte {
 	// determine number of blocks to split original matrix
-	var nblks int
-	if tall {
-		nblks = len(matrix) / 512
-	} else {
-		nblks = len(matrix[0]) / 64
-	}
+	nblks := len(matrix) / 512
 
 	// build output matrix
-	var nrows, ncols int
-	if tall {
-		nrows = 512
-		ncols = len(matrix) / 8
-	} else {
-		nrows = len(matrix[0]) * 8
-		ncols = 64
-	}
-	trans := make([][]byte, nrows)
+	trans := make([][]byte, 512)
 	for r := range trans {
-		trans[r] = make([]byte, ncols)
+		trans[r] = make([]byte, len(matrix)/8)
 	}
 
 	// feed into buffered channel
@@ -123,28 +104,61 @@ func ConcurrentTranspose(matrix [][]byte, nworkers int) [][]byte {
 	// Run a worker pool
 	var wg sync.WaitGroup
 	wg.Add(nworkers)
-	if tall {
-		for w := 0; w < nworkers; w++ {
-			go func() {
-				defer wg.Done()
-				for id := range ch {
-					b := unravelTall(matrix, id)
-					b.transpose()
-					b.ravelToWide(trans, id)
-				}
-			}()
-		}
-	} else {
-		for w := 0; w < nworkers; w++ {
-			go func() {
-				defer wg.Done()
-				for id := range ch {
-					b := unravelWide(matrix, id)
-					b.transpose()
-					b.ravelToTall(trans, id)
-				}
-			}()
-		}
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			for id := range ch {
+				b := unravelTall(matrix, id)
+				b.transpose()
+				b.ravelToWide(trans, id)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return trans
+}
+
+// ConcurrentTranspose tranposes a wide (512 row) or tall (64 column) matrix.
+// First it determines how many 512x512 bit blocks are necessary to contain the
+// matrix and hold the indices where the blocks should be split from the larger
+// matrix. The input matrix must have a multiple of 512 rows (tall) or 64 columns (wide)
+// The indices are passed into a channel which is being read by a worker pool of
+// goroutines. Each goroutine reads an index, generates a BitVect from the matrix
+// at that index (with padding if necessary), performs a cache-oblivious, in-place,
+// contiguous transpose on the BitVect, and finally writes the result to a shared
+// final output matrix.
+func ConcurrentTransposeWide(matrix [][]byte, nworkers int) [][]byte {
+	// determine number of blocks to split original matrix
+	nblks := len(matrix[0]) / 64
+
+	// build output matrix
+	trans := make([][]byte, len(matrix[0])*8)
+	for r := range trans {
+		trans[r] = make([]byte, 64)
+	}
+
+	// feed into buffered channel
+	ch := make(chan int, nblks)
+	for i := 0; i < nblks; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	// Run a worker pool
+	var wg sync.WaitGroup
+	wg.Add(nworkers)
+	for w := 0; w < nworkers; w++ {
+		go func() {
+			defer wg.Done()
+			for id := range ch {
+				b := unravelWide(matrix, id)
+				b.transpose()
+				b.ravelToTall(trans, id)
+			}
+		}()
+
 	}
 
 	wg.Wait()
