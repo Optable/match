@@ -6,7 +6,7 @@ import (
 	"hash/fnv"
 	"log"
 
-	"github.com/cespare/xxhash"
+	"github.com/OneOfOne/xxhash"
 	"github.com/dchest/siphash"
 	"github.com/dgryski/go-highway"
 	"github.com/minio/highwayhash"
@@ -158,7 +158,7 @@ func NewXXHasher(salt []byte) (xxHash, error) {
 
 func (x xxHash) Hash64(p []byte) uint64 {
 	// prepend the salt in x and then Sum
-	return xxhash.Sum64(append(x.salt, p...))
+	return xxhash.Checksum64(append(x.salt, p...))
 }
 
 // highway hash implementation of Hasher
