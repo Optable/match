@@ -23,7 +23,7 @@ var ErrUnknownOPRF = errors.New("cannot create an OPRF that follows an unknown p
 
 type OPRF interface {
 	Send(rw io.ReadWriter) (Key, error)
-	Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
+	Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
 }
 
 // NewOPRF returns an OPRF of type t

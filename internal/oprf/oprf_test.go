@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/highwayhash"
+	"github.com/cespare/xxhash"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -64,7 +64,7 @@ func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk, seed []byte, outBus
 func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, sk, seed []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
 	defer close(outBus)
 
-	out, err := oprf.Receive(choices, sk, seed, conn)
+	out, err := oprf.Receive(choices, sk, conn)
 	if err != nil {
 		errs <- err
 	}
@@ -82,14 +82,11 @@ func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk 
 	if err != nil {
 		return err
 	}
-	hHash128, err := highwayhash.New128(seeds[0])
-	if err != nil {
-		return err
-	}
+	xxHash := xxhash.New()
 	for i, id := range choices {
 		// compute encoding and hash
 		for hIdx, bIdx := range senderCuckoo.BucketIndices(id) {
-			pseudorandId, err := crypto.PseudorandomCode(aesBlock, hHash128, id, byte(hIdx))
+			pseudorandId, err := crypto.PseudorandomCode(aesBlock, xxHash, id, byte(hIdx))
 			if err != nil {
 				return err
 			}
@@ -207,24 +204,19 @@ func TestImprovedKKRT(t *testing.T) {
 
 func BenchmarkEncode(b *testing.B) {
 	sk := make([]byte, 16)
-	hk := make([]byte, 32)
 	s := make([]byte, 64)
 	q := make([][]byte, 1)
 	q[0] = make([]byte, 64)
 	prng.Read(sk)
-	prng.Read(hk)
 	prng.Read(s)
 	prng.Read(q[0])
 	aesBlock, err := aes.NewCipher(sk)
 	if err != nil {
 		b.Fatal(err)
 	}
-	hHash128, err := highwayhash.New128(hk)
-	if err != nil {
-		b.Fatal(err)
-	}
+	xxHash := xxhash.New()
 	key := Key{s: s, q: q}
-	bytes, err := crypto.PseudorandomCode(aesBlock, hHash128, s, 0)
+	bytes, err := crypto.PseudorandomCode(aesBlock, xxHash, s, 0)
 
 	b.ResetTimer()
 

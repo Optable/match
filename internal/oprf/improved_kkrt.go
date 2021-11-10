@@ -24,7 +24,7 @@ import (
 	"io"
 	"runtime"
 
-	"github.com/minio/highwayhash"
+	"github.com/cespare/xxhash"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
@@ -107,7 +107,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
+func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
 	if int(choices.Len()) != ext.m {
 		return encodings, ot.ErrBaseCountMissMatch
 	}
@@ -122,10 +122,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.Read
 		if err != nil {
 			errChan <- err
 		}
-		hasher, err := highwayhash.New128(seed)
-		if err != nil {
-			errChan <- err
-		}
+		hasher := xxhash.New()
 		for i := 0; i < ext.m; i++ {
 			idx, err := choices.GetBucket(uint64(i))
 			if err != nil {
