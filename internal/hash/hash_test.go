@@ -4,6 +4,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+
+	"github.com/OneOfOne/xxhash"
+	"github.com/minio/highwayhash"
+	"github.com/mmcloughlin/meow"
+	"github.com/zeebo/xxh3"
 )
 
 var xxx = []byte("e:0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e")
@@ -49,6 +54,51 @@ func BenchmarkHighwayHash(b *testing.B) {
 	h, _ := New(Highway, s)
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
+	}
+}
+
+func BenchmarkHighwayHash16(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := highwayhash.New128(s)
+	src := make([]byte, 66)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Reset()
+		h.Write(src)
+		h.Write([]byte{2})
+		h.Sum(nil)
+	}
+}
+
+func BenchmarkMeow16(b *testing.B) {
+	src := make([]byte, 66)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		meow.Checksum(2, src)
+	}
+}
+
+func BenchmarkXXHash16(b *testing.B) {
+	src := make([]byte, 66)
+	h := xxhash.New64()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Reset()
+		h.Write(src)
+		h.Write([]byte{2})
+		h.Sum(nil)
+	}
+}
+
+func BenchmarkXXHash316(b *testing.B) {
+	src := make([]byte, 66)
+	h := xxh3.New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Reset()
+		h.Write(src)
+		h.Write([]byte{2})
+		h.Sum128().Bytes()
 	}
 }
 
