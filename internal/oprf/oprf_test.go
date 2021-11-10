@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cespare/xxhash"
+	"github.com/OneOfOne/xxhash"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -82,7 +82,7 @@ func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk 
 	if err != nil {
 		return err
 	}
-	xxHash := xxhash.New()
+	xxHash := xxhash.New64()
 	for i, id := range choices {
 		// compute encoding and hash
 		for hIdx, bIdx := range senderCuckoo.BucketIndices(id) {
@@ -214,7 +214,7 @@ func BenchmarkEncode(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	xxHash := xxhash.New()
+	xxHash := xxhash.New64()
 	key := Key{s: s, q: q}
 	bytes, err := crypto.PseudorandomCode(aesBlock, xxHash, s, 0)
 

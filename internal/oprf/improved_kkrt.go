@@ -24,7 +24,7 @@ import (
 	"io"
 	"runtime"
 
-	"github.com/cespare/xxhash"
+	"github.com/OneOfOne/xxhash"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
@@ -122,7 +122,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter
 		if err != nil {
 			errChan <- err
 		}
-		hasher := xxhash.New()
+		hasher := xxhash.New64()
 		for i := 0; i < ext.m; i++ {
 			idx, err := choices.GetBucket(uint64(i))
 			if err != nil {
