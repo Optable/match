@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/highwayhash"
+	"github.com/cespare/xxhash"
 	"github.com/zeebo/blake3"
 )
 
@@ -152,12 +152,8 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 	in := make([]byte, 64)
 	prng.Read(in)
 	var hIdx byte
-	key := make([]byte, 32)
 	aesBlock, _ := aes.NewCipher(aesKey)
-	hasher, err := highwayhash.New128(key)
-	if err != nil {
-		b.Fatal(err)
-	}
+	hasher := xxhash.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := PseudorandomCode(aesBlock, hasher, in, hIdx)
