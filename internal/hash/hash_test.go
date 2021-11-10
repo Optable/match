@@ -57,6 +57,14 @@ func BenchmarkHighwayHash(b *testing.B) {
 	}
 }
 
+func BenchmarkXXH3(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := New(XXH3, s)
+	for i := 0; i < b.N; i++ {
+		h.Hash64(xxx)
+	}
+}
+
 func BenchmarkHighwayHash16(b *testing.B) {
 	s, _ := makeSalt()
 	h, _ := highwayhash.New128(s)

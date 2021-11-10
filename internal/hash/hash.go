@@ -11,6 +11,7 @@ import (
 	"github.com/dgryski/go-highway"
 	"github.com/minio/highwayhash"
 	"github.com/spaolacci/murmur3"
+	"github.com/zeebo/xxh3"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 	SIP = iota
 	Murmur3
 	XX
+	XXH3
 	Highway
 	HighwayMinio
 	FNV1a
@@ -60,6 +62,8 @@ func New(t int, salt []byte) (Hasher, error) {
 		return NewMurmur3Hasher(salt)
 	case XX:
 		return NewXXHasher(salt)
+	case XXH3:
+		return NewXXH3Hasher(salt)
 	case Highway:
 		return NewHighwayHasher(salt)
 	case HighwayMinio:
@@ -159,6 +163,26 @@ func NewXXHasher(salt []byte) (xxHash, error) {
 func (x xxHash) Hash64(p []byte) uint64 {
 	// prepend the salt in x and then Sum
 	return xxhash.Checksum64(append(x.salt, p...))
+}
+
+// xxHash implementation of Hasher
+type xxH3Hash struct {
+	salt []byte
+}
+
+// NewXXH3Hasher returns a xxHash3 hasher that uses salt
+// as a prefix to the bytes being summed
+func NewXXH3Hasher(salt []byte) (xxH3Hash, error) {
+	if len(salt) != SaltLength {
+		return xxH3Hash{}, ErrSaltLengthMismatch
+	}
+
+	return xxH3Hash{salt: salt}, nil
+}
+
+func (x xxH3Hash) Hash64(p []byte) uint64 {
+	// prepend the salt in x and then Sum
+	return xxh3.Hash(append(x.salt, p...))
 }
 
 // highway hash implementation of Hasher
