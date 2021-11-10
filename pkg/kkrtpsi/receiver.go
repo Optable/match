@@ -91,7 +91,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		oprfOutput, err = oReceiver.Receive(cuckooHashTable, sk, seeds[0], r.rw)
+		oprfOutput, err = oReceiver.Receive(cuckooHashTable, sk, r.rw)
 		if err != nil {
 			return err
 		}
