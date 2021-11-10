@@ -8,6 +8,8 @@ import (
 	"github.com/OneOfOne/xxhash"
 	"github.com/minio/highwayhash"
 	"github.com/mmcloughlin/meow"
+	smurmur "github.com/spaolacci/murmur3"
+	tmurmur "github.com/twmb/murmur3"
 	"github.com/zeebo/xxh3"
 )
 
@@ -33,9 +35,17 @@ func BenchmarkSipHash(b *testing.B) {
 	}
 }
 
-func BenchmarkMurmur3(b *testing.B) {
+func BenchmarkTmurmur3(b *testing.B) {
 	s, _ := makeSalt()
-	h, _ := New(Murmur3, s)
+	h, _ := New(Tmurmur3, s)
+	for i := 0; i < b.N; i++ {
+		h.Hash64(xxx)
+	}
+}
+
+func BenchmarkSmurmur3(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := New(Smurmur3, s)
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}
@@ -110,6 +120,24 @@ func BenchmarkXXHash316(b *testing.B) {
 	}
 }
 
+func BenchmarkSpaolacciMurmur316(b *testing.B) {
+	src := make([]byte, 66)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		hi, lo := smurmur.Sum128WithSeed(src, 2)
+		uint128ToBytes(hi, lo)
+	}
+}
+
+func BenchmarkTwibMurmur316(b *testing.B) {
+	src := make([]byte, 66)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		hi, lo := tmurmur.SeedSum128(0, 2, src)
+		uint128ToBytes(hi, lo)
+	}
+}
+
 func TestUnknownHasher(t *testing.T) {
 	s, _ := makeSalt()
 	h, err := New(666, s)
@@ -130,14 +158,26 @@ func TestGetSIP(t *testing.T) {
 	}
 }
 
-func TestGetMurmur3(t *testing.T) {
+func TestGetTmurmur3(t *testing.T) {
 	s, _ := makeSalt()
-	h, err := New(Murmur3, s)
+	h, err := New(Tmurmur3, s)
 	if err != nil {
 		t.Fatalf("got error %v while requesting murmur3 hash", err)
 	}
 
-	if _, ok := h.(murmur64); !ok {
+	if _, ok := h.(tmurmur64); !ok {
+		t.Fatalf("expected type murmur64 and got %T", h)
+	}
+}
+
+func TestGetSmurmur3(t *testing.T) {
+	s, _ := makeSalt()
+	h, err := New(Smurmur3, s)
+	if err != nil {
+		t.Fatalf("got error %v while requesting murmur3 hash", err)
+	}
+
+	if _, ok := h.(smurmur64); !ok {
 		t.Fatalf("expected type murmur64 and got %T", h)
 	}
 }

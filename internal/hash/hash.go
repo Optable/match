@@ -10,7 +10,8 @@ import (
 	"github.com/dchest/siphash"
 	"github.com/dgryski/go-highway"
 	"github.com/minio/highwayhash"
-	"github.com/spaolacci/murmur3"
+	smurmur "github.com/spaolacci/murmur3"
+	tmurmur "github.com/twmb/murmur3"
 	"github.com/zeebo/xxh3"
 )
 
@@ -18,7 +19,8 @@ const (
 	SaltLength = 32
 
 	SIP = iota
-	Murmur3
+	Smurmur3
+	Tmurmur3
 	XX
 	XXH3
 	Highway
@@ -47,6 +49,16 @@ func extractKeys(salt []byte) (keys []uint64) {
 	return
 }
 
+// uint128ToBytes returns the uint128 as an array of bytes in canonical form (big-endian encoded).
+func uint128ToBytes(hi, lo uint64) [16]byte {
+	return [16]byte{
+		byte(hi >> 0x38), byte(hi >> 0x30), byte(hi >> 0x28), byte(hi >> 0x20),
+		byte(hi >> 0x18), byte(hi >> 0x10), byte(hi >> 0x08), byte(hi),
+		byte(lo >> 0x38), byte(lo >> 0x30), byte(lo >> 0x28), byte(lo >> 0x20),
+		byte(lo >> 0x18), byte(lo >> 0x10), byte(lo >> 0x08), byte(lo),
+	}
+}
+
 // Hasher implements different non cryptographic
 // hashing functions
 type Hasher interface {
@@ -58,8 +70,10 @@ func New(t int, salt []byte) (Hasher, error) {
 	switch t {
 	case SIP:
 		return NewSIPHasher(salt)
-	case Murmur3:
-		return NewMurmur3Hasher(salt)
+	case Smurmur3:
+		return NewSmurmur3Hasher(salt)
+	case Tmurmur3:
+		return NewTmurmur3Hasher(salt)
 	case XX:
 		return NewXXHasher(salt)
 	case XXH3:
@@ -124,25 +138,46 @@ func (s siphash64) Hash64(p []byte) uint64 {
 	return siphash.Hash(s.key0, s.key1, p)
 }
 
-// murmur3 implementation of Hasher
-type murmur64 struct {
+// tmurmur3 implementation of Hasher
+type tmurmur64 struct {
 	salt []byte
 }
 
 // NewMurmur3Hasher returns a Murmur3 hasher
 // that uses salt as a prefix to the
 // bytes being summed
-func NewMurmur3Hasher(salt []byte) (murmur64, error) {
+func NewTmurmur3Hasher(salt []byte) (tmurmur64, error) {
 	if len(salt) != SaltLength {
-		return murmur64{}, ErrSaltLengthMismatch
+		return tmurmur64{}, ErrSaltLengthMismatch
 	}
 
-	return murmur64{salt: salt}, nil
+	return tmurmur64{salt: salt}, nil
 }
 
-func (m murmur64) Hash64(p []byte) uint64 {
+func (t tmurmur64) Hash64(p []byte) uint64 {
 	// prepend the salt in m and then Sum
-	return murmur3.Sum64(append(m.salt, p...))
+	return tmurmur.Sum64(append(t.salt, p...))
+}
+
+// tmurmur3 implementation of Hasher
+type smurmur64 struct {
+	salt []byte
+}
+
+// NewMurmur3Hasher returns a Murmur3 hasher
+// that uses salt as a prefix to the
+// bytes being summed
+func NewSmurmur3Hasher(salt []byte) (smurmur64, error) {
+	if len(salt) != SaltLength {
+		return smurmur64{}, ErrSaltLengthMismatch
+	}
+
+	return smurmur64{salt: salt}, nil
+}
+
+func (s smurmur64) Hash64(p []byte) uint64 {
+	// prepend the salt in m and then Sum
+	return smurmur.Sum64(append(s.salt, p...))
 }
 
 // xxHash implementation of Hasher

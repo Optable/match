@@ -16,6 +16,7 @@ require (
 	github.com/minio/highwayhash v1.0.2
 	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21
 	github.com/spaolacci/murmur3 v1.1.0
+	github.com/twmb/murmur3 v1.1.6
 	github.com/zeebo/blake3 v0.2.0
 	github.com/zeebo/xxh3 v0.13.0
 	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect

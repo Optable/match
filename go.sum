@@ -276,6 +276,8 @@ github.com/tmthrgd/go-memset v0.0.0-20180828131805-6f4e59bf1e1d/go.mod h1:xUkvcK
 github.com/tmthrgd/go-popcount v0.0.0-20180111143836-3918361d3e97 h1:dOZJr7CPLi1ud2U6BZWk+vtUFFzMPbKcZw6t1WxreDM=
 github.com/tmthrgd/go-popcount v0.0.0-20180111143836-3918361d3e97/go.mod h1:FcUQfrsAsSSqM3n9xf4EtPzB8tWzt58/y0AV+wNNM8Q=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
+github.com/twmb/murmur3 v1.1.6 h1:mqrRot1BRxm+Yct+vavLMou2/iJt0tNVTTC0QoIjaZg=
+github.com/twmb/murmur3 v1.1.6/go.mod h1:Qq/R7NUyOfr65zD+6Q5IHKsJLwP7exErjN6lyyq3OSQ=
 github.com/ugorji/go v0.0.0-20180112141927-9831f2c3ac10/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/urfave/negroni v0.3.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
 github.com/valyala/fastrand v1.0.0/go.mod h1:HWqCzkrkg6QXT8V2EXWvXCoow7vLwOFN002oeRzjapQ=
