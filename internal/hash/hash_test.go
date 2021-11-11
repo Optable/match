@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/OneOfOne/xxhash"
+	"github.com/alecthomas/unsafeslice"
 	"github.com/minio/highwayhash"
 	"github.com/mmcloughlin/meow"
 	smurmur "github.com/spaolacci/murmur3"
@@ -135,6 +136,15 @@ func BenchmarkTwibMurmur316(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hi, lo := tmurmur.SeedSum128(0, 2, src)
 		uint128ToBytes(hi, lo)
+	}
+}
+
+func BenchmarkTwibMurmur316Unsafe(b *testing.B) {
+	src := make([]byte, 66)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		hi, lo := tmurmur.SeedSum128(0, 2, src)
+		unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo})
 	}
 }
 
