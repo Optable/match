@@ -14,11 +14,11 @@ const (
 	Nhash = 3
 	// Maximum number of reinsertions.
 	// Each reinsertion kicks off 1 egg (item) and replace it
-	// with the item being reinserted, and then reinserts the 
+	// with the item being reinserted, and then reinserts the
 	// kicked off egg
 	ReInsertLimit = 200
 	Factor        = 1.4
-	HashFunc      = hash.HighwayMinio
+	HashFunc      = hash.Highway
 )
 
 func init() {
