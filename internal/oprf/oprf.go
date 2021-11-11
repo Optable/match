@@ -44,5 +44,5 @@ type Key struct {
 func (k Key) Encode(j uint64, pseudorandomBytes []byte) (err error) {
 	err = util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.s, k.q[j])
 
-	return nil
+	return err
 }
