@@ -5,9 +5,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
-	"hash"
 
+	"github.com/alecthomas/unsafeslice"
 	"github.com/optable/match/internal/util"
+	"github.com/twmb/murmur3"
 	"github.com/zeebo/blake3"
 )
 
@@ -46,29 +47,19 @@ const nonceSize = 12 //aesgcm NonceSize
 // position. It should be noted, that since the hash function must be
 // instantiated before being passed to this function, it is reset each
 // time this function is called.
-func PseudorandomCode(aesBlock cipher.Block, hasher hash.Hash, src []byte, hIdx byte) (dst []byte, err error) {
-	if hasher == nil {
-		return nil, fmt.Errorf("nil hasher")
-	}
-
+func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte, err error) {
 	// prepare our destination
 	dst = make([]byte, aes.BlockSize*4)
 	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
 
 	// hash id and the hash index
-	hasher.Reset()
-	if _, err = hasher.Write(src); err != nil {
-		return dst, err
-	}
-	if _, err = hasher.Write([]byte{hIdx}); err != nil {
-		return dst, err
-	}
+	hi, lo := murmur3.SeedSum128(uint64(hIdx), 0, src)
 
 	// copy into destination slice
-	copy(dst[aes.BlockSize*3+1:], hasher.Sum(nil))
-	copy(dst[aes.BlockSize*3+9:], dst[aes.BlockSize*3+1:aes.BlockSize*3+9])
+	copy(dst[aes.BlockSize*3+1:], unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo}))
 
 	// encrypt
+	dst[aes.BlockSize*3] = 1
 	aesBlock.Encrypt(dst[:aes.BlockSize], dst[aes.BlockSize*3:])
 	dst[aes.BlockSize*3] = 2
 	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize*3:])

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OneOfOne/xxhash"
 	"github.com/zeebo/blake3"
 )
 
@@ -153,10 +152,9 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 	prng.Read(in)
 	var hIdx byte
 	aesBlock, _ := aes.NewCipher(aesKey)
-	hasher := xxhash.New64()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := PseudorandomCode(aesBlock, hasher, in, hIdx)
+		_, err := PseudorandomCode(aesBlock, in, hIdx)
 		if err != nil {
 			b.Fatal(err)
 		}
