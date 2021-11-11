@@ -41,12 +41,8 @@ type Key struct {
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, pseudorandomBytes []byte) (out []byte, err error) {
-	out = pseudorandomBytes
+func (k Key) Encode(j uint64, pseudorandomBytes []byte) (err error) {
+	err = util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.s, k.q[j])
 
-	if err = util.ConcurrentDoubleBitOp(util.AndXor, out, k.s, k.q[j]); err != nil {
-		return out, err
-	}
-
-	return out, nil
+	return nil
 }
