@@ -88,12 +88,9 @@ func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk 
 			if err != nil {
 				return err
 			}
-			encoded, err := keys.Encode(bIdx, pseudorandId)
-			if err != nil {
-				return err
-			}
+			err = keys.Encode(bIdx, pseudorandId)
 
-			hashes[hIdx] = hasher.Hash64(encoded)
+			hashes[hIdx] = hasher.Hash64(pseudorandId)
 		}
 
 		// test hashes
@@ -218,7 +215,7 @@ func BenchmarkEncode(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := key.Encode(0, bytes); err != nil {
+		if err := key.Encode(0, bytes); err != nil {
 			b.Fatal(err)
 		}
 	}
