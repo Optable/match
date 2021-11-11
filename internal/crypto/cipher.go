@@ -25,35 +25,30 @@ const (
 const nonceSize = 12 //aesgcm NonceSize
 
 // PseudorandomCode is implemented as follows:
-// C(x) = AES( 1 || h(x) || h(x)[:7] ) ||
-//        AES( 2 || h(x) || h(x)[:7] ) ||
-//        AES( 3 || h(x) || h(x)[:7] ) ||
-//        AES( 4 || h(x) || h(x)[:7] )
-// where h() is a hashing function.
+// C(x) = AES(1||h(x)[:15]) ||
+//        AES(2||h(x)[:15]) ||
+//        AES(3||h(x)[:15]) ||
+//        AES(4||h(x)[:15])
+// where h() is the Murmur3 hashing function.
 // PseudorandomCode is passed the src as well as the associated hash
-// index. It also requires an AES block cipher and a hashing function
-// that returns 15 or more bytes. The xxHash is recommended as
-// it is fast and returns 8 bytes.
+// index. It also requires an AES block cipher.
 // The full pseudorandom code consists of four 16 byte encrypted AES
 // blocks that are encoded into a slice of 64 bytes. During construction
 // the last block (last 16 bytes) is used as a workspace.
 // For each block, first the block index (1, 2, 3, 4) is placed at the
 // 48th index (first element of the last block). The hash function is
-// fed the full ID source followed by its hash index. It returns an 8 byte
-// slice which is copied into the start of the last block (indices 49-57).
-// The first 7 bytes of the same output is copied into the remainder of the
-// last block (indices 58 - 64). Finally this block is used as the source
-// for the AES encode and the destination is the actual proper block
-// position. It should be noted, that since the hash function must be
-// instantiated before being passed to this function, it is reset each
-// time this function is called.
+// constructed with the hash index as its two seeds. It is fed the full
+// ID source. It returns two uint64s which are cast to a slice of bytes
+// of which the first 15 bytes are copied into the remainder of the last
+// block (indices 49-64). Finally this block is used as the source for
+// the AES encode and the destination is the actual proper block position.
 func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte, err error) {
 	// prepare our destination
 	dst = make([]byte, aes.BlockSize*4)
 	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
 
 	// hash id and the hash index
-	hi, lo := murmur3.SeedSum128(uint64(hIdx), 0, src)
+	hi, lo := murmur3.SeedSum128(uint64(hIdx), uint64(hIdx), src)
 
 	// copy into destination slice
 	copy(dst[aes.BlockSize*3+1:], unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo}))
