@@ -34,7 +34,6 @@ import (
 type imprvKKRT struct {
 	baseOT ot.OT // base OT under the hood
 	m      int   // number of message tuples
-	drbg   int
 }
 
 // newImprovedKKRT returns an Improved KKRT OPRF
@@ -42,7 +41,7 @@ type imprvKKRT struct {
 // k: width of OT extension binary matrix
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
-func newImprovedKKRT(m, baseOT, drbg int, ristretto bool) (OPRF, error) {
+func newImprovedKKRT(m, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -54,7 +53,7 @@ func newImprovedKKRT(m, baseOT, drbg int, ristretto bool) (OPRF, error) {
 		return imprvKKRT{}, err
 	}
 
-	return imprvKKRT{baseOT: ot, m: m, drbg: drbg}, nil
+	return imprvKKRT{baseOT: ot, m: m}, nil
 }
 
 // Send returns the OPRF keys
@@ -82,7 +81,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 		}
 
 		q[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerateWithBlake3XOF(q[col], seeds[col], h)
+		err = crypto.PseudorandomGenerate(q[col], seeds[col], h)
 		if err != nil {
 			return keys, err
 		}
@@ -169,12 +168,12 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter
 	h := blake3.New()
 	for col := range d {
 		t[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerateWithBlake3XOF(t[col], baseMsgs[col][0], h)
+		err = crypto.PseudorandomGenerate(t[col], baseMsgs[col][0], h)
 		if err != nil {
 			return encodings, err
 		}
 
-		err = crypto.PseudorandomGenerateWithBlake3XOF(u, baseMsgs[col][1], h)
+		err = crypto.PseudorandomGenerate(u, baseMsgs[col][1], h)
 		if err != nil {
 			return encodings, err
 		}

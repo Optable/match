@@ -27,7 +27,7 @@ type OPRF interface {
 
 // NewOPRF returns an OPRF of type t
 func NewOPRF(m, baseOT int) (OPRF, error) {
-	return newImprovedKKRT(m, baseOT, crypto.HashXOF, false)
+	return newImprovedKKRT(m, baseOT, false)
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)

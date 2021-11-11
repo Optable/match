@@ -23,18 +23,6 @@ func init() {
 	prng.Read(xorKey)
 }
 
-func BenchmarkSha(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		sha256.Sum256(p)
-	}
-}
-
-func BenchmarkBlake3(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		blake3.Sum256(p)
-	}
-}
-
 func TestGCMEncrypDecrypt(t *testing.T) {
 	ciphertext, err := Encrypt(GCM, aesKey, 0, p)
 	if err != nil {
@@ -76,71 +64,15 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 	}
 }
 
-func TestPrgWithSeed(t *testing.T) {
-	seed := make([]byte, 512)
-	prng.Read(seed)
-	n := 1000000
-	p, err := PseudorandomGenerate(MrandDrbg, seed, n)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Equal(make([]byte, n), p) {
-		t.Fatalf("pseudorandom should not be 0")
-	}
-
-	if len(p) != n {
-		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
-	}
-
-	// is it deterministic?
-	q, _ := PseudorandomGenerate(MrandDrbg, seed, n)
-	if !bytes.Equal(p, q) {
-		t.Fatalf("drbg is not deterministic")
-	}
-}
-
-func TestAESCTRDrbg(t *testing.T) {
-	seed := make([]byte, 512)
-	prng.Read(seed)
-	n := 1000000
-	p, err := PseudorandomGenerate(AESCtrDrbg, seed, n)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Equal(make([]byte, n), p) {
-		t.Fatalf("pseudorandom should not be 0")
-	}
-
-	if len(p) != n {
-		t.Fatalf("PseudorandomGenerator does not extend to n bytes")
-	}
-
-	// is it deterministic?
-	q, _ := PseudorandomGenerate(AESCtrDrbg, seed, n)
-	if !bytes.Equal(p, q) {
-		t.Fatalf("drbg is not deterministic")
-	}
-}
-
-func BenchmarkPrgWithSeed(b *testing.B) {
-	seed := make([]byte, 512)
-	prng.Read(seed)
-	b.ResetTimer()
+func BenchmarkSha(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if _, err := PseudorandomGenerate(AESCtrDrbg, seed, 10000000); err != nil {
-			b.Fatal(err)
-		}
+		sha256.Sum256(p)
 	}
 }
 
-func BenchmarkAESCTRDrbg(b *testing.B) {
-	seed := make([]byte, 512)
-	prng.Read(seed)
-	b.ResetTimer()
+func BenchmarkBlake3(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if _, err := PseudorandomGenerate(AESCtrDrbg, seed, 10000000); err != nil {
-			b.Fatal(err)
-		}
+		blake3.Sum256(p)
 	}
 }
 
