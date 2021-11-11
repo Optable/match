@@ -5,9 +5,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
-	"hash"
 
+	"github.com/alecthomas/unsafeslice"
 	"github.com/optable/match/internal/util"
+	"github.com/twmb/murmur3"
 	"github.com/zeebo/blake3"
 )
 
@@ -28,43 +29,29 @@ const nonceSize = 12 //aesgcm NonceSize
 //        AES(2||h(x)[:15]) ||
 //        AES(3||h(x)[:15]) ||
 //        AES(4||h(x)[:15])
-// where h() is a hashing function.
+// where h() is the Murmur3 hashing function.
 // PseudorandomCode is passed the src as well as the associated hash
-// index. It also requires an AES block cipher and a hashing function
-// that returns 15 or more bytes. The Highway Hash is recommended as
-// it is fast and returns 16 bytes.
+// index. It also requires an AES block cipher.
 // The full pseudorandom code consists of four 16 byte encrypted AES
 // blocks that are encoded into a slice of 64 bytes. During construction
 // the last block (last 16 bytes) is used as a workspace.
 // For each block, first the block index (1, 2, 3, 4) is placed at the
 // 48th index (first element of the last block). The hash function is
-// fed the full ID source followed by its hash index. It returns a 16 byte
-// slice of which the first 15 bytes are copied into the remainder of the
-// last block (indices 49 - 64). Finally this block is used as the source
-// for the AES encode and the destination is the actual proper block
-// position. It should be noted, that since the hash function must be
-// instantiated before being passed to this function, it is reset each
-// time this function is called.
-func PseudorandomCode(aesBlock cipher.Block, hasher hash.Hash, src []byte, hIdx byte) (dst []byte, err error) {
-	if hasher == nil {
-		return nil, fmt.Errorf("nil hasher")
-	}
-
+// constructed with the hash index as its two seeds. It is fed the full
+// ID source. It returns two uint64s which are cast to a slice of bytes
+// of which the first 15 bytes are copied into the remainder of the last
+// block (indices 49-64). Finally this block is used as the source for
+// the AES encode and the destination is the actual proper block position.
+func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte, err error) {
 	// prepare our destination
 	dst = make([]byte, aes.BlockSize*4)
 	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
 
 	// hash id and the hash index
-	hasher.Reset()
-	if _, err = hasher.Write(src); err != nil {
-		return dst, err
-	}
-	if _, err = hasher.Write([]byte{hIdx}); err != nil {
-		return dst, err
-	}
+	hi, lo := murmur3.SeedSum128(uint64(hIdx), uint64(hIdx), src)
 
 	// copy into destination slice
-	copy(dst[aes.BlockSize*3+1:], hasher.Sum(nil))
+	copy(dst[aes.BlockSize*3+1:], unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo}))
 
 	// encrypt
 	aesBlock.Encrypt(dst[:aes.BlockSize], dst[aes.BlockSize*3:])

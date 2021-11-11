@@ -10,7 +10,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/minio/highwayhash"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -112,17 +111,12 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				errChan <- err
 			}
 
-			hHash128, err := highwayhash.New128(seeds[0])
-			if err != nil {
-				errChan <- err
-			}
-
 			for id := range identifiers {
 				// hash and calculate pseudorandom code given each possible hash index
 				var bytes [cuckoo.Nhash][]byte
 				for hIdx := 0; hIdx < 3; hIdx++ {
 					// instead of sampling random 32 byte secret key for highway hash, we will use the first seed
-					bytes[hIdx], err = crypto.PseudorandomCode(aesBlock, hHash128, id, byte(hIdx))
+					bytes[hIdx], err = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 					if err != nil {
 						errChan <- err
 					}

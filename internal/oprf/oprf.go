@@ -23,7 +23,7 @@ var ErrUnknownOPRF = errors.New("cannot create an OPRF that follows an unknown p
 
 type OPRF interface {
 	Send(rw io.ReadWriter) (Key, error)
-	Receive(choices *cuckoo.Cuckoo, sk, seed []byte, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
+	Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
 }
 
 // NewOPRF returns an OPRF of type t
@@ -41,8 +41,6 @@ type Key struct {
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, pseudorandomBytes []byte) (err error) {
-	err = util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.s, k.q[j])
-
-	return err
+func (k Key) Encode(j uint64, pseudorandomBytes []byte) error {
+	return util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.s, k.q[j])
 }
