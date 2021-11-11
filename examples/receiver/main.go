@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/util"
-	matchlog "github.com/optable/match/pkg/log"
 	"github.com/optable/match/pkg/psi"
 )
 
@@ -38,6 +38,23 @@ func exitOnErr(logger logr.Logger, err error, msg string) {
 		logger.Error(err, msg)
 		os.Exit(1)
 	}
+}
+
+// getLogger returns a stdr.Logger that implements the logr.Logger interface
+// and sets the verbosity of the returned logger.
+// set v to 0 for info level messages,
+// 1 for debug messages and 2 for trace level message.
+// any other verbosity level will default to 0.
+func getLogger(v int) logr.Logger {
+	logger := stdr.New(nil)
+	// bound check
+	if v > 2 || v < 0 {
+		v = 0
+		logger.Info("Invalid verbosity, setting logger to display info level messages only.")
+	}
+	stdr.SetVerbosity(v)
+
+	return logger
 }
 
 var out *string
@@ -76,7 +93,7 @@ func main() {
 
 	log.Printf("operating with protocol %s", *protocol)
 	// fetch stdr logger
-	mlog := matchlog.GetLogger(*verbose)
+	mlog := getLogger(*verbose)
 
 	// open file
 	f, err := os.Open(*file)
@@ -109,13 +126,13 @@ func main() {
 				v.SetNoDelay(false)
 			}
 			// make the receiver
-			receiver, _ := psi.NewReceiver(psiType, c)
+			ctx := logr.NewContext(context.Background(), mlog)
+			receiver, _ := psi.NewReceiver(psiType, ctx, c)
 			// and hand it off
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				defer c.Close()
-				ctx := matchlog.ContextWithLogger(context.Background(), mlog)
 				handle(receiver, n, f, ctx)
 				log.Printf("handled sender %s", c.RemoteAddr())
 			}()
@@ -131,8 +148,7 @@ func main() {
 func handle(r psi.Receiver, n int64, f io.ReadCloser, ctx context.Context) {
 	defer f.Close()
 	ids := util.Exhaust(n, f)
-	logger := matchlog.GetLoggerFromContextWithName(ctx, "")
-
+	logger, _ := logr.FromContext(ctx)
 	if i, err := r.Intersect(ctx, n, ids); err != nil {
 		log.Printf("intersect failed (%d): %v", len(i), err)
 	} else {

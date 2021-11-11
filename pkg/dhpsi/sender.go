@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/log"
 )
 
 // operations
@@ -16,13 +17,22 @@ import (
 // Sender represents the sender in a DHPSI operation, often the advertiser.
 // The sender initiates the transfer and in the case of DHPSI, it learns nothing.
 type Sender struct {
-	rw io.ReadWriter
+	rw     io.ReadWriter
+	logger logr.Logger
 }
 
 // NewSender returns a sender initialized to
 // use rw as the communication layer
-func NewSender(rw io.ReadWriter) *Sender {
-	return &Sender{rw: rw}
+func NewSender(ctx context.Context, rw io.ReadWriter) *Sender {
+	// fetch and set up logger
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		logger = stdr.New(nil)
+		// default logger with verbosity 0
+		stdr.SetVerbosity(0)
+	}
+	logger = logger.WithValues("protocol", "dhpsi")
+	return &Sender{rw: rw, logger: logger}
 }
 
 // SendFromReader initiates a DHPSI exchange with n identifiers
@@ -42,14 +52,11 @@ func (s *Sender) SendFromReader(ctx context.Context, n int64, r io.Reader) error
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
-	// fetch logger
-	var logger = log.GetLoggerFromContextWithName(ctx, "dhpsi")
-
 	// pick a ristretto implementation
 	gr, _ := NewRistretto(RistrettoTypeR255)
 	// stage1 : writes the permutated identifiers to the receiver
 	stage1 := func() error {
-		logger.Info("Starting stage 1")
+		s.logger.V(1).Info("Starting stage 1")
 
 		writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr)
 		if err != nil {
@@ -65,13 +72,13 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			}
 		}
 
-		logger.Info("Finished stage 1")
+		s.logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage2 : reads the identifiers from the receiver, encrypt them and send them back
 	stage2 := func() error {
-		logger.Info("Starting stage 2")
+		s.logger.V(1).Info("Starting stage 2")
 
 		reader, err := NewMultiplyParallelReader(s.rw, gr)
 		if err != nil {
@@ -93,7 +100,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			}
 		}
 
-		logger.Info("Finished stage 2")
+		s.logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
@@ -106,5 +113,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		return err
 	}
 
+	s.logger.V(1).Info("sender finished")
 	return nil
 }

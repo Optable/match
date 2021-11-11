@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/util"
-	matchlog "github.com/optable/match/pkg/log"
 	"github.com/optable/match/pkg/psi"
 )
 
@@ -35,6 +35,23 @@ func exitOnErr(logger logr.Logger, err error, msg string) {
 		logger.Error(err, msg)
 		os.Exit(1)
 	}
+}
+
+// getLogger returns a stdr.Logger that implements the logr.Logger interface
+// and sets the verbosity of the returned logger.
+// set v to 0 for info level messages,
+// 1 for debug messages and 2 for trace level message.
+// any other verbosity level will default to 0.
+func getLogger(v int) logr.Logger {
+	logger := stdr.New(nil)
+	// bound check
+	if v > 2 || v < 0 {
+		v = 0
+		logger.Info("Invalid verbosity, setting logger to display info level messages only.")
+	}
+	stdr.SetVerbosity(v)
+
+	return logger
 }
 
 func main() {
@@ -68,7 +85,7 @@ func main() {
 
 	log.Printf("operating with protocol %s", *protocol)
 	// fetch stdr logger
-	slog := matchlog.GetLogger(*verbose)
+	slog := getLogger(*verbose)
 
 	// open file
 	f, err := os.Open(*file)
@@ -91,8 +108,9 @@ func main() {
 	case *net.TCPConn:
 		v.SetNoDelay(false)
 	}
-	s, _ := psi.NewSender(psiType, c)
+	ctx := logr.NewContext(context.Background(), slog)
+	s, _ := psi.NewSender(psiType, ctx, c)
 	ids := util.Exhaust(n, f)
-	err = s.Send(matchlog.ContextWithLogger(context.Background(), slog), n, ids)
+	err = s.Send(ctx, n, ids)
 	exitOnErr(slog, err, "failed to perform PSI")
 }

@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/permutations"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/log"
 )
 
 // (receiver, publisher: high cardinality) stage1: reads the identifiers from the sender, encrypt them and index them in a map
@@ -18,13 +19,22 @@ import (
 // The receiver learns the intersection of matchable between its set and the set
 // of the sender
 type Receiver struct {
-	rw io.ReadWriter
+	rw     io.ReadWriter
+	logger logr.Logger
 }
 
 // NewReceiver returns a receiver initialized to
 // use rw as the communication layer
-func NewReceiver(rw io.ReadWriter) *Receiver {
-	return &Receiver{rw: rw}
+func NewReceiver(ctx context.Context, rw io.ReadWriter) *Receiver {
+	// fetch and set up logger
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		logger = stdr.New(nil)
+		// default logger with verbosity 0
+		stdr.SetVerbosity(0)
+	}
+	logger = logger.WithValues("protocol", "dhpsi")
+	return &Receiver{rw: rw, logger: logger}
 }
 
 type permuted struct {
@@ -46,9 +56,6 @@ func (s *Receiver) IntersectFromReader(ctx context.Context, n int64, r io.Reader
 // The format of an indentifier is
 //  string
 func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
-	// fetch logger
-	var logger = log.GetLoggerFromContextWithName(ctx, "dhpsi")
-
 	// state
 	var remoteIDs = make(map[[EncodedLen]byte]bool) // single write goroutine access from stage1
 	var localIDs = make([][]byte, n)
@@ -66,7 +73,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	gr, _ := NewRistretto(RistrettoTypeR255)
 	// step1 : reads the identifiers from the sender, encrypt them and index the encoded ristretto point in a map
 	stage1 := func() error {
-		logger.Info("Starting stage 1")
+		s.logger.V(1).Info("Starting stage 1")
 
 		if reader, err := NewMultiplyParallelReader(s.rw, gr); err != nil {
 			return err
@@ -76,7 +83,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 				var p [EncodedLen]byte
 				if err := reader.Read(&p); err != nil {
 					if err == io.EOF {
-						logger.Info("Finished stage 1")
+						s.logger.V(1).Info("Finished stage 1")
 						return nil
 					}
 					return err
@@ -88,7 +95,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 	// stage2.1 : permute and write the local identifiers to the sender
 	stage21 := func() error {
-		logger.Info("Starting stage 2.1")
+		s.logger.V(1).Info("Starting stage 2.1")
 
 		writer, err := NewDeriveMultiplyParallelShuffler(s.rw, n, gr)
 		if err != nil {
@@ -110,12 +117,12 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			i++
 		}
 
-		logger.Info("Finished stage 2.1")
+		s.logger.V(1).Info("Finished stage 2.1")
 		return nil
 	}
 	// step3: reads back the identifiers from the sender and learns the intersection
 	stage22 := func() error {
-		logger.Info("Starting stage 2.2")
+		s.logger.V(1).Info("Starting stage 2.2")
 		reader, err := NewReader(s.rw)
 		if err != nil {
 			return err
@@ -134,7 +141,7 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 
-		logger.Info("Finished stage 2.2")
+		s.logger.V(1).Info("Finished stage 2.2")
 		return nil
 	}
 
@@ -165,5 +172,6 @@ func (s *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 	}
 
+	s.logger.V(1).Info("receiver finished", "intersected", len(intersection))
 	return intersection, nil
 }

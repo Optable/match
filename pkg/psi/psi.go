@@ -35,28 +35,28 @@ type Receiver interface {
 	Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error)
 }
 
-func NewSender(protocol Protocol, rw io.ReadWriter) (Sender, error) {
+func NewSender(protocol Protocol, ctx context.Context, rw io.ReadWriter) (Sender, error) {
 	switch protocol {
 	case ProtocolDHPSI:
-		return dhpsi.NewSender(rw), nil
+		return dhpsi.NewSender(ctx, rw), nil
 	case ProtocolNPSI:
-		return npsi.NewSender(rw), nil
+		return npsi.NewSender(ctx, rw), nil
 	case ProtocolBPSI:
-		return bpsi.NewSender(rw), nil
+		return bpsi.NewSender(ctx, rw), nil
 
 	default:
 		return nil, fmt.Errorf("PSI sender protocol %d not supported", protocol)
 	}
 }
 
-func NewReceiver(protocol Protocol, rw io.ReadWriter) (Receiver, error) {
+func NewReceiver(protocol Protocol, ctx context.Context, rw io.ReadWriter) (Receiver, error) {
 	switch protocol {
 	case ProtocolDHPSI:
-		return dhpsi.NewReceiver(rw), nil
+		return dhpsi.NewReceiver(ctx, rw), nil
 	case ProtocolNPSI:
-		return npsi.NewReceiver(rw), nil
+		return npsi.NewReceiver(ctx, rw), nil
 	case ProtocolBPSI:
-		return bpsi.NewReceiver(rw), nil
+		return bpsi.NewReceiver(ctx, rw), nil
 
 	default:
 		return nil, fmt.Errorf("PSI receiver protocol %d not supported", protocol)

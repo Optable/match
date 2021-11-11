@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/util"
-	"github.com/optable/match/pkg/log"
 )
 
 // ErrReadingBloomfilter is triggered if there's an IO problem reading the remote side bloomfilter structure
@@ -18,13 +19,22 @@ var ErrReadingBloomfilter = fmt.Errorf("could not read a bloomfilter structure f
 
 // Receiver side of the BPSI protocol
 type Receiver struct {
-	rw io.ReadWriter
+	rw     io.ReadWriter
+	logger logr.Logger
 }
 
 // NewReceiver returns a bloomfilter receiver initialized to
 // use rw as the communication layer
-func NewReceiver(rw io.ReadWriter) *Receiver {
-	return &Receiver{rw: rw}
+func NewReceiver(ctx context.Context, rw io.ReadWriter) *Receiver {
+	// fetch and set up logger
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		logger = stdr.New(nil)
+		// default logger with verbosity 0
+		stdr.SetVerbosity(0)
+	}
+	logger = logger.WithValues("protocol", "bpsi")
+	return &Receiver{rw: rw, logger: logger}
 }
 
 // Intersect on matchables read from the identifiers channel,
@@ -32,14 +42,13 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is
 //  string
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
-	// fetch logger
-	var logger = log.GetLoggerFromContextWithName(ctx, "bpsi")
+
 	var bf bloomfilter
 	var intersected [][]byte
 
 	// stage 1: read the bloomfilter from the remote side
 	stage1 := func() error {
-		logger.Info("Starting stage 1")
+		r.logger.V(1).Info("Starting stage 1")
 
 		_bf, _, err := ReadFrom(r.rw)
 		if err != nil {
@@ -47,21 +56,21 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 		bf = _bf
 
-		logger.Info("Finished stage 1")
+		r.logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: read local IDs and compare with the remote bloomfilter
 	//          to produce intersections
 	stage2 := func() error {
-		logger.Info("Starting stage 2")
+		r.logger.V(1).Info("Starting stage 2")
 		for identifier := range identifiers {
 			if bf.Check(identifier) {
 				intersected = append(intersected, identifier)
 			}
 		}
 
-		logger.Info("Finished stage 2")
+		r.logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
@@ -75,5 +84,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		return intersected, err
 	}
 
+	r.logger.V(1).Info("receiver finished", "intersected", len(intersected))
 	return intersected, nil
 }

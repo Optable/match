@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/optable/match/pkg/log"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/util"
 )
@@ -16,13 +17,22 @@ import (
 
 // Sender represents sender side of the NPSI protocol
 type Sender struct {
-	rw io.ReadWriter
+	rw     io.ReadWriter
+	logger logr.Logger
 }
 
 // NewSender returns a sender initialized to
 // use rw as the communication layer
-func NewSender(rw io.ReadWriter) *Sender {
-	return &Sender{rw: rw}
+func NewSender(ctx context.Context, rw io.ReadWriter) *Sender {
+	// fetch and set up logger
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		logger = stdr.New(nil)
+		// default logger with verbosity 0
+		stdr.SetVerbosity(0)
+	}
+	logger = logger.WithValues("protocol", "npsi")
+	return &Sender{rw: rw, logger: logger}
 }
 
 // Send initiates a NPSI exchange
@@ -31,27 +41,24 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) error {
-	// fetch logger
-	var logger = log.GetLoggerFromContextWithName(ctx, "npsi")
-
 	// hold k
 	var k = make([]byte, hash.SaltLength)
 	// stage 1: receive a random salt K from P1
 	stage1 := func() error {
-		logger.Info("Starting stage 1")
+		s.logger.V(1).Info("Starting stage 1")
 		if n, err := s.rw.Read(k); err != nil {
 			return fmt.Errorf("stage1: %v", err)
 		} else if n != hash.SaltLength {
 			return hash.ErrSaltLengthMismatch
 		}
 
-		logger.Info("Finished stage 1")
+		s.logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: send hashes salted with K to P1
 	stage2 := func() error {
-		logger.Info("Starting stage 2")
+		s.logger.V(1).Info("Starting stage 2")
 		// get a hasher
 		h, err := hash.New(hash.Highway, k)
 		if err != nil {
@@ -71,7 +78,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 			}
 		}
 
-		logger.Info("Finished stage 2")
+		s.logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
@@ -84,5 +91,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		return err
 	}
 
+	s.logger.V(1).Info("sender finished")
 	return nil
 }

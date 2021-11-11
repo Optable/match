@@ -37,8 +37,9 @@ func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int) (ad
 func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn) {
 	r := initTestDataSource(common, receiverLen-commonLen)
 	// do a nil receive, ignore the results
-	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
-	_, err := rec.Intersect(context.Background(), int64(receiverLen), r)
+	ctx := context.Background()
+	rec, _ := psi.NewReceiver(psi.Protocol(protocol), ctx, conn)
+	_, err := rec.Intersect(ctx, int64(receiverLen), r)
 	if err != nil {
 		// hmm - send this to the main thread with a channel
 		log.Print(err)
@@ -52,8 +53,10 @@ func testSender(protocol int, addr string, common []byte, commonLen, senderLen i
 	if err != nil {
 		return err
 	}
-	snd, _ := psi.NewSender(psi.Protocol(protocol), conn)
-	err = snd.Send(context.Background(), int64(senderLen), r)
+
+	ctx := context.Background()
+	snd, _ := psi.NewSender(psi.Protocol(protocol), ctx, conn)
+	err = snd.Send(ctx, int64(senderLen), r)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/optable/match/pkg/log"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/util"
 )
@@ -17,13 +18,22 @@ import (
 
 // Receiver represents the receiver side of the NPSI protocol
 type Receiver struct {
-	rw io.ReadWriter
+	rw     io.ReadWriter
+	logger logr.Logger
 }
 
 // NewReceiver returns a receiver initialized to
 // use rw as the communication layer
-func NewReceiver(rw io.ReadWriter) *Receiver {
-	return &Receiver{rw: rw}
+func NewReceiver(ctx context.Context, rw io.ReadWriter) *Receiver {
+	// fetch and set up logger
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		logger = stdr.New(nil)
+		// default logger with verbosity 0
+		stdr.SetVerbosity(0)
+	}
+	logger = logger.WithValues("protocol", "npsi")
+	return &Receiver{rw: rw, logger: logger}
 }
 
 // Intersect intersects on matchables read from the identifiers channel,
@@ -31,14 +41,12 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is
 //  string
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
-	// fetch logger
-	var logger = log.GetLoggerFromContextWithName(ctx, "npsi")
 	var intersected [][]byte
 	var k = make([]byte, hash.SaltLength)
 
 	// stage 1: P2 samples a random salt K and sends it to P1.
 	stage1 := func() error {
-		logger.Info("Starting stage 1")
+		r.logger.V(1).Info("Starting stage 1")
 		// stage1.1: generate a SaltLength salt
 		if _, err := rand.Read(k); err != nil {
 			return err
@@ -48,13 +56,13 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		logger.Info("Finished stage 1")
+		r.logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
 	stage2v2 := func() error {
-		logger.Info("Starting stage 2")
+		r.logger.V(1).Info("Starting stage 2")
 
 		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)
@@ -105,7 +113,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// break out
-		logger.Info("Finished stage 2")
+		r.logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
@@ -120,5 +128,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 
 	// all went well
+	r.logger.V(1).Info("receiver finished", "intersected", len(intersected))
 	return intersected, nil
 }
