@@ -54,7 +54,6 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte,
 	copy(dst[aes.BlockSize*3+1:], unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo}))
 
 	// encrypt
-	dst[aes.BlockSize*3] = 1
 	aesBlock.Encrypt(dst[:aes.BlockSize], dst[aes.BlockSize*3:])
 	dst[aes.BlockSize*3] = 2
 	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize*3:])
