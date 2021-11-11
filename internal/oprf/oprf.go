@@ -1,6 +1,7 @@
 package oprf
 
 import (
+	"crypto/aes"
 	"errors"
 	"io"
 
@@ -9,12 +10,10 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-/*
-OPRF interface
-*/
-
 const (
-	k          = 512 // width of base OT binary matrix as well as the pseudorandom code output length
+	// width of base OT binary matrix  as well as the ouput
+	// length of PseudorandomCode (in bits)
+	k          = aes.BlockSize * 4 * 8
 	curve      = "P256"
 	cipherMode = crypto.XORBlake3
 )

@@ -89,7 +89,7 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 		// Binary AND of each byte in u with the test bit
 		// if bit is 1, we get whole row u to XOR with q[row]
 		// if bit is 0, we get a row of 0s which when XORed
-		// with q[row] just returns the same row so no need to do
+		// with q[row] just returns the same row, so no need to do
 		// an operation
 		if util.BitSetInByte(s, col) {
 			err = util.ConcurrentBitOp(util.Xor, q[col], u)
@@ -111,7 +111,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter
 		return encodings, ot.ErrBaseCountMissMatch
 	}
 
-	// compute code word using pseudorandom code on choice string r in a separate thread
+	// compute code word using PseudorandomCode on choice string r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
 	var errChan = make(chan error, 1)
 	go func() {
