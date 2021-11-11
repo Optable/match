@@ -34,6 +34,7 @@ func r_receiverInit(protocol int, common []byte, commonLen, receiverLen int, int
 func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
 	defer close(intersectionsBus)
 	r := initTestDataSource(common, receiverLen-commonLen)
+
 	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
 	ii, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	for _, intersection := range ii {

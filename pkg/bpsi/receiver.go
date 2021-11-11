@@ -24,7 +24,6 @@ type Receiver struct {
 // NewReceiver returns a bloomfilter receiver initialized to
 // use rw as the communication layer
 func NewReceiver(rw io.ReadWriter) *Receiver {
-
 	return &Receiver{rw: rw}
 }
 
