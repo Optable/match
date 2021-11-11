@@ -108,9 +108,9 @@ func main() {
 	case *net.TCPConn:
 		v.SetNoDelay(false)
 	}
-	ctx := logr.NewContext(context.Background(), slog)
-	s, _ := psi.NewSender(psiType, ctx, c)
+
+	s, _ := psi.NewSender(psiType, c)
 	ids := util.Exhaust(n, f)
-	err = s.Send(ctx, n, ids)
+	err = s.Send(logr.NewContext(context.Background(), slog), n, ids)
 	exitOnErr(slog, err, "failed to perform PSI")
 }

@@ -22,6 +22,48 @@ The naive, [highway hash](https://github.com/google/highwayhash) based PSI: an *
 
 The [bloomfilter](https://en.wikipedia.org/wiki/Bloom_filter) based PSI: an *insecure* but fast with lower communication overhead than [npsi](pkg/npsi/README.md) solution for PSI. Take a look [here](pkg/bpsi/README.md) to consult the documentation.
 
+## logging
+
+`github.com/go-logr/logr` is used internally for logging, which accepts a `logr.Logger` object. See the documentation on `logr` for various implementation of `logr.Logger`. Example implementation of match sender and receiver uses `github.com/go-logr/stdr` which logs to `os.Stderr`.
+
+### pass logger to sender or receiver
+To pass a logger to a sender or a receiver, create a new context with the parent context and `logr.Logger` object as follows
+```golang
+// for new sender with logger
+ctx := logr.NewContext(parentCtx, logger)
+sender, err := psi.NewSender(psiType, ctx, conn)
+if err != nil {
+    logger.Error(err, "failed to create PSI sender.")
+}
+...
+// for new receiver with logger
+ctx := logr.NewContext(parentCtx, logger)
+receiver, err := psi.NewReceiver(psiType, ctx, conn)
+if err != nil {
+    logger.Error(err, "failed to create PSI receiver.")
+}
+...
+```
+
+### verbosity
+Each PSI implementation logs the stage progression, set `logr.Logger` verbosity to `1` to see the logs.
+example for `github.com/go-logr/stdr`:
+```golang
+logger := stdr.New(nil)
+stdr.SetVerbosity(1)
+```
+running the example implementation for `dhpsi` we see the following logs:
+```bash
+$go run examples/sender/main.go -proto dhpsi -v 1
+...
+2021/11/11 11:16:12 "level"=1 "msg"="Starting stage 1" "protocol"="dhpsi"
+2021/11/11 11:16:12 "level"=1 "msg"="Finished stage 1" "protocol"="dhpsi"
+2021/11/11 11:16:12 "level"=1 "msg"="Starting stage 2" "protocol"="dhpsi"
+2021/11/11 11:16:12 "level"=1 "msg"="Finished stage 2" "protocol"="dhpsi"
+2021/11/11 11:16:12 "level"=1 "msg"="sender finished" "protocol"="dhpsi"
+...
+```
+
 # testing
 
 A complete test suite for all PSIs is present [here](test/psi). Don't hesitate to take a look and help us improve the quality of the testing by reporting problems and observations!

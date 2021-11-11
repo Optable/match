@@ -126,14 +126,14 @@ func main() {
 				v.SetNoDelay(false)
 			}
 			// make the receiver
-			ctx := logr.NewContext(context.Background(), mlog)
-			receiver, _ := psi.NewReceiver(psiType, ctx, c)
+
+			receiver, _ := psi.NewReceiver(psiType, c)
 			// and hand it off
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				defer c.Close()
-				handle(receiver, n, f, ctx)
+				handle(receiver, n, f, logr.NewContext(context.Background(), mlog))
 				log.Printf("handled sender %s", c.RemoteAddr())
 			}()
 

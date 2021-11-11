@@ -34,10 +34,8 @@ func r_receiverInit(protocol int, common []byte, commonLen, receiverLen int, int
 func r_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn, intersectionsBus chan<- []byte, errs chan<- error) {
 	defer close(intersectionsBus)
 	r := initTestDataSource(common, receiverLen-commonLen)
-
-	ctx := context.Background()
-	rec, _ := psi.NewReceiver(psi.Protocol(protocol), ctx, conn)
-	ii, err := rec.Intersect(ctx, int64(receiverLen), r)
+	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
+	ii, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	for _, intersection := range ii {
 		intersectionsBus <- intersection
 	}
@@ -78,9 +76,8 @@ func testReceiver(protocol int, common []byte, s test_size, deterministic bool) 
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
-		ctx := context.Background()
-		snd, _ := psi.NewSender(psi.Protocol(protocol), ctx, conn)
-		err = snd.Send(ctx, int64(s.senderLen), r)
+		snd, _ := psi.NewSender(psi.Protocol(protocol), conn)
+		err = snd.Send(context.Background(), int64(s.senderLen), r)
 		if err != nil {
 			errs <- fmt.Errorf("sender: %v", err)
 		}
