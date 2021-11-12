@@ -7,7 +7,7 @@ from the paper: "Efficient Batched Oblivious PRF with Applications to Private Se
 by Vladimir Kolesnikov, Ranjit Kumaresan, Mike Rosulek, and Ni Treu in 2016, and
 the paper "More Efficient Oblivious Transfer Extensions"
 by  Gilad Asharov, Yehuda Lindell, Thomas Schneider, and Michael Zohner
-and the paper "Extending oblivious transfers efficiently" 
+and the paper "Extending oblivious transfers efficiently"
 by Yuval Ishai, Joe Kilian, Kobbi Nissim, and Erez Petrank for ot-extension using
 short secrets.
 
@@ -34,7 +34,6 @@ import (
 type imprvKKRT struct {
 	baseOT ot.OT // base OT under the hood
 	m      int   // number of message tuples
-	drbg   int
 }
 
 // newImprovedKKRT returns an Improved KKRT OPRF
@@ -42,7 +41,7 @@ type imprvKKRT struct {
 // k: width of OT extension binary matrix
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
-func newImprovedKKRT(m, baseOT, drbg int, ristretto bool) (OPRF, error) {
+func newImprovedKKRT(m, baseOT int, ristretto bool) (OPRF, error) {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
@@ -54,22 +53,11 @@ func newImprovedKKRT(m, baseOT, drbg int, ristretto bool) (OPRF, error) {
 		return imprvKKRT{}, err
 	}
 
-	return imprvKKRT{baseOT: ot, m: m, drbg: drbg}, nil
+	return imprvKKRT{baseOT: ot, m: m}, nil
 }
 
 // Send returns the OPRF keys
 func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
-	// sample random 16 byte secret key for AES-128
-	sk := make([]byte, 16)
-	if _, err = rand.Read(sk); err != nil {
-		return keys, err
-	}
-
-	// send the secret key
-	if _, err := rw.Write(sk); err != nil {
-		return Key{}, err
-	}
-
 	// sample choice bits for baseOT
 	s := make([]byte, k/8)
 	if _, err = rand.Read(s); err != nil {
@@ -93,14 +81,14 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 		}
 
 		q[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerateWithBlake3XOF(q[col], seeds[col], h)
+		err = crypto.PseudorandomGenerate(q[col], seeds[col], h)
 		if err != nil {
 			return keys, err
 		}
 		// Binary AND of each byte in u with the test bit
 		// if bit is 1, we get whole row u to XOR with q[row]
 		// if bit is 0, we get a row of 0s which when XORed
-		// with q[row] just returns the same row so no need to do
+		// with q[row] just returns the same row, so no need to do
 		// an operation
 		if util.BitSetInByte(s, col) {
 			err = util.ConcurrentBitOp(util.Xor, q[col], u)
@@ -110,26 +98,19 @@ func (ext imprvKKRT) Send(rw io.ReadWriter) (keys Key, err error) {
 		}
 	}
 	runtime.GC()
-	q = util.TransposeByteMatrix(q)[:ext.m]
+	q = util.ConcurrentTransposeWide(q, runtime.GOMAXPROCS(0))[:ext.m]
 
 	// store oprf keys
-	aesBlock, err := aes.NewCipher(sk)
-	return Key{block: aesBlock, s: s, q: q}, err
+	return Key{s: s, q: q}, err
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
+func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
 	if int(choices.Len()) != ext.m {
 		return encodings, ot.ErrBaseCountMissMatch
 	}
 
-	// receive AES-128 secret key
-	sk := make([]byte, 16)
-	if _, err = io.ReadFull(rw, sk); err != nil {
-		return encodings, err
-	}
-
-	// compute code word using pseudorandom code on choice string r in a separate thread
+	// compute code word using PseudorandomCode on choice string r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
 	var errChan = make(chan error, 1)
 	go func() {
@@ -145,9 +126,14 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 				errChan <- err
 			}
 			item, hIdx := choices.GetItemWithHash(idx)
-			d[i] = crypto.PseudorandomCodeWithHashIndex(aesBlock, item, hIdx)
+			d[i] = crypto.PseudorandomCode(aesBlock, item, hIdx)
 		}
-		pseudorandomChan <- util.TransposeByteMatrix(d)
+		// pad matrix to ensure the number of rows is divisible by 512 for transposition
+		pad := util.PadTill512(len(d))
+		for i := 0; i < pad; i++ {
+			d = append(d, make([]byte, 64))
+		}
+		pseudorandomChan <- util.ConcurrentTransposeTall(d, runtime.GOMAXPROCS(0))
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
@@ -179,12 +165,12 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 	h := blake3.New()
 	for col := range d {
 		t[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerateWithBlake3XOF(t[col], baseMsgs[col][0], h)
+		err = crypto.PseudorandomGenerate(t[col], baseMsgs[col][0], h)
 		if err != nil {
 			return encodings, err
 		}
 
-		err = crypto.PseudorandomGenerateWithBlake3XOF(u, baseMsgs[col][1], h)
+		err = crypto.PseudorandomGenerate(u, baseMsgs[col][1], h)
 		if err != nil {
 			return encodings, err
 		}
@@ -201,7 +187,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 	}
 
 	runtime.GC()
-	t = util.TransposeByteMatrix(t)[:ext.m]
+	t = util.ConcurrentTransposeWide(t, runtime.GOMAXPROCS(0))[:ext.m]
 
 	// Hash and index all local encodings
 	// the hash value of the oprf encoding is the key
@@ -223,6 +209,5 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) (encoding
 		}
 	}
 
-	//runtime.GC()
 	return encodings, nil
 }

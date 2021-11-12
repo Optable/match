@@ -46,6 +46,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var intersection [][]byte
 	var oprfOutput [cuckoo.Nhash]map[uint64]uint64
 	var cuckooHashTable *cuckoo.Cuckoo
+	var sk []byte
 
 	// stage 1: read the hash seeds from the remote side
 	//          initiate a cuckoo hash table and insert all local
@@ -58,6 +59,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 
+		// send size
+		if err := binary.Write(r.rw, binary.BigEndian, &n); err != nil {
+			return err
+		}
+
 		// instantiate cuckoo hash table
 		cuckooHashTable = cuckoo.NewCuckoo(uint64(n), seeds)
 		err := cuckooHashTable.Insert(identifiers)
@@ -65,32 +71,27 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
-		// send size
-		if err := binary.Write(r.rw, binary.BigEndian, &n); err != nil {
-			return err
+		// receive secret key for AES-128 (16 byte)
+		// use the first seed as the 32-byte key for highway hashing
+		sk = make([]byte, 16)
+		if _, err := io.ReadFull(r.rw, sk); err != nil {
+			return fmt.Errorf("stage1: %v", err)
 		}
 
 		// end stage1
 		timer, mem = printStageStats("Stage 1", start, start, 0)
+		fmt.Println("receiver stage 1 passed")
 		return nil
 	}
 
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
-		oprfInputSize := int64(cuckooHashTable.Len())
-
-		// inform the sender of the size
-		// its about to receive
-		if err := binary.Write(r.rw, binary.BigEndian, oprfInputSize); err != nil {
-			return err
-		}
-
-		oReceiver, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
+		oReceiver, err := oprf.NewOPRF(int(cuckooHashTable.Len()), ot.NaorPinkas)
 		if err != nil {
 			return err
 		}
 
-		oprfOutput, err = oReceiver.Receive(cuckooHashTable, r.rw)
+		oprfOutput, err = oReceiver.Receive(cuckooHashTable, sk, r.rw)
 		if err != nil {
 			return err
 		}

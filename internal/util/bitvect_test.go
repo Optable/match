@@ -8,11 +8,14 @@ import (
 
 var (
 	nmsg        = 1024
-	nworkers    = runtime.NumCPU()
+	nworkers    = runtime.GOMAXPROCS(0)
 	byteBlock   = sampleRandomTall(prng, nmsg)
 	randomBlock = unravelTall(byteBlock, 0)
 )
 
+// genTranBlock creates a 512x512 bit block where every bit position
+// alternates between 0 and 1. When transposed, this block should
+// consists of rows of all 0s alternating with rows of all 1s.
 func genTranBlock() BitVect {
 	tranBlock2D := make([][]byte, 512)
 	for row := range tranBlock2D {
@@ -56,8 +59,7 @@ func TestUnReRavelingTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, a := range trange {
 		matrix := sampleRandomTall(prng, a)
-		// TALL m x 64
-		// determine number of blocks to split original matrix
+		// determine number of blocks to split original matrix (m x 64)
 		nblks := len(matrix) / 512
 
 		rerav := make([][]byte, len(matrix))
@@ -85,8 +87,7 @@ func TestUnReRavelingWide(t *testing.T) {
 	trange := []int{64, 128, 512}
 	for _, a := range trange {
 		matrix := sampleRandomWide(prng, a)
-		// WIDE 512 x n
-		// determine number of blocks to split original matrix
+		// determine number of blocks to split original matrix (512 x n)
 		nblks := len(matrix[0]) / 64
 
 		trans := make([][]byte, len(matrix))
@@ -110,6 +111,7 @@ func TestUnReRavelingWide(t *testing.T) {
 	}
 }
 
+// Test single block tranposition
 func TestTranspose512x512(t *testing.T) {
 	tr := randomBlock
 
@@ -153,13 +155,12 @@ func TestIfLittleEndianTranspose(t *testing.T) {
 	}
 }
 
-func TestConcurrentTranspose(t *testing.T) {
-	// TALL
+func TestConcurrentTransposeTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, m := range trange {
 		orig := sampleRandomTall(prng, m)
-		tr := ConcurrentTranspose(orig, nworkers)
-		dtr := ConcurrentTranspose(tr, nworkers)
+		tr := ConcurrentTransposeTall(orig, nworkers)
+		dtr := ConcurrentTransposeWide(tr, nworkers)
 		// test
 		for k := range orig {
 			for l := range orig[k] {
@@ -171,13 +172,14 @@ func TestConcurrentTranspose(t *testing.T) {
 			}
 		}
 	}
-	// WIDE
-	//trange = []int{64, 64 * 2, 64 * 3, 64 * 4}
-	trange = []int{64}
+}
+
+func TestConcurrentTransposeWide(t *testing.T) {
+	trange := []int{64, 64 * 2, 64 * 3, 64 * 4}
 	for _, m := range trange {
 		orig := sampleRandomWide(prng, m)
-		tr := ConcurrentTranspose(orig, nworkers)
-		dtr := ConcurrentTranspose(tr, nworkers)
+		tr := ConcurrentTransposeWide(orig, nworkers)
+		dtr := ConcurrentTransposeTall(tr, nworkers)
 		//test
 		for k := range dtr {
 			for l := range dtr[k] {
@@ -189,6 +191,8 @@ func TestConcurrentTranspose(t *testing.T) {
 	}
 }
 
+// BenchmarkTranspose512x512 benchmarks just transposing a single
+// BitVect block.
 func BenchmarkTranspose512x512(b *testing.B) {
 	tr := randomBlock
 	b.ResetTimer()
@@ -197,16 +201,19 @@ func BenchmarkTranspose512x512(b *testing.B) {
 	}
 }
 
-// Test transpose with the added overhead of creating the blocks
-// and writing to an output transpose matrix.
+// BenchmarkTranspose tests the BitVect transpose with the overhead
+// of having to pull the blocks out of a larger matrix and write to
+// a new tranposed matrix. In this case, we limit it to a single thread.
 func BenchmarkTranspose(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ConcurrentTranspose(byteBlock, 1)
+		ConcurrentTransposeTall(byteBlock, 1)
 	}
 }
 
+// BenchmarkConcurrentTranspose is the same as BenchmarkTranspose but
+// we allow a number of threads equal to the GOMAXPROCS.
 func BenchmarkConcurrentTranspose(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ConcurrentTranspose(byteBlock, nworkers)
+		ConcurrentTransposeTall(byteBlock, nworkers)
 	}
 }

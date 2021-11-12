@@ -1,7 +1,7 @@
 package oprf
 
 import (
-	"crypto/cipher"
+	"crypto/aes"
 	"errors"
 	"io"
 
@@ -10,12 +10,10 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-/*
-OPRF interface
-*/
-
 const (
-	k          = 512 // width of base OT binary matrix as well as the pseudorandom code output length
+	// width of base OT binary matrix  as well as the ouput
+	// length of PseudorandomCode (in bits)
+	k          = aes.BlockSize * 4 * 8
 	curve      = "P256"
 	cipherMode = crypto.XORBlake3
 )
@@ -24,12 +22,12 @@ var ErrUnknownOPRF = errors.New("cannot create an OPRF that follows an unknown p
 
 type OPRF interface {
 	Send(rw io.ReadWriter) (Key, error)
-	Receive(choices *cuckoo.Cuckoo, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
+	Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([cuckoo.Nhash]map[uint64]uint64, error)
 }
 
 // NewOPRF returns an OPRF of type t
 func NewOPRF(m, baseOT int) (OPRF, error) {
-	return newImprovedKKRT(m, baseOT, crypto.HashXOF, false)
+	return newImprovedKKRT(m, baseOT, false)
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)
@@ -37,19 +35,11 @@ func NewOPRF(m, baseOT int) (OPRF, error) {
 // q stores the received OT extension matrix chosen with secret
 // seed s.
 type Key struct {
-	block cipher.Block
-	s     []byte   // secret choice bits
-	q     [][]byte // m x k bit matrice
+	s []byte   // secret choice bits
+	q [][]byte // m x k bit matrice
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, in []byte, hIdx uint8) (out []byte, err error) {
-	// compute q_i ^ (C(r) & s)
-	out = crypto.PseudorandomCodeWithHashIndex(k.block, in, hIdx)
-
-	if err = util.ConcurrentDoubleBitOp(util.AndXor, out, k.s, k.q[j]); err != nil {
-		return nil, err
-	}
-
-	return out, nil
+func (k Key) Encode(j uint64, pseudorandomBytes []byte) error {
+	return util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.s, k.q[j])
 }

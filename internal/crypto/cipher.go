@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/alecthomas/unsafeslice"
 	"github.com/optable/match/internal/util"
+	"github.com/twmb/murmur3"
 	"github.com/zeebo/blake3"
 )
 
@@ -23,68 +25,41 @@ const (
 const nonceSize = 12 //aesgcm NonceSize
 
 // PseudorandomCode is implemented as follows:
-// C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
-// src is padded to 64 bytes before being encrypted in blocks of 16 bytes.
-// Blocks consisting only of padding are not encrypted. On success,
-// PseudorandomCode returns an encrypted byte slice of 64 bytes.
-func PseudorandomCode(aesBlock cipher.Block, src []byte) (dst []byte) {
-	dst = make([]byte, aes.BlockSize*4)
-	// effectively pad src
-	copy(dst, src)
+// C(x) = AES(1||h(x)[:15]) ||
+//        AES(2||h(x)[:15]) ||
+//        AES(3||h(x)[:15]) ||
+//        AES(4||h(x)[:15])
+// where h() is the Murmur3 hashing function.
+// PseudorandomCode is passed the src as well as the associated hash
+// index. It also requires an AES block cipher.
+// The full pseudorandom code consists of four 16 byte encrypted AES
+// blocks that are encoded into a slice of 64 bytes. During construction
+// the last block (last 16 bytes) is used as a workspace.
+// For each block, first the block index (1, 2, 3, 4) is placed at the
+// 48th index (first element of the last block). The hash function is
+// constructed with the hash index as its two seeds. It is fed the full
+// ID source. It returns two uint64s which are cast to a slice of bytes
+// of which the first 15 bytes are copied into the remainder of the last
+// block (indices 49-64). Finally this block is used as the source for
+// the AES encode and the destination is the actual proper block position.
+func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) []byte {
+	// prepare our destination
+	dst := make([]byte, aes.BlockSize*4)
+	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
+
+	// hash id and the hash index
+	hi, lo := murmur3.SeedSum128(uint64(hIdx), uint64(hIdx), src)
+
+	// copy into destination slice
+	copy(dst[aes.BlockSize*3+1:], unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo}))
 
 	// encrypt
-	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
-	if len(src) <= aes.BlockSize {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
-	if len(src) <= aes.BlockSize*2 {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
-	if len(src) <= aes.BlockSize*3 {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
-	return dst
-}
-
-// PseudorandomCodeWithHashIndex is implemented as follows:
-// C(x) = AES(x[:16]) || AES(x[16:32]) || AES(x[32:48]) || AES(x[48:])
-// PseudorandomCodeWithHashIndex is passed the src as well as the
-// associated hash index. When padding the src to 64 bytes, if there
-// is an empty byte, instead the hash index is placed there
-// (effectively appending the hash index). Blocks of 16 bytes are then
-// encrypted. Blocks consisting only of padding are not encrypted. On
-// success, PseudorandomCodeWithHashIndex returns an encrypted byte
-// slice of 64 bytes.
-func PseudorandomCodeWithHashIndex(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte) {
-	dst = make([]byte, aes.BlockSize*4)
-	// effectively pad src
-	copy(dst, src)
-	if len(src) < aes.BlockSize*4 {
-		dst[len(src)] = hIdx
-	}
-
-	// encrypt
-	aesBlock.Encrypt(dst[:aes.BlockSize], dst[:aes.BlockSize])
-	if len(src)+1 <= aes.BlockSize {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize:aes.BlockSize*2])
-	if len(src)+1 <= aes.BlockSize*2 {
-		return dst
-	}
-
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*2:aes.BlockSize*3])
-	if len(src)+1 <= aes.BlockSize*3 {
-		return dst
-	}
-
+	aesBlock.Encrypt(dst[:aes.BlockSize], dst[aes.BlockSize*3:])
+	dst[aes.BlockSize*3] = 2
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize*3:])
+	dst[aes.BlockSize*3] = 3
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*3:])
+	dst[aes.BlockSize*3] = 4
 	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
 	return dst
 }

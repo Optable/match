@@ -3,12 +3,14 @@ package kkrtpsi
 import (
 	"bufio"
 	"context"
+	"crypto/aes"
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"time"
 
+	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
@@ -25,10 +27,10 @@ type Sender struct {
 	rw io.ReadWriter
 }
 
-// hashable stores the possible bucket
+// oprfEncodeInputs stores the possible bucket
 // indexes in the receiver cuckoo hash table
-type hashable struct {
-	identifier []byte
+type oprfEncodeInputs struct {
+	prcEncoded [cuckoo.Nhash][]byte // PseudoRandom Code
 	bucketIdx  [cuckoo.Nhash]uint64
 }
 
@@ -54,8 +56,9 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var oprfInputSize int64 // nb of OPRF keys
 
 	var oprfKeys oprf.Key
-	var hashedIds = make(chan hashable, n)
+	var pseudorandIds = make(chan oprfEncodeInputs, n)
 	var hashChan = make(chan hash.Hasher)
+	var errChan = make(chan error, 1)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	// for cuckoo hashing parameters agreement.
@@ -78,14 +81,43 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
+		// sample random 16 byte secret key for AES-128 and send to the receiver
+		sk := make([]byte, 16)
+		if _, err = rand.Read(sk); err != nil {
+			return err
+		}
+
+		// send the secret key
+		if _, err := s.rw.Write(sk); err != nil {
+			return err
+		}
+
+		// calculate number of OPRF from the receiver based on
+		// number of buckets in cuckooHashTable
+		oprfInputSize = int64(cuckoo.Factor * float64(remoteN))
+		if 1 > oprfInputSize {
+			oprfInputSize = 1
+		}
+
 		// exhaust local ids, and precompute all potential
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
 		go func() {
-			defer close(hashedIds)
+			defer close(pseudorandIds)
 			cuckooHashTable := cuckoo.NewDummyCuckoo(uint64(remoteN), seeds)
+			// instantiate an AES block as well as a Highway Hash
+			aesBlock, err := aes.NewCipher(sk)
+			if err != nil {
+				errChan <- err
+			}
+
 			for id := range identifiers {
-				hashedIds <- hashable{identifier: id, bucketIdx: cuckooHashTable.BucketIndices(id)}
+				// hash and calculate pseudorandom code given each possible hash index
+				var bytes [cuckoo.Nhash][]byte
+				for hIdx := 0; hIdx < cuckoo.Nhash; hIdx++ {
+					bytes[hIdx] = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
+				}
+				pseudorandIds <- oprfEncodeInputs{prcEncoded: bytes, bucketIdx: cuckooHashTable.BucketIndices(id)}
 			}
 			hasher := cuckooHashTable.GetHasher()
 			hashChan <- hasher
@@ -93,16 +125,12 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 		// end stage1
 		timer, mem = printStageStats("Stage 1", start, start, 0)
+		fmt.Println("sender stage 1 passed")
 		return nil
 	}
 
 	// stage 2: act as sender in OPRF, and receive OPRF keys
 	stage2 := func() error {
-		// receive the number of OPRF
-		if err := binary.Read(s.rw, binary.BigEndian, &oprfInputSize); err != nil {
-			return err
-		}
-
 		// instantiate OPRF sender with agreed parameters
 		oSender, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
 		if err != nil {
@@ -126,7 +154,18 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		localEncodings := EncodeAndHashAllParallel(oprfKeys, <-hashChan, hashedIds)
+		var hasher hash.Hasher
+		// read error
+		select {
+		case err := <-errChan:
+			if err != nil {
+				return err
+			}
+		// block until we have the hasher
+		case hasher = <-hashChan:
+		}
+
+		localEncodings := EncodeAndHashAllParallel(oprfKeys, hasher, pseudorandIds)
 
 		// Add a buffer of 64k to amortize syscalls cost
 		var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
