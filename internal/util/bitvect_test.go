@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"math/rand"
 	"runtime"
 	"testing"
@@ -53,6 +54,28 @@ func sampleRandomWide(r *rand.Rand, n int) [][]byte {
 	}
 
 	return matrix
+}
+
+// printBits prints a subset of the overall bit array. The limit is in bits but
+// since we are really printing uint64, everything is rounded down to the nearest
+// multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
+func (b BitVect) printBits(lim int) {
+	//lim = lim/64
+	if lim > 512 {
+		lim = 512
+	}
+
+	for i := 0; i < lim; i++ {
+		fmt.Printf("%064b\n", b.set[i*8:(i*8)+(lim/64)])
+	}
+}
+
+// printUints prints all of the 512x8 uints in the bit array. Good for testing
+// transpose operations performed prior to the bit level.
+func (b BitVect) printUints() {
+	for i := 0; i < 512; i++ {
+		fmt.Println(i, " - ", b.set[i*8:(i+1)*8])
+	}
 }
 
 func TestUnReRavelingTall(t *testing.T) {

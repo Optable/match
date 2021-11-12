@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/alecthomas/unsafeslice"
@@ -50,28 +49,6 @@ func (b BitVect) ravelToTall(matrix [][]byte, idx int) {
 func (b BitVect) ravelToWide(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[i][idx*64:(idx+1)*64], unsafeslice.ByteSliceFromUint64Slice(b.set[(i*8):(i+1)*8]))
-	}
-}
-
-// printBits prints a subset of the overall bit array. The limit is in bits but
-// since we are really printing uint64, everything is rounded down to the nearest
-// multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
-func (b BitVect) printBits(lim int) {
-	//lim = lim/64
-	if lim > 512 {
-		lim = 512
-	}
-
-	for i := 0; i < lim; i++ {
-		fmt.Printf("%064b\n", b.set[i*8:(i*8)+(lim/64)])
-	}
-}
-
-// printUints prints all of the 512x8 uints in the bit array. Good for testing
-// transpose operations performed prior to the bit level.
-func (b BitVect) printUints() {
-	for i := 0; i < 512; i++ {
-		fmt.Println(i, " - ", b.set[i*8:(i+1)*8])
 	}
 }
 
