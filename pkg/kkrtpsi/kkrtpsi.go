@@ -40,14 +40,17 @@ func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEnc
 		execute:   f}
 }
 
-func (bytes oprfEncodeInputs) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
+func (bytes oprfEncodeInputs) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64, err error) {
 	// oprfInput is instantiated at the required size
 	for hIdx, bucketIdx := range bytes.bucketIdx {
-		oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
+		err = oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
+		if err != nil {
+			return hashes, err
+		}
 		hashes[hIdx] = hasher.Hash64(bytes.prcEncoded[hIdx])
 	}
 
-	return
+	return hashes, nil
 }
 
 // HashAllParallel reads all identifiers from identifiers
@@ -60,10 +63,14 @@ func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers
 	// work on the jobPool
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		go func() {
+			var err error
 			for job := range jobPool {
 				var hashed = make([][cuckoo.Nhash]uint64, job.batchSize)
 				for i := 0; i < job.batchSize; i++ {
-					hashed[i] = job.prc[i].encodeAndHash(oprfKeys, hasher)
+					hashed[i], err = job.prc[i].encodeAndHash(oprfKeys, hasher)
+					if err != nil {
+						panic(err)
+					}
 				}
 				job.hashed = hashed
 				job.execute(job)
