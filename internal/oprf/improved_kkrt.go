@@ -212,6 +212,5 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter
 		}
 	}
 
-	//runtime.GC()
 	return encodings, nil
 }

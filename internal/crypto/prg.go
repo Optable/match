@@ -8,7 +8,6 @@ import (
 // deterministic random bit generator (DRBG) as specified by NIST
 // Special Publication 800-90A Revision 1. Blake3 is used here.
 func PseudorandomGenerate(dst []byte, seed []byte, h *blake3.Hasher) error {
-	// need expand?
 	if len(dst) < len(seed) {
 		copy(dst, seed)
 		return nil

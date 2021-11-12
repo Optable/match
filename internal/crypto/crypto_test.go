@@ -77,9 +77,8 @@ func BenchmarkBlake3(b *testing.B) {
 }
 
 func BenchmarkPseudorandomCode(b *testing.B) {
-	// the normal input is a 64 byte sha256 digest with an appended byte
-	// indicating which hash function is used to compute the cuckoo hash
-	// bucket index.
+	// the normal input is a 64 byte digest with a byte indicating
+	// which hash function is used to compute the cuckoo hash
 	in := make([]byte, 64)
 	prng.Read(in)
 	var hIdx byte
