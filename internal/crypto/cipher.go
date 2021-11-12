@@ -42,9 +42,9 @@ const nonceSize = 12 //aesgcm NonceSize
 // of which the first 15 bytes are copied into the remainder of the last
 // block (indices 49-64). Finally this block is used as the source for
 // the AES encode and the destination is the actual proper block position.
-func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte, err error) {
+func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) []byte {
 	// prepare our destination
-	dst = make([]byte, aes.BlockSize*4)
+	dst := make([]byte, aes.BlockSize*4)
 	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
 
 	// hash id and the hash index
@@ -61,7 +61,7 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) (dst []byte,
 	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*3:])
 	dst[aes.BlockSize*3] = 4
 	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
-	return dst, nil
+	return dst
 }
 
 // H(seed) xor src, where H is modeled as a pseudorandom generator.

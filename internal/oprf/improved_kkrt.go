@@ -126,10 +126,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter
 				errChan <- err
 			}
 			item, hIdx := choices.GetItemWithHash(idx)
-			d[i], err = crypto.PseudorandomCode(aesBlock, item, hIdx)
-			if err != nil {
-				errChan <- err
-			}
+			d[i] = crypto.PseudorandomCode(aesBlock, item, hIdx)
 		}
 		// pad matrix to ensure the number of rows is divisible by 512 for transposition
 		pad := util.PadTill512(len(d))

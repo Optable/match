@@ -3,7 +3,6 @@ package crypto
 import (
 	"bytes"
 	"crypto/aes"
-	"crypto/sha256"
 	"math/rand"
 	"testing"
 	"time"
@@ -64,18 +63,6 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 	}
 }
 
-func BenchmarkSha(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		sha256.Sum256(p)
-	}
-}
-
-func BenchmarkBlake3(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		blake3.Sum256(p)
-	}
-}
-
 func BenchmarkPseudorandomCode(b *testing.B) {
 	// the normal input is a 64 byte digest with a byte indicating
 	// which hash function is used to compute the cuckoo hash
@@ -85,10 +72,7 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 	aesBlock, _ := aes.NewCipher(aesKey)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := PseudorandomCode(aesBlock, in, hIdx)
-		if err != nil {
-			b.Fatal(err)
-		}
+		_ = PseudorandomCode(aesBlock, in, hIdx)
 	}
 }
 

@@ -28,7 +28,7 @@ func EncodesWrite(w io.Writer, u [cuckoo.Nhash]uint64) error {
 
 type hashEncodingJob struct {
 	batchSize int
-	bytes     []pseudorandBytes
+	prc       []oprfEncodeInputs // PseudoRandom Code
 	hashed    [][cuckoo.Nhash]uint64
 	execute   func(job hashEncodingJob)
 }
@@ -36,15 +36,15 @@ type hashEncodingJob struct {
 func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEncodingJob {
 	return hashEncodingJob{
 		batchSize: batchSize,
-		bytes:     make([]pseudorandBytes, batchSize),
+		prc:       make([]oprfEncodeInputs, batchSize),
 		execute:   f}
 }
 
-func (bytes pseudorandBytes) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
+func (bytes oprfEncodeInputs) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
 	// oprfInput is instantiated at the required size
 	for hIdx, bucketIdx := range bytes.bucketIdx {
-		oprfKeys.Encode(bucketIdx, bytes.bytes[hIdx])
-		hashes[hIdx] = hasher.Hash64(bytes.bytes[hIdx])
+		oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
+		hashes[hIdx] = hasher.Hash64(bytes.prcEncoded[hIdx])
 	}
 
 	return
@@ -52,7 +52,7 @@ func (bytes pseudorandBytes) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher
 
 // HashAllParallel reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
-func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers <-chan pseudorandBytes) <-chan [cuckoo.Nhash]uint64 {
+func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers <-chan oprfEncodeInputs) <-chan [cuckoo.Nhash]uint64 {
 	// one wg.Add() per batch + one for the batcher go routine
 	var jobPool = make(chan hashEncodingJob)
 	var wg sync.WaitGroup
@@ -63,7 +63,7 @@ func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers
 			for job := range jobPool {
 				var hashed = make([][cuckoo.Nhash]uint64, job.batchSize)
 				for i := 0; i < job.batchSize; i++ {
-					hashed[i] = job.bytes[i].encodeAndHash(oprfKeys, hasher)
+					hashed[i] = job.prc[i].encodeAndHash(oprfKeys, hasher)
 				}
 				job.hashed = hashed
 				job.execute(job)
@@ -88,7 +88,7 @@ func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers
 		var batch = makeJob(hasher, batchSize, execute)
 		for identifier := range identifiers {
 			// accumulate a batch
-			batch.bytes[i] = identifier
+			batch.prc[i] = identifier
 			i++
 			// send it out?
 			if i == batchSize {

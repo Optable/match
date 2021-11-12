@@ -1,12 +1,16 @@
+// PseudorandomGenerate is a pseudorandom generator (PRG) using a
+// deterministic random bit generator (DRBG) as specified by NIST
+// Special Publication 800-90A Revision 1.
+
 package crypto
 
 import (
 	"github.com/zeebo/blake3"
 )
 
-// PseudorandomGenerate is a pseudorandom generator (PRG) using a
-// deterministic random bit generator (DRBG) as specified by NIST
-// Special Publication 800-90A Revision 1. Blake3 is used here.
+// PseudorandomGenerate is a pseudorandom generator (PRG).
+// Blake3 is not normally used as a DRBG but we've applied
+// it here for performance reasons.
 func PseudorandomGenerate(dst []byte, seed []byte, h *blake3.Hasher) error {
 	if len(dst) < len(seed) {
 		copy(dst, seed)

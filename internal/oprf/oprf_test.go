@@ -43,7 +43,7 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 	return c, err
 }
 
-func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk, seed []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
+func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		errs <- fmt.Errorf("net listen encountered error: %s", err)
@@ -55,12 +55,12 @@ func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk, seed []byte, outBus
 			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
 		}
 
-		go oprfReceiveHandler(conn, oprf, choices, sk, seed, outBus, errs)
+		go oprfReceiveHandler(conn, oprf, choices, sk, outBus, errs)
 	}()
 	return l.Addr().String(), nil
 }
 
-func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, sk, seed []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
+func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
 	defer close(outBus)
 
 	out, err := oprf.Receive(choices, sk, conn)
@@ -84,10 +84,7 @@ func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk 
 	for i, id := range choices {
 		// compute encoding and hash
 		for hIdx, bIdx := range senderCuckoo.BucketIndices(id) {
-			pseudorandId, err := crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
-			if err != nil {
-				return err
-			}
+			pseudorandId := crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 			err = keys.Encode(bIdx, pseudorandId)
 			if err != nil {
 				return err
@@ -145,7 +142,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr, err := initOPRFReceiver(receiverOPRF, choicesCuckoo, sk, seeds[0], outBus, errs)
+	addr, err := initOPRFReceiver(receiverOPRF, choicesCuckoo, sk, outBus, errs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,10 +210,7 @@ func BenchmarkEncode(b *testing.B) {
 		b.Fatal(err)
 	}
 	key := Key{s: s, q: q}
-	bytes, err := crypto.PseudorandomCode(aesBlock, s, 0)
-	if err != nil {
-		b.Fatal(err)
-	}
+	bytes := crypto.PseudorandomCode(aesBlock, s, 0)
 
 	b.ResetTimer()
 

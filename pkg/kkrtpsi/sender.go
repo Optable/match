@@ -27,11 +27,11 @@ type Sender struct {
 	rw io.ReadWriter
 }
 
-// hashable stores the possible bucket
+// oprfEncodeInputs stores the possible bucket
 // indexes in the receiver cuckoo hash table
-type pseudorandBytes struct {
-	bytes     [cuckoo.Nhash][]byte
-	bucketIdx [cuckoo.Nhash]uint64
+type oprfEncodeInputs struct {
+	prcEncoded [cuckoo.Nhash][]byte // PseudoRandom Code
+	bucketIdx  [cuckoo.Nhash]uint64
 }
 
 // NewSender returns a KKRTPSI sender initialized to
@@ -56,7 +56,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var oprfInputSize int64 // nb of OPRF keys
 
 	var oprfKeys oprf.Key
-	var pseudorandIds = make(chan pseudorandBytes, n)
+	var pseudorandIds = make(chan oprfEncodeInputs, n)
 	var hashChan = make(chan hash.Hasher)
 	var errChan = make(chan error, 1)
 
@@ -114,14 +114,10 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			for id := range identifiers {
 				// hash and calculate pseudorandom code given each possible hash index
 				var bytes [cuckoo.Nhash][]byte
-				for hIdx := 0; hIdx < 3; hIdx++ {
-					// instead of sampling random 32 byte secret key for highway hash, we will use the first seed
-					bytes[hIdx], err = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
-					if err != nil {
-						errChan <- err
-					}
+				for hIdx := 0; hIdx < cuckoo.Nhash; hIdx++ {
+					bytes[hIdx] = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 				}
-				pseudorandIds <- pseudorandBytes{bytes: bytes, bucketIdx: cuckooHashTable.BucketIndices(id)}
+				pseudorandIds <- oprfEncodeInputs{prcEncoded: bytes, bucketIdx: cuckooHashTable.BucketIndices(id)}
 			}
 			hasher := cuckooHashTable.GetHasher()
 			hashChan <- hasher
