@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/util"
 )
 
@@ -31,27 +32,37 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is
 //  string
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+	// fetch and set up logger
+	logger := logr.FromContextOrDiscard(ctx)
+	logger = logger.WithValues("protocol", "bpsi")
 	var bf bloomfilter
 	var intersected [][]byte
 
 	// stage 1: read the bloomfilter from the remote side
 	stage1 := func() error {
+		logger.V(1).Info("Starting stage 1")
+
 		_bf, _, err := ReadFrom(r.rw)
 		if err != nil {
 			return err
 		}
 		bf = _bf
+
+		logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: read local IDs and compare with the remote bloomfilter
 	//          to produce intersections
 	stage2 := func() error {
+		logger.V(1).Info("Starting stage 2")
 		for identifier := range identifiers {
 			if bf.Check(identifier) {
 				intersected = append(intersected, identifier)
 			}
 		}
+
+		logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
@@ -65,5 +76,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		return intersected, err
 	}
 
+	logger.V(1).Info("receiver finished", "intersected", len(intersected))
 	return intersected, nil
 }
