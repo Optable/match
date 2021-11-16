@@ -83,8 +83,3 @@ func Encrypt(key []byte, ind uint8, plaintext []byte) ([]byte, error) {
 func Decrypt(key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
 	return xorCipherWithBlake3(key, ind, ciphertext)
 }
-
-// EncryptLen computes ciphertext length in bytes
-func EncryptLen(msgLen int) int {
-	return msgLen
-}
