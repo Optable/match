@@ -24,25 +24,30 @@ The [bloomfilter](https://en.wikipedia.org/wiki/Bloom_filter) based PSI: an *ins
 
 ## logging
 
-`github.com/go-logr/logr` is used internally for logging, which accepts a `logr.Logger` object. See the documentation on `logr` for various implementation of `logr.Logger`. Example implementation of match sender and receiver uses `github.com/go-logr/stdr` which logs to `os.Stderr`.
+[logr](https://github.com/go-logr/logr) is used internally for logging, which accepts a `logr.Logger` object. See the [documentation](https://github.com/go-logr/logr#implementations-non-exhaustive) on `logr` for various concrete implementation of logging api. Example implementation of match sender and receiver uses [stdr](https://github.com/go-logr/stdr) which logs to `os.Stderr`.
 
 ### pass logger to sender or receiver
 To pass a logger to a sender or a receiver, create a new context with the parent context and `logr.Logger` object as follows
 ```golang
-// for new sender with logger
-ctx := logr.NewContext(parentCtx, logger)
-sender, err := psi.NewSender(psiType, ctx, conn)
-if err != nil {
-    logger.Error(err, "failed to create PSI sender.")
-}
+// create sender and logger
 ...
-// for new receiver with logger
+// pass logger to context
 ctx := logr.NewContext(parentCtx, logger)
-receiver, err := psi.NewReceiver(psiType, ctx, conn)
+err := sender.Send(ctx, n, identifiers)
 if err != nil {
-    logger.Error(err, "failed to create PSI receiver.")
+    logger.Error(err, "sender failed to send")
 }
+```
+Similarly for receiver,
+```golang
+// create receiver and logger
 ...
+// pass logger to context
+ctx := logr.NewContext(parentCtx, logger)
+intersection, err := receiver.Intersect(ctx, n, identifiers)
+if err != nil {
+    logger.Error(err, "receiver intersection failed")
+}
 ```
 
 ### verbosity
