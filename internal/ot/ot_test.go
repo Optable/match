@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/util"
 )
 
@@ -16,7 +15,6 @@ var (
 	network          = "tcp"
 	address          = "127.0.0.1:"
 	curve            = "P256"
-	cipherMode       = crypto.XORBlake3
 	baseCount        = 512
 	otExtensionCount = 1400
 	messages         = genMsg(baseCount, 2)
@@ -26,7 +24,7 @@ var (
 )
 
 func TestNewNaorPinkas(t *testing.T) {
-	ot, err := NewBaseOT(3, curve, []int{1, 2, 3}, cipherMode)
+	ot, err := NewBaseOT(3, curve, []int{1, 2, 3})
 	if err != nil {
 		t.Fatalf("got error %v while creating NaorPinkas baseOT", err)
 	}
@@ -97,7 +95,7 @@ func TestNaorPinkas(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	ot, err := NewBaseOT(baseCount, curve, msgLen, cipherMode)
+	ot, err := NewBaseOT(baseCount, curve, msgLen)
 	if err != nil {
 		t.Fatalf("Error creating NaorPinkas OT: %s", err)
 	}
@@ -112,7 +110,7 @@ func TestNaorPinkas(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOT(baseCount, curve, msgLen, cipherMode)
+		ss, err := NewBaseOT(baseCount, curve, msgLen)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}

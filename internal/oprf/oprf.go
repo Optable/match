@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 
-	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/util"
 )
@@ -13,9 +12,8 @@ import (
 const (
 	// width of base OT binary matrix  as well as the ouput
 	// length of PseudorandomCode (in bits)
-	k          = aes.BlockSize * 4 * 8
-	curve      = "P256"
-	cipherMode = crypto.XORBlake3
+	k     = aes.BlockSize * 4 * 8
+	curve = "P256"
 )
 
 var ErrUnknownOPRF = errors.New("cannot create an OPRF that follows an unknown protocol")

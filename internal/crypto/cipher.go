@@ -3,26 +3,12 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
-	"fmt"
 
 	"github.com/alecthomas/unsafeslice"
 	"github.com/optable/match/internal/util"
 	"github.com/twmb/murmur3"
 	"github.com/zeebo/blake3"
 )
-
-// CipherMode represents a particular cipher implementation chosen from
-// the various cipher suite implementations in Go
-type CipherMode int64
-
-const (
-	Unsupported CipherMode = iota
-	GCM
-	XORBlake3
-)
-
-const nonceSize = 12 //aesgcm NonceSize
 
 // PseudorandomCode is implemented as follows:
 // C(x) = AES(1||h(x)[:15]) ||
@@ -64,21 +50,6 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) []byte {
 	return dst
 }
 
-// H(seed) xor src, where H is modeled as a pseudorandom generator.
-func xorCipherWithPRG(s *blake3.Hasher, seed []byte, src []byte) (dst []byte, err error) {
-	dst = make([]byte, len(src))
-	s.Reset()
-	if _, err := s.Write(seed); err != nil {
-		return nil, err
-	}
-	d := s.Digest()
-	if _, err := d.Read(dst); err != nil {
-		return nil, err
-	}
-	err = util.ConcurrentBitOp(util.Xor, dst, src)
-	return dst, err
-}
-
 // Blake3 has XOF which is perfect for doing xor cipher.
 func xorCipherWithBlake3(key []byte, ind uint8, src []byte) ([]byte, error) {
 	hash := make([]byte, len(src))
@@ -105,84 +76,15 @@ func getBlake3Hash(key []byte, ind uint8, dst []byte) error {
 	return err
 }
 
-// aes GCM block encryption decryption
-func gcmEncrypt(key []byte, plaintext []byte) (ciphertext []byte, err error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonce := make([]byte, aesgcm.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
-	}
-
-	// encrypted cipher text is appended after nonce
-	ciphertext = aesgcm.Seal(nonce, nonce, plaintext, nil)
-	return
+func Encrypt(key []byte, ind uint8, plaintext []byte) ([]byte, error) {
+	return xorCipherWithBlake3(key, ind, plaintext)
 }
 
-func gcmDecrypt(key []byte, ciphertext []byte) (plaintext []byte, err error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonceSize := aesgcm.NonceSize()
-	nonce, enc := ciphertext[:nonceSize], ciphertext[nonceSize:]
-
-	if plaintext, err = aesgcm.Open(nil, nonce, enc, nil); err != nil {
-		return nil, err
-	}
-	return
-}
-
-func Encrypt(mode CipherMode, key []byte, ind uint8, plaintext []byte) ([]byte, error) {
-	switch mode {
-	case Unsupported:
-		return nil, fmt.Errorf("unsupported encrypt mode")
-	case GCM:
-		return gcmEncrypt(key, plaintext)
-	case XORBlake3:
-		return xorCipherWithBlake3(key, ind, plaintext)
-	}
-
-	return nil, fmt.Errorf("wrong encrypt mode")
-}
-
-func Decrypt(mode CipherMode, key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
-	switch mode {
-	case Unsupported:
-		return nil, fmt.Errorf("unsupported decrypt mode")
-	case GCM:
-		return gcmDecrypt(key, ciphertext)
-	case XORBlake3:
-		return xorCipherWithBlake3(key, ind, ciphertext)
-	}
-
-	return nil, fmt.Errorf("wrong decrypt mode")
+func Decrypt(key []byte, ind uint8, ciphertext []byte) ([]byte, error) {
+	return xorCipherWithBlake3(key, ind, ciphertext)
 }
 
 // EncryptLen computes ciphertext length in bytes
-func EncryptLen(mode CipherMode, msgLen int) int {
-	switch mode {
-	case Unsupported:
-		return msgLen
-	case GCM:
-		return nonceSize + aes.BlockSize + msgLen
-	case XORBlake3:
-		fallthrough
-	default:
-		return msgLen
-	}
+func EncryptLen(msgLen int) int {
+	return msgLen
 }

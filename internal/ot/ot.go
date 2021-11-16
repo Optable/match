@@ -3,8 +3,6 @@ package ot
 import (
 	"fmt"
 	"io"
-
-	"github.com/optable/match/internal/crypto"
 )
 
 /*
@@ -23,6 +21,6 @@ type OT interface {
 }
 
 // NewBaseOT returns an OT of type t
-func NewBaseOT(baseCount int, curveName string, msgLen []int, cipherMode crypto.CipherMode) (OT, error) {
-	return newNaorPinkas(baseCount, curveName, msgLen, cipherMode)
+func NewBaseOT(baseCount int, curveName string, msgLen []int) (OT, error) {
+	return newNaorPinkas(baseCount, curveName, msgLen)
 }
