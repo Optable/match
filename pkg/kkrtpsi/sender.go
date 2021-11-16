@@ -14,7 +14,6 @@ import (
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
-	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
@@ -132,7 +131,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	// stage 2: act as sender in OPRF, and receive OPRF keys
 	stage2 := func() error {
 		// instantiate OPRF sender with agreed parameters
-		oSender, err := oprf.NewOPRF(int(oprfInputSize), ot.NaorPinkas)
+		oSender, err := oprf.NewOPRF(int(oprfInputSize))
 		if err != nil {
 			return err
 		}

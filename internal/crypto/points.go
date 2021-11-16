@@ -14,28 +14,10 @@ import (
 High level api for operating on elliptic curve Points.
 */
 
-const (
-	P224 = "P224"
-	P256 = "P256"
-	P384 = "P384"
-	P521 = "P521"
-)
-
 // InitCurve instantiate an elliptic curve object given the curveName and returns the number of bytes
 // needed to encode a point on the curve
-func InitCurve(curveName string) (curve elliptic.Curve, encodeLen int) {
-	switch curveName {
-	case P224:
-		curve = elliptic.P224()
-	case P256:
-		curve = elliptic.P256()
-	case P384:
-		curve = elliptic.P384()
-	case P521:
-		curve = elliptic.P521()
-	default:
-		curve = elliptic.P256()
-	}
+func InitCurve() (curve elliptic.Curve, encodeLen int) {
+	curve = elliptic.P256()
 	encodeLen = len(elliptic.Marshal(curve, curve.Params().Gx, curve.Params().Gy))
 	return
 }

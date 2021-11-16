@@ -5,18 +5,13 @@ import (
 	"errors"
 	"io"
 
-	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/util"
 )
 
-const (
-	// width of base OT binary matrix  as well as the ouput
-	// length of PseudorandomCode (in bits)
-	k          = aes.BlockSize * 4 * 8
-	curve      = "P256"
-	cipherMode = crypto.XORBlake3
-)
+// width of base OT binary matrix  as well as the ouput
+// length of PseudorandomCode (in bits)
+const k = aes.BlockSize * 4 * 8
 
 var ErrUnknownOPRF = errors.New("cannot create an OPRF that follows an unknown protocol")
 
@@ -26,8 +21,8 @@ type OPRF interface {
 }
 
 // NewOPRF returns an OPRF of type t
-func NewOPRF(m, baseOT int) (OPRF, error) {
-	return newImprovedKKRT(m, baseOT, false)
+func NewOPRF(m int) (OPRF, error) {
+	return newImprovedKKRT(m)
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)

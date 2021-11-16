@@ -6,8 +6,6 @@ import (
 	"math/rand"
 	"testing"
 	"time"
-
-	"github.com/zeebo/blake3"
 )
 
 var (
@@ -22,29 +20,13 @@ func init() {
 	prng.Read(xorKey)
 }
 
-func TestGCMEncrypDecrypt(t *testing.T) {
-	ciphertext, err := Encrypt(GCM, aesKey, 0, p)
+func TestEncryptDecrypt(t *testing.T) {
+	ciphertext, err := Encrypt(xorKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := Decrypt(GCM, aesKey, 0, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(p, plain) {
-		t.Errorf("error in decrypt, want: %s, got: %s", string(p), string(plain))
-	}
-}
-
-func TestXORBlake3EncryptDecrypt(t *testing.T) {
-	ciphertext, err := Encrypt(XORBlake3, xorKey, 0, p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plain, err := Decrypt(XORBlake3, xorKey, 1, ciphertext)
+	plain, err := Decrypt(xorKey, 1, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +35,7 @@ func TestXORBlake3EncryptDecrypt(t *testing.T) {
 		t.Fatalf("decryption should not work!")
 	}
 
-	plain, err = Decrypt(XORBlake3, xorKey, 0, ciphertext)
+	plain, err = Decrypt(xorKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,53 +58,24 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 	}
 }
 
-func BenchmarkXORCipherWithBlake3Encrypt(b *testing.B) {
+func BenchmarkEncrypt(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := xorCipherWithBlake3(xorKey, 0, p); err != nil {
+		if _, err := Encrypt(xorKey, 0, p); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
-func BenchmarkXORCipherWithBlake3Decrypt(b *testing.B) {
-	c, err := xorCipherWithBlake3(xorKey, 0, p)
+func BenchmarkDecrypt(b *testing.B) {
+	c, err := Encrypt(xorKey, 0, p)
 	if err != nil {
 		b.Log(err)
 	}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := xorCipherWithBlake3(xorKey, 0, c); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkAesGcmEncrypt(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		if _, err := gcmEncrypt(aesKey, p); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkAesGcmDecrypt(b *testing.B) {
-	c, _ := gcmEncrypt(aesKey, p)
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		if _, err := gcmDecrypt(aesKey, c); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkXORCipherWithPRG(b *testing.B) {
-	s := blake3.New()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := xorCipherWithPRG(s, xorKey, p); err != nil {
+		if _, err := Decrypt(xorKey, 0, c); err != nil {
 			b.Fatal(err)
 		}
 	}

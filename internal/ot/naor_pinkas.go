@@ -17,19 +17,18 @@ reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
 */
 
 type naorPinkas struct {
-	baseCount  int
-	curve      elliptic.Curve
-	encodeLen  int
-	msgLen     []int
-	cipherMode crypto.CipherMode
+	baseCount int
+	curve     elliptic.Curve
+	encodeLen int
+	msgLen    []int
 }
 
-func newNaorPinkas(baseCount int, curveName string, msgLen []int, cipherMode crypto.CipherMode) (naorPinkas, error) {
+func newNaorPinkas(baseCount int, msgLen []int) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
-	curve, encodeLen := crypto.InitCurve(curveName)
-	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen, cipherMode: cipherMode}, nil
+	curve, encodeLen := crypto.InitCurve()
+	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
 }
 
 func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -87,7 +86,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			ciphertext, err = crypto.Encrypt(n.cipherMode, pointK[choice].DeriveKeyFromECPoints(), uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(pointK[choice].DeriveKeyFromECPoints(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -148,11 +147,9 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	var pointK crypto.Points
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
-		// compute # of bytes to be read.
-		l := crypto.EncryptLen(n.cipherMode, n.msgLen[i])
 		// read both msg
 		for j := range e {
-			e[j] = make([]byte, l)
+			e[j] = make([]byte, n.msgLen[i])
 			if _, err := io.ReadFull(rw, e[j]); err != nil {
 				return err
 			}
@@ -167,7 +164,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		if util.BitSetInByte(choices, i) {
 			bit = 1
 		}
-		messages[i], err = crypto.Decrypt(n.cipherMode, pointK.DeriveKeyFromECPoints(), bit, e[bit])
+		messages[i], err = crypto.Decrypt(pointK.DeriveKeyFromECPoints(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}
