@@ -1,13 +1,11 @@
 package crypto
 
 import (
-	"bytes"
 	"crypto/elliptic"
 	"crypto/rand"
 	"math/big"
 	"testing"
 
-	gr "github.com/bwesterb/go-ristretto"
 	"github.com/zeebo/blake3"
 )
 
@@ -91,68 +89,6 @@ func TestGenerateKeyWithPoints(t *testing.T) {
 	d := p.ScalarMult(s)
 	if !arePointsEqual(d, P) {
 		t.Fatal("Error in points generateKeyWithPoints")
-	}
-}
-
-func TestDeriveKey(t *testing.T) {
-	c := elliptic.P256()
-	_, px, py, err := elliptic.GenerateKey(c, rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	p := elliptic.Marshal(c, px, py)
-	key := hashToKey(p)
-	if len(key) != 32 {
-		t.Fatalf("derived key length is not 32, got: %d", len(key))
-	}
-}
-
-func TestDeriveKeyRistretto(t *testing.T) {
-	var p gr.Point
-	p.Rand()
-	key, err := DeriveRistrettoKey(&p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(key) != 32 {
-		t.Fatalf("derived key length is not 32, got: %d", len(key))
-	}
-}
-
-func TestGenerateKeys(t *testing.T) {
-	s, P := GenerateRistrettoKeys()
-	// check point
-	var pP gr.Point
-	pP.ScalarMultBase(&s)
-	if !P.Equals(&pP) {
-		t.Fatal("error in generateKey(), secret, public key pairs not working.")
-	}
-}
-
-func TestReadWritePoints(t *testing.T) {
-	rw := new(bytes.Buffer)
-	r := NewRistrettoReader(rw)
-	w := NewRistrettoWriter(rw)
-
-	var point, readPoint gr.Point
-	point.Rand()
-	readPoint.SetZero()
-
-	if point.Equals(&readPoint) {
-		t.Fatal("Read point should not be equal to point")
-	}
-
-	if err := w.Write(&point); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.Read(&readPoint); err != nil {
-		t.Fatal(err)
-	}
-
-	if !point.Equals(&readPoint) {
-		t.Fatalf("Read point is not the same as the written point, want: %v, got: %v", point.Bytes(), readPoint.Bytes())
 	}
 }
 
