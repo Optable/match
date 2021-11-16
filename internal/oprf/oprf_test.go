@@ -12,7 +12,6 @@ import (
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
-	"github.com/optable/match/internal/ot"
 )
 
 var (
@@ -137,7 +136,7 @@ func TestImprovedKKRT(t *testing.T) {
 	// generate AES secret key (16-byte)
 	prng.Read(sk)
 
-	receiverOPRF, err := NewOPRF(int(choicesCuckoo.Len()), ot.NaorPinkas)
+	receiverOPRF, err := NewOPRF(int(choicesCuckoo.Len()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +146,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	senderOPRF, err := NewOPRF(int(choicesCuckoo.Len()), ot.NaorPinkas)
+	senderOPRF, err := NewOPRF(int(choicesCuckoo.Len()))
 	if err != nil {
 		t.Fatal(err)
 	}

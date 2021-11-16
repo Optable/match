@@ -26,8 +26,8 @@ type OPRF interface {
 }
 
 // NewOPRF returns an OPRF of type t
-func NewOPRF(m, baseOT int) (OPRF, error) {
-	return newImprovedKKRT(m, baseOT, false)
+func NewOPRF(m int) (OPRF, error) {
+	return newImprovedKKRT(m)
 }
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)

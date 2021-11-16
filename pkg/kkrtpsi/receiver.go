@@ -11,7 +11,6 @@ import (
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
-	"github.com/optable/match/internal/ot"
 	"github.com/optable/match/internal/util"
 )
 
@@ -86,7 +85,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
-		oReceiver, err := oprf.NewOPRF(int(cuckooHashTable.Len()), ot.NaorPinkas)
+		oReceiver, err := oprf.NewOPRF(int(cuckooHashTable.Len()))
 		if err != nil {
 			return err
 		}

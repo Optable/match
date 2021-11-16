@@ -41,14 +41,14 @@ type imprvKKRT struct {
 // k: width of OT extension binary matrix
 // baseOT: select which baseOT to use under the hood
 // ristretto: baseOT implemented using ristretto
-func newImprovedKKRT(m, baseOT int, ristretto bool) (OPRF, error) {
+func newImprovedKKRT(m int) (OPRF, error) {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLen := make([]int, k)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = k / 8 // 64 bytes
 	}
 
-	ot, err := ot.NewBaseOT(baseOT, ristretto, k, curve, baseMsgLen, cipherMode)
+	ot, err := ot.NewBaseOT(k, curve, baseMsgLen, cipherMode)
 	if err != nil {
 		return imprvKKRT{}, err
 	}
