@@ -27,7 +27,7 @@ func newNaorPinkas(baseCount int, msgLen []int) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
-	curve, encodeLen := crypto.InitCurve("P256")
+	curve, encodeLen := crypto.InitCurve()
 	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
 }
 

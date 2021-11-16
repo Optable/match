@@ -12,38 +12,17 @@ import (
 )
 
 var (
-	c     elliptic.Curve
-	bx    *big.Int
-	by    *big.Int
-	curve = "P256"
+	c  elliptic.Curve
+	bx *big.Int
+	by *big.Int
 )
-
-func TestInitCurve(t *testing.T) {
-	curveTests := []struct {
-		name string
-		want string
-	}{
-		{"P224", "P-224"},
-		{"P256", "P-256"},
-		{"P384", "P-384"},
-		{"P521", "P-521"},
-	}
-
-	for _, tt := range curveTests {
-		c, _ := InitCurve(tt.name)
-		got := c.Params().Name
-		if got != tt.want {
-			t.Fatalf("InitCurve(%s): want curve %s, got curve %s", tt.name, tt.name, got)
-		}
-	}
-}
 
 func arePointsEqual(p Points, q Points) bool {
 	return p.x.Cmp(q.x) == 0 && p.y.Cmp(q.y) == 0 && p.curve.Params().Name == q.curve.Params().Name
 }
 
 func TestNewPoints(t *testing.T) {
-	c, _ = InitCurve(curve)
+	c, _ = InitCurve()
 	x := big.NewInt(1)
 	y := big.NewInt(2)
 	points := newPoints(c, x, y)
@@ -178,7 +157,7 @@ func TestReadWritePoints(t *testing.T) {
 }
 
 func BenchmarkDeriveKey(b *testing.B) {
-	c, _ = InitCurve(curve)
+	c, _ = InitCurve()
 	x := big.NewInt(1)
 	y := big.NewInt(2)
 	p := newPoints(c, x, y)
@@ -190,7 +169,7 @@ func BenchmarkDeriveKey(b *testing.B) {
 }
 
 func BenchmarkSub(b *testing.B) {
-	c, _ = InitCurve(curve)
+	c, _ = InitCurve()
 	x := big.NewInt(1)
 	y := big.NewInt(2)
 	p := newPoints(c, x, y)
