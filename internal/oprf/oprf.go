@@ -9,12 +9,9 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-const (
-	// width of base OT binary matrix  as well as the ouput
-	// length of PseudorandomCode (in bits)
-	k     = aes.BlockSize * 4 * 8
-	curve = "P256"
-)
+// width of base OT binary matrix  as well as the ouput
+// length of PseudorandomCode (in bits)
+const k = aes.BlockSize * 4 * 8
 
 var ErrUnknownOPRF = errors.New("cannot create an OPRF that follows an unknown protocol")
 

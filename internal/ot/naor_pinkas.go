@@ -23,11 +23,11 @@ type naorPinkas struct {
 	msgLen    []int
 }
 
-func newNaorPinkas(baseCount int, curveName string, msgLen []int) (naorPinkas, error) {
+func newNaorPinkas(baseCount int, msgLen []int) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
-	curve, encodeLen := crypto.InitCurve(curveName)
+	curve, encodeLen := crypto.InitCurve("P256")
 	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
 }
 

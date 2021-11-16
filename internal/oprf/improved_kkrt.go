@@ -48,7 +48,7 @@ func newImprovedKKRT(m int) (OPRF, error) {
 		baseMsgLen[i] = k / 8 // 64 bytes
 	}
 
-	ot, err := ot.NewBaseOT(k, curve, baseMsgLen)
+	ot, err := ot.NewBaseOT(k, baseMsgLen)
 	if err != nil {
 		return imprvKKRT{}, err
 	}

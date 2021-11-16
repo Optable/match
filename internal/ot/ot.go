@@ -21,6 +21,6 @@ type OT interface {
 }
 
 // NewBaseOT returns an OT of type t
-func NewBaseOT(baseCount int, curveName string, msgLen []int) (OT, error) {
-	return newNaorPinkas(baseCount, curveName, msgLen)
+func NewBaseOT(baseCount int, msgLen []int) (OT, error) {
+	return newNaorPinkas(baseCount, msgLen)
 }

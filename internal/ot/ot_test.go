@@ -14,7 +14,6 @@ import (
 var (
 	network          = "tcp"
 	address          = "127.0.0.1:"
-	curve            = "P256"
 	baseCount        = 512
 	otExtensionCount = 1400
 	messages         = genMsg(baseCount, 2)
@@ -24,7 +23,7 @@ var (
 )
 
 func TestNewNaorPinkas(t *testing.T) {
-	ot, err := NewBaseOT(3, curve, []int{1, 2, 3})
+	ot, err := NewBaseOT(3, []int{1, 2, 3})
 	if err != nil {
 		t.Fatalf("got error %v while creating NaorPinkas baseOT", err)
 	}
@@ -95,7 +94,7 @@ func TestNaorPinkas(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	ot, err := NewBaseOT(baseCount, curve, msgLen)
+	ot, err := NewBaseOT(baseCount, msgLen)
 	if err != nil {
 		t.Fatalf("Error creating NaorPinkas OT: %s", err)
 	}
@@ -110,7 +109,7 @@ func TestNaorPinkas(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOT(baseCount, curve, msgLen)
+		ss, err := NewBaseOT(baseCount, msgLen)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
