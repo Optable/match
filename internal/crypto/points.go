@@ -126,3 +126,8 @@ func (r *pointReader) Read(p *Point) (err error) {
 
 	return p.Unmarshal(pt)
 }
+
+// Equal returns true when 2 points on P256 curve are equal
+func (p *Point) Equal(q *Point) bool {
+	return p.x.Cmp(q.x) == 0 && p.y.Cmp(q.y) == 0
+}
