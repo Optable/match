@@ -59,7 +59,6 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 }
 
 func BenchmarkEncrypt(b *testing.B) {
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := Encrypt(xorKey, 0, p); err != nil {
 			b.Fatal(err)
