@@ -159,7 +159,7 @@ func main() {
 func handle(r psi.Receiver, n int64, f io.ReadCloser, ctx context.Context) {
 	defer f.Close()
 	ids := util.Exhaust(n, f)
-	logger, _ := logr.FromContext(ctx)
+	logger := logr.FromContextOrDiscard(ctx)
 	if i, err := r.Intersect(ctx, n, ids); err != nil {
 		exitOnErr(logger, err, "intersect failed")
 	} else {
