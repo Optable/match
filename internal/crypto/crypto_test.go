@@ -165,6 +165,34 @@ func TestDecryptionWithXorCipherWithBlake3(t *testing.T) {
 	}
 }
 
+func TestEncryptDecrypt(t *testing.T) {
+	for _, s := range xorCipherTestStrings {
+		xorKey, err := hex.DecodeString(s.xorKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		startText, err := hex.DecodeString(s.cipherText)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		encryptText, err := XorCipherWithBlake3(xorKey, s.choice, startText)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		decryptText, err := XorCipherWithBlake3(xorKey, s.choice, encryptText)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if fmt.Sprintf("%x", startText) != fmt.Sprintf("%x", decryptText) {
+			t.Fatalf("Encryption followed by decryption via XOR cipher with Blake 3 did not return the original with choice bit %v for\noriginal: %v\nreturned: %x", s.cipherText, s.plainText, decryptText)
+		}
+	}
+}
+
 func BenchmarkPseudorandomCode(b *testing.B) {
 	// the normal input is a 64 byte digest with a byte indicating
 	// which hash function is used to compute the cuckoo hash
