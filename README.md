@@ -29,7 +29,7 @@ Similar to the dhpsi protocol, the KKRT PSI, also known as the Batched-OPRF PSI,
 
 ## logging
 
-[logr](https://github.com/go-logr/logr) is used internally for logging, which accepts a `logr.Logger` object. See the [documentation](https://github.com/go-logr/logr#implementations-non-exhaustive) on `logr` for various concrete implementation of logging api. Example implementation of match sender and receiver uses [stdr](https://github.com/go-logr/stdr) which logs to `os.Stderr`.
+[logr](https://github.com/go-logr/logr) is used internally for logging, which accepts a `logr.Logger` object. See the [documentation](https://github.com/go-logr/logr#implementations-non-exhaustive) on `logr` for various concrete implementations of logging api. Example implementation of match sender and receiver uses [stdr](https://github.com/go-logr/stdr) which logs to `os.Stderr`.
 
 ### pass logger to sender or receiver
 To pass a logger to a sender or a receiver, create a new context with the parent context and `logr.Logger` object as follows
