@@ -4,12 +4,10 @@ import (
 	"math/rand"
 	"runtime"
 	"testing"
-	"time"
 
 	"github.com/alecthomas/unsafeslice"
 )
 
-var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
 var benchmarkBytes = 10000000
 
 // Note the double conversion of bytes to uint64s to bytes does
@@ -20,7 +18,7 @@ func TestSliceConversions(t *testing.T) {
 	for _, l := range lengths {
 		// Bytes to Uint64s
 		b := make([]byte, l)
-		if _, err := prng.Read(b); err != nil {
+		if _, err := rand.Read(b); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 		u := unsafeslice.Uint64SliceFromByteSlice(b)
@@ -38,7 +36,7 @@ func TestSliceConversions(t *testing.T) {
 		// Uint64s to Bytes
 		u := make([]uint64, l)
 		for i := range u {
-			u[i] = prng.Uint64()
+			u[i] = rand.Uint64()
 		}
 		b := unsafeslice.ByteSliceFromUint64Slice(u)
 		uu := unsafeslice.Uint64SliceFromByteSlice(b)
@@ -57,12 +55,12 @@ func TestXor(t *testing.T) {
 	lengths := []int{3, 8, 16, 33}
 	for _, l := range lengths {
 		src := make([]byte, l)
-		if _, err := prng.Read(src); err != nil {
+		if _, err := rand.Read(src); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		dst := make([]byte, l)
-		if _, err := prng.Read(dst); err != nil {
+		if _, err := rand.Read(dst); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
@@ -87,12 +85,12 @@ func TestAnd(t *testing.T) {
 	lengths := []int{3, 8, 16, 33}
 	for _, l := range lengths {
 		src := make([]byte, l)
-		if _, err := prng.Read(src); err != nil {
+		if _, err := rand.Read(src); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		dst := make([]byte, l)
-		if _, err := prng.Read(dst); err != nil {
+		if _, err := rand.Read(dst); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
@@ -117,17 +115,17 @@ func TestDoubleXor(t *testing.T) {
 	lengths := []int{3, 8, 16, 33}
 	for _, l := range lengths {
 		src := make([]byte, l)
-		if _, err := prng.Read(src); err != nil {
+		if _, err := rand.Read(src); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		src2 := make([]byte, l)
-		if _, err := prng.Read(src2); err != nil {
+		if _, err := rand.Read(src2); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		dst := make([]byte, l)
-		if _, err := prng.Read(dst); err != nil {
+		if _, err := rand.Read(dst); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
@@ -152,17 +150,17 @@ func TestAndXor(t *testing.T) {
 	lengths := []int{3, 8, 16, 33}
 	for _, l := range lengths {
 		src := make([]byte, l)
-		if _, err := prng.Read(src); err != nil {
+		if _, err := rand.Read(src); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		src2 := make([]byte, l)
-		if _, err := prng.Read(src2); err != nil {
+		if _, err := rand.Read(src2); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		dst := make([]byte, l)
-		if _, err := prng.Read(dst); err != nil {
+		if _, err := rand.Read(dst); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
@@ -187,12 +185,12 @@ func TestConcurrentBitOp(t *testing.T) {
 	lengths := []int{3, 16, 16384 * runtime.GOMAXPROCS(0), 2 * 16384 * runtime.GOMAXPROCS(0)}
 	for _, l := range lengths {
 		src := make([]byte, l)
-		if _, err := prng.Read(src); err != nil {
+		if _, err := rand.Read(src); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		dst := make([]byte, l)
-		if _, err := prng.Read(dst); err != nil {
+		if _, err := rand.Read(dst); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
@@ -217,17 +215,17 @@ func TestConcurrentDoubleBitOp(t *testing.T) {
 	lengths := []int{3, 16, 16384 * runtime.GOMAXPROCS(0), 2 * 16384 * runtime.GOMAXPROCS(0)}
 	for _, l := range lengths {
 		src := make([]byte, l)
-		if _, err := prng.Read(src); err != nil {
+		if _, err := rand.Read(src); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		src2 := make([]byte, l)
-		if _, err := prng.Read(src2); err != nil {
+		if _, err := rand.Read(src2); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
 		dst := make([]byte, l)
-		if _, err := prng.Read(dst); err != nil {
+		if _, err := rand.Read(dst); err != nil {
 			t.Fatal("error generating random bytes")
 		}
 
@@ -280,12 +278,12 @@ func TestTestBitSetInByte(t *testing.T) {
 
 func BenchmarkXor(b *testing.B) {
 	src := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src); err != nil {
+	if _, err := rand.Read(src); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	dst := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(dst); err != nil {
+	if _, err := rand.Read(dst); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
@@ -297,12 +295,12 @@ func BenchmarkXor(b *testing.B) {
 
 func BenchmarkAnd(b *testing.B) {
 	src := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src); err != nil {
+	if _, err := rand.Read(src); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	dst := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(dst); err != nil {
+	if _, err := rand.Read(dst); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
@@ -314,17 +312,17 @@ func BenchmarkAnd(b *testing.B) {
 
 func BenchmarkDoubleXor(b *testing.B) {
 	src := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src); err != nil {
+	if _, err := rand.Read(src); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	src2 := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src2); err != nil {
+	if _, err := rand.Read(src2); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	dst := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(dst); err != nil {
+	if _, err := rand.Read(dst); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
@@ -336,17 +334,17 @@ func BenchmarkDoubleXor(b *testing.B) {
 
 func BenchmarkAndXor(b *testing.B) {
 	src := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src); err != nil {
+	if _, err := rand.Read(src); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	src2 := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src2); err != nil {
+	if _, err := rand.Read(src2); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	dst := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(dst); err != nil {
+	if _, err := rand.Read(dst); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
@@ -358,12 +356,12 @@ func BenchmarkAndXor(b *testing.B) {
 
 func BenchmarkConcurrentBitOp(b *testing.B) {
 	src := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src); err != nil {
+	if _, err := rand.Read(src); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	dst := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(dst); err != nil {
+	if _, err := rand.Read(dst); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 	b.ResetTimer()
@@ -374,17 +372,17 @@ func BenchmarkConcurrentBitOp(b *testing.B) {
 
 func BenchmarkConcurrentDoubleBitOp(b *testing.B) {
 	src := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src); err != nil {
+	if _, err := rand.Read(src); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	src2 := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(src2); err != nil {
+	if _, err := rand.Read(src2); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 
 	dst := make([]byte, benchmarkBytes)
-	if _, err := prng.Read(dst); err != nil {
+	if _, err := rand.Read(dst); err != nil {
 		b.Fatal("error generating random bytes")
 	}
 	b.ResetTimer()

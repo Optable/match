@@ -1,8 +1,8 @@
 package util
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
 	"runtime"
 	"testing"
 )
@@ -10,7 +10,7 @@ import (
 var (
 	nmsg        = 1024
 	nworkers    = runtime.GOMAXPROCS(0)
-	byteBlock   = sampleRandomTall(prng, nmsg)
+	byteBlock   = sampleRandomTall(nmsg)
 	randomBlock = unravelTall(byteBlock, 0)
 )
 
@@ -30,13 +30,13 @@ func genTranBlock() BitVect {
 
 // sampleRandomTall fills an m by 64 byte matrix (512 bits wide) with
 // pseudorandom bytes.
-func sampleRandomTall(r *rand.Rand, m int) [][]byte {
+func sampleRandomTall(m int) [][]byte {
 	// instantiate matrix
 	matrix := make([][]byte, m)
 
 	for row := range matrix {
 		matrix[row] = make([]byte, 64)
-		r.Read(matrix[row])
+		rand.Read(matrix[row])
 	}
 
 	return matrix
@@ -44,13 +44,13 @@ func sampleRandomTall(r *rand.Rand, m int) [][]byte {
 
 // sampleRandomWide fills a 512 by n byte matrix (512 bits tall) with
 // pseudorandom bytes.
-func sampleRandomWide(r *rand.Rand, n int) [][]byte {
+func sampleRandomWide(n int) [][]byte {
 	// instantiate matrix
 	matrix := make([][]byte, 512)
 
 	for row := range matrix {
 		matrix[row] = make([]byte, n)
-		r.Read(matrix[row])
+		rand.Read(matrix[row])
 	}
 
 	return matrix
@@ -81,7 +81,7 @@ func (b BitVect) printUints() {
 func TestUnReRavelingTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, a := range trange {
-		matrix := sampleRandomTall(prng, a)
+		matrix := sampleRandomTall(a)
 		// determine number of blocks to split original matrix (m x 64)
 		nblks := len(matrix) / 512
 
@@ -109,7 +109,7 @@ func TestUnReRavelingTall(t *testing.T) {
 func TestUnReRavelingWide(t *testing.T) {
 	trange := []int{64, 128, 512}
 	for _, a := range trange {
-		matrix := sampleRandomWide(prng, a)
+		matrix := sampleRandomWide(a)
 		// determine number of blocks to split original matrix (512 x n)
 		nblks := len(matrix[0]) / 64
 
@@ -144,11 +144,6 @@ func TestTranspose512x512(t *testing.T) {
 	if tr != randomBlock {
 		t.Fatalf("Block incorrectly transposed.")
 	}
-	/* TODO - CheckTranspose not working
-	if !tr.CheckTranspose(randomBlock) {
-		b.Fatalf("Block incorrectly transposed.")
-	}
-	*/
 }
 
 func TestIfLittleEndianTranspose(t *testing.T) {
@@ -181,7 +176,7 @@ func TestIfLittleEndianTranspose(t *testing.T) {
 func TestConcurrentTransposeTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, m := range trange {
-		orig := sampleRandomTall(prng, m)
+		orig := sampleRandomTall(m)
 		tr := ConcurrentTransposeTall(orig, nworkers)
 		dtr := ConcurrentTransposeWide(tr, nworkers)
 		// test
@@ -200,7 +195,7 @@ func TestConcurrentTransposeTall(t *testing.T) {
 func TestConcurrentTransposeWide(t *testing.T) {
 	trange := []int{64, 64 * 2, 64 * 3, 64 * 4}
 	for _, m := range trange {
-		orig := sampleRandomWide(prng, m)
+		orig := sampleRandomWide(m)
 		tr := ConcurrentTransposeWide(orig, nworkers)
 		dtr := ConcurrentTransposeTall(tr, nworkers)
 		//test

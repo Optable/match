@@ -2,11 +2,10 @@ package crypto
 
 import (
 	"crypto/aes"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/alecthomas/unsafeslice"
 	"github.com/twmb/murmur3"
@@ -196,11 +195,14 @@ func TestEncryptDecrypt(t *testing.T) {
 func BenchmarkPseudorandomCode(b *testing.B) {
 	// the normal input is a 64 byte digest with a byte indicating
 	// which hash function is used to compute the cuckoo hash
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	in := make([]byte, 64)
 	aesKey := make([]byte, 16)
-	prng.Read(in)
-	prng.Read(aesKey)
+	if _, err := rand.Read(in); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := rand.Read(aesKey); err != nil {
+		b.Fatal(err)
+	}
 
 	aesBlock, err := aes.NewCipher(aesKey)
 	if err != nil {
@@ -213,11 +215,14 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 }
 
 func BenchmarkEncryptionWithXorCipherWithBlake3(b *testing.B) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	xorKey := make([]byte, 32)
 	p := make([]byte, 64)
-	prng.Read(xorKey)
-	prng.Read(p)
+	if _, err := rand.Read(xorKey); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := rand.Read(p); err != nil {
+		b.Fatal(err)
+	}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -228,11 +233,14 @@ func BenchmarkEncryptionWithXorCipherWithBlake3(b *testing.B) {
 }
 
 func BenchmarkDecryptionWithXorCipherWithBlake3(b *testing.B) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	xorKey := make([]byte, 32)
 	p := make([]byte, 64)
-	prng.Read(xorKey)
-	prng.Read(p)
+	if _, err := rand.Read(xorKey); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := rand.Read(p); err != nil {
+		b.Fatal(err)
+	}
 
 	c, err := XorCipherWithBlake3(xorKey, 0, p)
 	if err != nil {

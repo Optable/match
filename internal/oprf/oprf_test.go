@@ -3,8 +3,8 @@ package oprf
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
 	"net"
 	"testing"
 	"time"
@@ -18,7 +18,6 @@ var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
 	baseCount = 1 << 16
-	prng      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	choices   = genChoiceString()
 )
 
@@ -26,7 +25,7 @@ func genChoiceString() [][]byte {
 	choices := make([][]byte, baseCount)
 	for i := range choices {
 		choices[i] = make([]byte, 64)
-		prng.Read(choices[i])
+		rand.Read(choices[i])
 	}
 	return choices
 }
@@ -134,7 +133,7 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 	// generate AES secret key (16-byte)
-	prng.Read(sk)
+	rand.Read(sk)
 
 	receiverOPRF, err := NewOPRF(int(choicesCuckoo.Len()))
 	if err != nil {
@@ -201,9 +200,9 @@ func BenchmarkEncode(b *testing.B) {
 	s := make([]byte, 64)
 	q := make([][]byte, 1)
 	q[0] = make([]byte, 64)
-	prng.Read(sk)
-	prng.Read(s)
-	prng.Read(q[0])
+	rand.Read(sk)
+	rand.Read(s)
+	rand.Read(q[0])
 	aesBlock, err := aes.NewCipher(sk)
 	if err != nil {
 		b.Fatal(err)

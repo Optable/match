@@ -1,8 +1,8 @@
 package util
 
 import (
+	"crypto/rand"
 	"fmt"
-	"io"
 	"runtime"
 	"sync"
 
@@ -210,7 +210,7 @@ func BitSetInByte(b []byte, i int) bool {
 // SampleRandomBitMatrix allocates a 2D byte matrix of dimension row x col,
 // and adds extra rows of 0s to have the number of rows be a multiple of 512,
 // fills each entry in the byte matrix with pseudorandom byte values from a rand reader.
-func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
+func SampleRandomBitMatrix(row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
@@ -218,7 +218,7 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 	}
 	// fill matrix
 	for row := range matrix {
-		if _, err := prng.Read(matrix[row]); err != nil {
+		if _, err := rand.Read(matrix[row]); err != nil {
 			return nil, err
 		}
 	}
@@ -230,7 +230,7 @@ func SampleRandomBitMatrix(prng io.Reader, row, col int) ([][]uint8, error) {
 // each column being another slice holding elems elements. Extra elements are added to
 // each column to be a multiple of 512. Every slice is filled with pseudorandom bytes
 // values from a rand reader.
-func SampleRandom3DBitMatrix(prng io.Reader, rows, cols, elems int) ([][][]byte, error) {
+func SampleRandom3DBitMatrix(rows, cols, elems int) ([][][]byte, error) {
 	// instantiate matrix
 	matrix := make([][][]byte, rows)
 	for row := range matrix {
@@ -238,7 +238,7 @@ func SampleRandom3DBitMatrix(prng io.Reader, rows, cols, elems int) ([][][]byte,
 		for col := range matrix[row] {
 			matrix[row][col] = make([]byte, (elems+PadTill512(elems))/8)
 			// fill
-			if _, err := prng.Read(matrix[row][col]); err != nil {
+			if _, err := rand.Read(matrix[row][col]); err != nil {
 				return nil, err
 			}
 		}

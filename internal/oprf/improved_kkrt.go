@@ -137,7 +137,7 @@ func (ext imprvKKRT) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
-	baseMsgs, err := util.SampleRandom3DBitMatrix(rand.Reader, k, 2, k)
+	baseMsgs, err := util.SampleRandom3DBitMatrix(k, 2, k)
 	if err != nil {
 		return encodings, err
 	}
