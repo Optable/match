@@ -86,7 +86,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			ciphertext, err = crypto.Encrypt(pointK[choice].DeriveKeyFromECPoint(), uint8(choice), plaintext)
+			ciphertext, err = crypto.XorCipherWithBlake3(pointK[choice].DeriveKeyFromECPoint(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -164,7 +164,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		if util.BitSetInByte(choices, i) {
 			bit = 1
 		}
-		messages[i], err = crypto.Decrypt(pointK.DeriveKeyFromECPoint(), bit, e[bit])
+		messages[i], err = crypto.XorCipherWithBlake3(pointK.DeriveKeyFromECPoint(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

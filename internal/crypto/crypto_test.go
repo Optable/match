@@ -21,12 +21,12 @@ func init() {
 }
 
 func TestEncryptDecrypt(t *testing.T) {
-	ciphertext, err := Encrypt(xorKey, 0, p)
+	ciphertext, err := XorCipherWithBlake3(xorKey, 0, p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plain, err := Decrypt(xorKey, 1, ciphertext)
+	plain, err := XorCipherWithBlake3(xorKey, 1, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatalf("decryption should not work!")
 	}
 
-	plain, err = Decrypt(xorKey, 0, ciphertext)
+	plain, err = XorCipherWithBlake3(xorKey, 0, ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,21 +60,21 @@ func BenchmarkPseudorandomCode(b *testing.B) {
 
 func BenchmarkEncrypt(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if _, err := Encrypt(xorKey, 0, p); err != nil {
+		if _, err := XorCipherWithBlake3(xorKey, 0, p); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkDecrypt(b *testing.B) {
-	c, err := Encrypt(xorKey, 0, p)
+	c, err := XorCipherWithBlake3(xorKey, 0, p)
 	if err != nil {
 		b.Log(err)
 	}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := Decrypt(xorKey, 0, c); err != nil {
+		if _, err := XorCipherWithBlake3(xorKey, 0, c); err != nil {
 			b.Fatal(err)
 		}
 	}
