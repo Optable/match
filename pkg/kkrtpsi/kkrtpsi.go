@@ -130,9 +130,6 @@ func printStageStats(log logr.Logger, stage int, prevTime, startTime time.Time, 
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
 	log.V(2).Info("stats", "stage", stage, "total memory from OS (MiB)", math.Round(float64(m.Sys-prevMem)*100/(1024*1024))/100)
-	//fmt.Printf("Heap Alloc: %v MiB\n", m.HeapAlloc/(1024*1024))
-	//fmt.Printf("Heap Sys: %v MiB\n", m.HeapSys/(1024*1024))           // estimate largest size heap has had
-	//fmt.Printf("Total Cum Alloc: %v MiB\n", m.TotalAlloc/(1024*1024)) // cumulative heap allocations
 	log.V(2).Info("stats", "stage", stage, "cumulative GC calls", m.NumGC)
 	return endTime, m.Sys
 }
