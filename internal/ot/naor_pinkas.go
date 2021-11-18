@@ -1,7 +1,6 @@
 package ot
 
 import (
-	"crypto/elliptic"
 	"fmt"
 	"io"
 
@@ -16,11 +15,8 @@ by Moni Naor and Benny Pinkas in 2001.
 reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
 */
 
-var curve = elliptic.P256()
-
 type naorPinkas struct {
 	baseCount int
-	curve     elliptic.Curve
 	msgLen    []int
 }
 
@@ -28,7 +24,7 @@ func newNaorPinkas(baseCount int, msgLen []int) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
-	return naorPinkas{baseCount: baseCount, curve: curve, msgLen: msgLen}, nil
+	return naorPinkas{baseCount: baseCount, msgLen: msgLen}, nil
 }
 
 func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -37,17 +33,17 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// Instantiate Reader, Writer
-	reader := crypto.NewECPointReader(rw, n.curve)
+	reader := crypto.NewECPointReader(rw)
 	writer := crypto.NewECPointWriter(rw)
 
 	// generate sender point A w/o secret, since a is never used.
-	_, pointA, err := crypto.GenerateKeyWithPoints(n.curve)
+	_, pointA, err := crypto.GenerateKeyWithPoints()
 	if err != nil {
 		return err
 	}
 
 	// generate sender secret public key pairs used for encryption.
-	secretR, pointR, err := crypto.GenerateKeyWithPoints(n.curve)
+	secretR, pointR, err := crypto.GenerateKeyWithPoints()
 	if err != nil {
 		return err
 	}
@@ -66,15 +62,15 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	pointA = pointA.ScalarMult(secretR)
 
 	// make a slice of points to receive K0.
-	pointK0 := make([]crypto.Point, n.baseCount)
+	pointK0 := make([]*crypto.Point, n.baseCount)
 	for i := range pointK0 {
-		pointK0[i] = crypto.NewPoint(n.curve)
+		pointK0[i] = crypto.NewPoint()
 		if err := reader.Read(pointK0[i]); err != nil {
 			return err
 		}
 	}
 
-	pointK := make([]crypto.Point, 2)
+	pointK := make([]*crypto.Point, 2)
 	var ciphertext []byte
 	// encrypt plaintext messages and send them.
 	for i := 0; i < n.baseCount; i++ {
@@ -106,24 +102,24 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		return ErrBaseCountMissMatch
 	}
 	// instantiate Reader, Writer
-	reader := crypto.NewECPointReader(rw, n.curve)
+	reader := crypto.NewECPointReader(rw)
 	writer := crypto.NewECPointWriter(rw)
 	// receive point A from sender
-	pointA := crypto.NewPoint(n.curve)
+	pointA := crypto.NewPoint()
 	if err := reader.Read(pointA); err != nil {
 		return err
 	}
 	// recieve point R from sender
-	pointR := crypto.NewPoint(n.curve)
+	pointR := crypto.NewPoint()
 	if err := reader.Read(pointR); err != nil {
 		return err
 	}
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, n.baseCount)
-	var pointB crypto.Point
+	var pointB *crypto.Point
 	for i := 0; i < n.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		bSecrets[i], pointB, err = crypto.GenerateKeyWithPoints(n.curve)
+		bSecrets[i], pointB, err = crypto.GenerateKeyWithPoints()
 		if err != nil {
 			return err
 		}
@@ -144,7 +140,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	}
 
 	e := make([][]byte, 2)
-	var pointK crypto.Point
+	var pointK *crypto.Point
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// read both msg
