@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io"
 	"log"
+	"math"
 	"net"
 	"os"
 	"runtime"
@@ -37,7 +38,7 @@ func showUsageAndExit(exitcode int) {
 func memUsageToStdErr(logger logr.Logger) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
-	logger.V(1).Info("Final stats", "Total memory", m.Sys)
+	logger.V(1).Info("Final stats", "Total memory (GiB)", math.Round(float64(m.Sys)*100/(1024*1024*1024))/100)
 	logger.V(1).Info("Final stats", "Garbage collector calls:", m.NumGC)
 }
 

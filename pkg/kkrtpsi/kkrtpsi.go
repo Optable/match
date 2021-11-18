@@ -2,8 +2,8 @@ package kkrtpsi
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
+	"math"
 	"runtime"
 	"sync"
 	"time"
@@ -129,7 +129,7 @@ func printStageStats(log logr.Logger, stage int, prevTime, startTime time.Time, 
 	log.V(2).Info("stats", "stage", stage, "time", time.Since(prevTime).String(), "cumulative time", time.Since(startTime).String())
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
-	log.V(2).Info("stats", "stage", stage, "total memory from OS", fmt.Sprintf("%v MiB", (m.Sys-prevMem)/(1024*1024)))
+	log.V(2).Info("stats", "stage", stage, "total memory from OS (MiB)", math.Round(float64(m.Sys-prevMem)*100/(1024*1024))/100)
 	//fmt.Printf("Heap Alloc: %v MiB\n", m.HeapAlloc/(1024*1024))
 	//fmt.Printf("Heap Sys: %v MiB\n", m.HeapSys/(1024*1024))           // estimate largest size heap has had
 	//fmt.Printf("Total Cum Alloc: %v MiB\n", m.TotalAlloc/(1024*1024)) // cumulative heap allocations
