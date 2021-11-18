@@ -23,6 +23,10 @@ The naive, [highway hash](https://github.com/google/highwayhash) based PSI: an *
 
 The [bloomfilter](https://en.wikipedia.org/wiki/Bloom_filter) based PSI: an *insecure* but fast with lower communication overhead than [npsi](pkg/npsi/README.md) solution for PSI. Take a look [here](pkg/bpsi/README.md) to consult the documentation.
 
+## kkrtpsi
+
+Similar to the dhpsi protocol, the KKRT PSI, also known as the Batched-OPRF PSI, is a semi-honest secure private set intersection protocol that has significantly less computation cost, but requires more network communication. An extensive description of the protocol is available [here](pkg/kkrtpsi/README.md).
+
 # testing
 
 A complete test suite for all PSIs is present [here](test/psi). Don't hesitate to take a look and help us improve the quality of the testing by reporting problems and observations! The PSIs have only been tested on AMD64.
