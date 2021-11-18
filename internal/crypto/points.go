@@ -120,8 +120,8 @@ func NewECPointsWriter(w io.Writer) *pointsWriter {
 }
 
 // NewECPointsReader returns an elliptic curve point reader
-func NewECPointsReader(r io.Reader, l int) *pointsReader {
-	return &pointsReader{r: r, encodeLen: l}
+func NewECPointsReader(r io.Reader, c elliptic.Curve) *pointsReader {
+	return &pointsReader{r: r, encodeLen: LenEncodeOnCurve(c)}
 }
 
 // Write writes the marshalled elliptic curve point to writer

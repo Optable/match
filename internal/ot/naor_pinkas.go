@@ -21,7 +21,6 @@ var curve = elliptic.P256()
 type naorPinkas struct {
 	baseCount int
 	curve     elliptic.Curve
-	encodeLen int
 	msgLen    []int
 }
 
@@ -29,7 +28,7 @@ func newNaorPinkas(baseCount int, msgLen []int) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
-	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: crypto.LenEncodeOnCurve(curve), msgLen: msgLen}, nil
+	return naorPinkas{baseCount: baseCount, curve: curve, msgLen: msgLen}, nil
 }
 
 func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
@@ -38,7 +37,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// Instantiate Reader, Writer
-	reader := crypto.NewECPointsReader(rw, n.encodeLen)
+	reader := crypto.NewECPointsReader(rw, n.curve)
 	writer := crypto.NewECPointsWriter(rw)
 
 	// generate sender point A w/o secret, since a is never used.
@@ -107,7 +106,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		return ErrBaseCountMissMatch
 	}
 	// instantiate Reader, Writer
-	reader := crypto.NewECPointsReader(rw, n.encodeLen)
+	reader := crypto.NewECPointsReader(rw, n.curve)
 	writer := crypto.NewECPointsWriter(rw)
 	// receive point A from sender
 	pointA := crypto.NewPoints(n.curve)
