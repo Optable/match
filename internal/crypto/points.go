@@ -32,10 +32,6 @@ func NewPoint(curve elliptic.Curve) Point {
 	return Point{curve: curve, x: new(big.Int), y: new(big.Int)}
 }
 
-func newPoint(curve elliptic.Curve, x, y *big.Int) Point {
-	return Point{curve: curve, x: x, y: y}
-}
-
 // SetX sets the x coordinate of a point on elliptic curve
 func (p Point) SetX(newX *big.Int) Point {
 	p.x.Set(newX)
@@ -70,13 +66,13 @@ func (p Point) Unmarshal(marshaledPoint []byte) error {
 // Add adds two points on the same curve
 func (p Point) Add(q Point) Point {
 	x, y := p.curve.Add(p.x, p.y, q.x, q.y)
-	return newPoint(p.curve, x, y)
+	return Point{curve: p.curve, x: x, y: y}
 }
 
 // ScalarMult multiplies a point with a scalar
 func (p Point) ScalarMult(scalar []byte) Point {
 	x, y := p.curve.ScalarMult(p.x, p.y, scalar)
-	return newPoint(p.curve, x, y)
+	return Point{curve: p.curve, x: x, y: y}
 }
 
 // Sub substract point p with q
@@ -84,7 +80,7 @@ func (p Point) Sub(q Point) Point {
 	// p - q = p.x + q.x, p.y - q.y
 	x := big.NewInt(0)
 	x, y := p.curve.Add(p.x, p.y, q.x, x.Neg(q.y))
-	return newPoint(p.curve, x, y)
+	return Point{curve: p.curve, x: x, y: y}
 }
 
 // DeriveKeyFromECPoint returns a key of 32 byte from an elliptic curve point
@@ -100,7 +96,7 @@ func GenerateKeyWithPoints(curve elliptic.Curve) ([]byte, Point, error) {
 		return nil, Point{}, err
 	}
 
-	return secret, newPoint(curve, x, y), nil
+	return secret, Point{curve: curve, x: x, y: y}, nil
 }
 
 // pointWriter for elliptic curve points

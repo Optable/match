@@ -19,47 +19,47 @@ func arePointsEqual(p Point, q Point) bool {
 	return p.x.Cmp(q.x) == 0 && p.y.Cmp(q.y) == 0 && p.curve.Params().Name == q.curve.Params().Name
 }
 
-func TestNewPoints(t *testing.T) {
+func TestNewPoint(t *testing.T) {
 	x := big.NewInt(1)
 	y := big.NewInt(2)
-	points := newPoint(c, x, y)
-	n := points.curve.Params().Name
+	point := Point{curve: c, x: x, y: y}
+	n := point.curve.Params().Name
 	if n != "P-256" {
 		t.Fatalf("newPoints curve: want :P-256, got %s", n)
 	}
-	if x.Cmp(points.x) != 0 {
-		t.Fatalf("newPoints x: want %d, got %d", x.Int64(), points.x.Int64())
+	if x.Cmp(point.x) != 0 {
+		t.Fatalf("newPoints x: want %d, got %d", x.Int64(), point.x.Int64())
 	}
-	if y.Cmp(points.y) != 0 {
-		t.Fatalf("newPoints y: want %d, got %d", y.Int64(), points.y.Int64())
+	if y.Cmp(point.y) != 0 {
+		t.Fatalf("newPoints y: want %d, got %d", y.Int64(), point.y.Int64())
 	}
 }
 
 func TestAdd(t *testing.T) {
 	bx, by = c.Params().Gx, c.Params().Gy
-	p := newPoint(c, bx, by)
+	p := Point{curve: c, x: bx, y: by}
 	p = p.Add(p)
 
 	dx, dy := c.Double(bx, by)
-	if !arePointsEqual(p, newPoint(c, dx, dy)) {
+	if !arePointsEqual(p, Point{curve: c, x: dx, y: dy}) {
 		t.Fatal("Error in points addition.")
 	}
 }
 
 func TestScalarMult(t *testing.T) {
 	a, dx, dy, _ := elliptic.GenerateKey(c, rand.Reader)
-	p := newPoint(c, bx, by)
+	p := Point{curve: c, x: bx, y: by}
 
 	dp := p.ScalarMult(a)
 
-	if !arePointsEqual(newPoint(c, dx, dy), dp) {
+	if !arePointsEqual(Point{curve: c, x: dx, y: dy}, dp) {
 		t.Fatal("Error in points scalar multiplication.")
 	}
 }
 
 func TestSub(t *testing.T) {
 	_, dx, dy, _ := elliptic.GenerateKey(c, rand.Reader)
-	p := newPoint(c, dx, dy)
+	p := Point{curve: c, x: dx, y: dy}
 	s := p.Add(p)
 	s = s.Sub(p)
 
@@ -68,8 +68,8 @@ func TestSub(t *testing.T) {
 	}
 }
 
-func TestDeriveKeyPoints(t *testing.T) {
-	p := newPoint(c, bx, by)
+func TestDeriveKeyPoint(t *testing.T) {
+	p := Point{curve: c, x: bx, y: by}
 	key := p.DeriveKeyFromECPoint()
 
 	key2 := blake3.Sum256(bx.Bytes())
@@ -78,8 +78,8 @@ func TestDeriveKeyPoints(t *testing.T) {
 	}
 }
 
-func TestGenerateKeyWithPoints(t *testing.T) {
-	p := newPoint(c, bx, by)
+func TestGenerateKeyWithPoint(t *testing.T) {
+	p := Point{curve: c, x: bx, y: by}
 	s, P, err := GenerateKeyWithPoints(c)
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ func TestGenerateKeyWithPoints(t *testing.T) {
 func BenchmarkDeriveKey(b *testing.B) {
 	x := big.NewInt(1)
 	y := big.NewInt(2)
-	p := newPoint(c, x, y)
+	p := Point{curve: c, x: x, y: y}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -105,7 +105,7 @@ func BenchmarkDeriveKey(b *testing.B) {
 func BenchmarkSub(b *testing.B) {
 	x := big.NewInt(1)
 	y := big.NewInt(2)
-	p := newPoint(c, x, y)
+	p := Point{curve: c, x: x, y: y}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
