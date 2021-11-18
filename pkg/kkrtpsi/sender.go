@@ -10,6 +10,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -45,7 +46,11 @@ func NewSender(rw io.ReadWriter) *Sender {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (err error) {
-	// start timer:
+	// fetch and set up logger
+	logger := logr.FromContextOrDiscard(ctx)
+	logger = logger.WithValues("protocol", "kkrtpsi")
+
+	// statistics
 	start := time.Now()
 	timer := time.Now()
 	var mem uint64
@@ -63,6 +68,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	// for cuckoo hashing parameters agreement.
 	// read local ids and store the potential bucket indexes for each id.
 	stage1 := func() error {
+		logger.V(1).Info("Starting stage 1")
+
 		// sample Nhash hash seeds
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
@@ -123,13 +130,15 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}()
 
 		// end stage1
-		timer, mem = printStageStats("Stage 1", start, start, 0)
-		fmt.Println("sender stage 1 passed")
+		timer, mem = printStageStats(logger, 1, start, start, 0)
+		logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: act as sender in OPRF, and receive OPRF keys
 	stage2 := func() error {
+		logger.V(1).Info("Starting stage 2")
+
 		// instantiate OPRF sender with agreed parameters
 		oSender, err := oprf.NewOPRF(int(oprfInputSize))
 		if err != nil {
@@ -142,12 +151,15 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// end stage2
-		timer, mem = printStageStats("Stage 2", timer, start, mem)
+		timer, mem = printStageStats(logger, 2, timer, start, mem)
+		logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
 	// stage 3: compute all possible OPRF output using keys obtained from stage2
 	stage3 := func() error {
+		logger.V(1).Info("Starting stage 3")
+
 		// inform the receiver the number of local ID
 		if err := binary.Write(s.rw, binary.BigEndian, &n); err != nil {
 			return err
@@ -178,7 +190,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// end stage3
-		_, _ = printStageStats("Stage 3", timer, start, mem)
+		_, _ = printStageStats(logger, 3, timer, start, mem)
+		logger.V(1).Info("Finished stage 3")
 		return nil
 	}
 

@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
@@ -36,6 +37,10 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+	// fetch and set up logger
+	logger := logr.FromContextOrDiscard(ctx)
+	logger = logger.WithValues("protocol", "kkrtpsi")
+
 	// start timer:
 	start := time.Now()
 	timer := time.Now()
@@ -51,6 +56,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	//          initiate a cuckoo hash table and insert all local
 	//          IDs into the cuckoo hash table.
 	stage1 := func() error {
+		logger.V(1).Info("Starting stage 1")
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
 			if _, err := io.ReadFull(r.rw, seeds[i]); err != nil {
@@ -78,13 +84,15 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// end stage1
-		timer, mem = printStageStats("Stage 1", start, start, 0)
-		fmt.Println("receiver stage 1 passed")
+		timer, mem = printStageStats(logger, 1, start, start, 0)
+		logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
+		logger.V(1).Info("Starting stage 2")
+
 		oReceiver, err := oprf.NewOPRF(int(cuckooHashTable.Len()))
 		if err != nil {
 			return err
@@ -96,13 +104,15 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// end stage2
-		timer, mem = printStageStats("Stage 2", timer, start, mem)
+		timer, mem = printStageStats(logger, 2, timer, start, mem)
+		logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
 	// stage 3: read remote encoded identifiers and compare
 	//          to produce intersections
 	stage3 := func() error {
+		logger.V(1).Info("Starting stage 3")
 		// read number of remote IDs
 		var remoteN int64
 		if err := binary.Read(r.rw, binary.BigEndian, &remoteN); err != nil {
@@ -131,7 +141,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			}
 		}
 		// end stage3
-		_, _ = printStageStats("Stage 3", timer, start, mem)
+		_, _ = printStageStats(logger, 3, timer, start, mem)
+		logger.V(1).Info("Finished stage 3")
 		return nil
 	}
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/util"
 )
@@ -30,11 +31,16 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is
 //  string
 func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+	// fetch and set up logger
+	logger := logr.FromContextOrDiscard(ctx)
+	logger = logger.WithValues("protocol", "npsi")
+
 	var intersected [][]byte
 	var k = make([]byte, hash.SaltLength)
 
 	// stage 1: P2 samples a random salt K and sends it to P1.
 	stage1 := func() error {
+		logger.V(1).Info("Starting stage 1")
 		// stage1.1: generate a SaltLength salt
 		if _, err := rand.Read(k); err != nil {
 			return err
@@ -44,12 +50,14 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 			return err
 		}
 
+		logger.V(1).Info("Finished stage 1")
 		return nil
 	}
 
 	// stage 2: P2 receives hashes from P1 and computes the intersection with its own hashes
 	stage2v2 := func() error {
-		//
+		logger.V(1).Info("Starting stage 2")
+
 		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)
 		// get a hasher
@@ -99,6 +107,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// break out
+		logger.V(1).Info("Finished stage 2")
 		return nil
 	}
 
@@ -113,5 +122,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	}
 
 	// all went well
+	logger.V(1).Info("receiver finished", "intersected", len(intersected))
 	return intersected, nil
 }

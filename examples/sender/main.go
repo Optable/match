@@ -5,10 +5,13 @@ import (
 	"flag"
 	"io"
 	"log"
+	"math"
 	"net"
 	"os"
 	"runtime"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/optable/match/internal/util"
 	"github.com/optable/match/pkg/psi"
 )
@@ -29,17 +32,42 @@ func showUsageAndExit(exitcode int) {
 	os.Exit(exitcode)
 }
 
-func memUsageToStdErr() {
+func memUsageToStdErr(logger logr.Logger) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
-	log.Printf("Total memory: %v\n", m.Sys)
-	log.Printf("Garbage collector calls: %v\n", m.NumGC)
+	logger.V(1).Info("Final stats", "total memory (GiB)", math.Round(float64(m.Sys)*100/(1024*1024*1024))/100)
+	logger.V(1).Info("Final stats", "garbage collector calls", m.NumGC)
+}
+
+func exitOnErr(logger logr.Logger, err error, msg string) {
+	if err != nil {
+		logger.Error(err, msg)
+		os.Exit(1)
+	}
+}
+
+// getLogger returns a stdr.Logger that implements the logr.Logger interface
+// and sets the verbosity of the returned logger.
+// set v to 0 for info level messages,
+// 1 for debug messages and 2 for trace level message.
+// any other verbosity level will default to 0.
+func getLogger(v int) logr.Logger {
+	logger := stdr.New(nil)
+	// bound check
+	if v > 2 || v < 0 {
+		v = 0
+		logger.Info("Invalid verbosity, setting logger to display info level messages only.")
+	}
+	stdr.SetVerbosity(v)
+
+	return logger
 }
 
 func main() {
 	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (bpsi,npsi,dhpsi,kkrt)")
 	var addr = flag.String("a", defaultAddress, "The receiver address")
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
+	var verbose = flag.Int("v", 0, "Verbosity level, default to -v 0 for info level messages, -v 1 for debug messages, and -v 2 for trace level message.")
 	var showHelp = flag.Bool("h", false, "Show help message")
 
 	log.SetFlags(0)
@@ -67,39 +95,34 @@ func main() {
 	}
 
 	log.Printf("operating with protocol %s", *protocol)
+	// fetch stdr logger
+	slog := getLogger(*verbose)
 
 	// open file
 	f, err := os.Open(*file)
-	if err != nil {
-		log.Fatal(err)
-	}
+	exitOnErr(slog, err, "failed to open file")
 
 	// count lines
 	log.Printf("counting lines in %s", *file)
 	n, err := util.Count(f)
-	if err != nil {
-		log.Fatal(err)
-	}
+	exitOnErr(slog, err, "failed to count")
 	log.Printf("operating on %s with %d IDs", *file, n)
 
 	// rewind
 	f.Seek(0, io.SeekStart)
 
 	c, err := net.Dial("tcp", *addr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	exitOnErr(slog, err, "failed to dial")
 	defer c.Close()
 	// enable nagle
 	switch v := c.(type) {
 	case *net.TCPConn:
 		v.SetNoDelay(false)
 	}
+
 	s, _ := psi.NewSender(psiType, c)
 	ids := util.Exhaust(n, f)
-	err = s.Send(context.Background(), n, ids)
-	if err != nil {
-		log.Fatal(err)
-	}
-	memUsageToStdErr()
+	err = s.Send(logr.NewContext(context.Background(), slog), n, ids)
+	exitOnErr(slog, err, "failed to perform PSI")
+	memUsageToStdErr(slog)
 }
