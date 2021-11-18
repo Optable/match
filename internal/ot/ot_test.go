@@ -2,8 +2,8 @@ package ot
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
 	"net"
 	"testing"
 	"time"
@@ -16,10 +16,6 @@ var (
 	address          = "127.0.0.1:"
 	baseCount        = 512
 	otExtensionCount = 1400
-	messages         = genMsg(baseCount, 2)
-	msgLen           = make([]int, len(messages))
-	choices          = genChoiceBits(baseCount / 8)
-	r                = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func TestNewNaorPinkas(t *testing.T) {
@@ -39,7 +35,7 @@ func genMsg(n, t int) [][][]byte {
 		data[i] = make([][]byte, t)
 		for j := range data[i] {
 			data[i][j] = make([]byte, otExtensionCount)
-			r.Read(data[i][j])
+			rand.Read(data[i][j])
 		}
 	}
 
@@ -48,7 +44,7 @@ func genMsg(n, t int) [][][]byte {
 
 func genChoiceBits(n int) []uint8 {
 	choices := make([]uint8, n)
-	r.Read(choices)
+	rand.Read(choices)
 	return choices
 }
 
@@ -84,6 +80,10 @@ func receiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte,
 }
 
 func TestNaorPinkas(t *testing.T) {
+	messages := genMsg(baseCount, 2)
+	msgLen := make([]int, len(messages))
+	choices := genChoiceBits(baseCount / 8)
+
 	for i, m := range messages {
 		msgLen[i] = len(m[0])
 	}

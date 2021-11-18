@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/optable/match/internal/hash"
 )
@@ -20,10 +19,6 @@ const (
 	Factor        = 1.4
 	HashFunc      = hash.Highway
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 // Cuckoo represents a 3-way Cuckoo hash table data structure
 // that contains the items, bucket indices of each item and the 3

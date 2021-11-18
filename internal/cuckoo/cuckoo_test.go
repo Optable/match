@@ -2,8 +2,8 @@ package cuckoo
 
 import (
 	"bytes"
+	"crypto/rand"
 	"math"
-	"math/rand"
 	"testing"
 	"time"
 )
@@ -12,9 +12,6 @@ var (
 	benchCuckoo *Cuckoo
 	testN       = uint64(1e6) // 1 Million
 	benchN      = uint64(1e6) // 1 Million
-	seeds       = makeSeeds()
-	testData    = genBytes(int(testN))
-	benchData   = genBytes(int(benchN))
 )
 
 func makeSeeds() [Nhash][]byte {
@@ -39,6 +36,8 @@ func TestNewCuckoo(t *testing.T) {
 		{uint64(math.Pow(2, 16)), uint64(Factor * math.Pow(2, 16))},
 	}
 
+	seeds := makeSeeds()
+
 	for _, tt := range cuckooTests {
 		c := NewCuckoo(tt.size, seeds)
 		if c.bucketSize != tt.bSize {
@@ -48,8 +47,9 @@ func TestNewCuckoo(t *testing.T) {
 }
 
 func TestInsertAndGetHashIdx(t *testing.T) {
-	cuckoo := NewCuckoo(testN, seeds)
+	cuckoo := NewCuckoo(testN, makeSeeds())
 	errCount := 0
+	testData := genBytes(int(testN))
 
 	insertTime := time.Now()
 	for idx, item := range testData {
@@ -80,6 +80,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
 	benchCuckoo = NewCuckoo(benchN, seeds)
+	benchData := genBytes(int(benchN))
 	b.ResetTimer()
 
 	for i := 1; i < b.N; i++ {
@@ -92,6 +93,7 @@ func BenchmarkCuckooInsert(b *testing.B) {
 
 // Benchmark finding hash index and checking existance
 func BenchmarkCuckooExists(b *testing.B) {
+	benchData := genBytes(int(benchN))
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -100,7 +102,6 @@ func BenchmarkCuckooExists(b *testing.B) {
 }
 
 func genBytes(n int) [][]byte {
-	rand.Seed(time.Now().UnixNano())
 	data := make([][]byte, n)
 	for i := 0; i < n; i++ {
 		data[i] = make([]byte, 64)

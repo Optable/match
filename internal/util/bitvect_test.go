@@ -2,22 +2,19 @@ package util
 
 import (
 	"crypto/rand"
-	"fmt"
 	"runtime"
 	"testing"
 )
 
 var (
-	nmsg        = 1024
-	nworkers    = runtime.GOMAXPROCS(0)
-	byteBlock   = sampleRandomTall(nmsg)
-	randomBlock = unravelTall(byteBlock, 0)
+	nmsg     = 1024
+	nworkers = runtime.GOMAXPROCS(0)
 )
 
 // genTranBlock creates a 512x512 bit block where every bit position
 // alternates between 0 and 1. When transposed, this block should
 // consists of rows of all 0s alternating with rows of all 1s.
-func genTranBlock() BitVect {
+func genZebraBlock() BitVect {
 	tranBlock2D := make([][]byte, 512)
 	for row := range tranBlock2D {
 		tranBlock2D[row] = make([]byte, 64)
@@ -54,28 +51,6 @@ func sampleRandomWide(n int) [][]byte {
 	}
 
 	return matrix
-}
-
-// printBits prints a subset of the overall bit array. The limit is in bits but
-// since we are really printing uint64, everything is rounded down to the nearest
-// multiple of 64. For example: b.PrintBits(66) will print a 64x64 bit array.
-func (b BitVect) printBits(lim int) {
-	//lim = lim/64
-	if lim > 512 {
-		lim = 512
-	}
-
-	for i := 0; i < lim; i++ {
-		fmt.Printf("%064b\n", b.set[i*8:(i*8)+(lim/64)])
-	}
-}
-
-// printUints prints all of the 512x8 uints in the bit array. Good for testing
-// transpose operations performed prior to the bit level.
-func (b BitVect) printUints() {
-	for i := 0; i < 512; i++ {
-		fmt.Println(i, " - ", b.set[i*8:(i+1)*8])
-	}
 }
 
 func TestUnReRavelingTall(t *testing.T) {
@@ -136,22 +111,23 @@ func TestUnReRavelingWide(t *testing.T) {
 
 // Test single block tranposition
 func TestTranspose512x512(t *testing.T) {
-	tr := randomBlock
+	tr := unravelTall(sampleRandomTall(nmsg), 0)
+	orig := BitVect{tr.set} // copy to check after
 
 	tr.transpose()
 	tr.transpose()
 	// check if transpose is correct
-	if tr != randomBlock {
+	if tr != orig {
 		t.Fatalf("Block incorrectly transposed.")
 	}
 }
 
 func TestIfLittleEndianTranspose(t *testing.T) {
-	tr := genTranBlock()
-	// 0101....
-	// 0101....
-	// 0101....
+	tr := genZebraBlock()
 	//tr.printBits(64)
+	// 0101....
+	// 0101....
+	// 0101....
 	tr.transpose()
 	//tr.printBits(64)
 	// If Little Endian, we expect the resulting rows to be
@@ -212,7 +188,7 @@ func TestConcurrentTransposeWide(t *testing.T) {
 // BenchmarkTranspose512x512 benchmarks just transposing a single
 // BitVect block.
 func BenchmarkTranspose512x512(b *testing.B) {
-	tr := randomBlock
+	tr := unravelTall(sampleRandomTall(nmsg), 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		tr.transpose()
@@ -223,6 +199,8 @@ func BenchmarkTranspose512x512(b *testing.B) {
 // of having to pull the blocks out of a larger matrix and write to
 // a new tranposed matrix. In this case, we limit it to a single thread.
 func BenchmarkTranspose(b *testing.B) {
+	byteBlock := sampleRandomTall(nmsg)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentTransposeTall(byteBlock, 1)
 	}
@@ -231,6 +209,7 @@ func BenchmarkTranspose(b *testing.B) {
 // BenchmarkConcurrentTranspose is the same as BenchmarkTranspose but
 // we allow a number of threads equal to the GOMAXPROCS.
 func BenchmarkConcurrentTranspose(b *testing.B) {
+	byteBlock := sampleRandomTall(nmsg)
 	for i := 0; i < b.N; i++ {
 		ConcurrentTransposeTall(byteBlock, nworkers)
 	}

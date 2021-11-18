@@ -18,7 +18,6 @@ var (
 	network   = "tcp"
 	address   = "127.0.0.1:"
 	baseCount = 1 << 16
-	choices   = genChoiceString()
 )
 
 func genChoiceString() [][]byte {
@@ -69,7 +68,7 @@ func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, sk []b
 	outBus <- out
 }
 
-func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo) error {
+func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
 	// Testing encodings
 	senderCuckoo := cuckoo.NewDummyCuckoo(uint64(baseCount), seeds)
 	hasher := senderCuckoo.GetHasher()
@@ -120,6 +119,7 @@ func TestImprovedKKRT(t *testing.T) {
 	keyBus := make(chan Key)
 	errs := make(chan error, 5)
 	sk := make([]byte, 16)
+	choices := genChoiceString()
 
 	// start timer
 	start := time.Now()
@@ -189,7 +189,7 @@ func TestImprovedKKRT(t *testing.T) {
 
 	// Testing encodings
 	// Testing encodings
-	err = testEncodings(encodedHashMap, keys, sk, seeds, choicesCuckoo)
+	err = testEncodings(encodedHashMap, keys, sk, seeds, choicesCuckoo, choices)
 	if err != nil {
 		t.Fatal(err)
 	}
