@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	c  elliptic.Curve
+	c  = elliptic.P256()
 	bx *big.Int
 	by *big.Int
 )
@@ -20,7 +20,6 @@ func arePointsEqual(p Points, q Points) bool {
 }
 
 func TestNewPoints(t *testing.T) {
-	c, _ = InitCurve()
 	x := big.NewInt(1)
 	y := big.NewInt(2)
 	points := newPoints(c, x, y)
@@ -93,7 +92,6 @@ func TestGenerateKeyWithPoints(t *testing.T) {
 }
 
 func BenchmarkDeriveKey(b *testing.B) {
-	c, _ = InitCurve()
 	x := big.NewInt(1)
 	y := big.NewInt(2)
 	p := newPoints(c, x, y)
@@ -105,7 +103,6 @@ func BenchmarkDeriveKey(b *testing.B) {
 }
 
 func BenchmarkSub(b *testing.B) {
-	c, _ = InitCurve()
 	x := big.NewInt(1)
 	y := big.NewInt(2)
 	p := newPoints(c, x, y)

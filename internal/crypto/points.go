@@ -14,12 +14,10 @@ import (
 High level api for operating on elliptic curve Points.
 */
 
-// InitCurve instantiate an elliptic curve object given the curveName and returns the number of bytes
-// needed to encode a point on the curve
-func InitCurve() (curve elliptic.Curve, encodeLen int) {
-	curve = elliptic.P256()
-	encodeLen = len(elliptic.Marshal(curve, curve.Params().Gx, curve.Params().Gy))
-	return
+// LenEncodeOnCurve returns the number of bytes needed to encode a point
+// on the curve
+func LenEncodeOnCurve(curve elliptic.Curve) int {
+	return len(elliptic.Marshal(curve, curve.Params().Gx, curve.Params().Gy))
 }
 
 // Points represents a point on an elliptic curve

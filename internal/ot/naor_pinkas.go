@@ -16,6 +16,8 @@ by Moni Naor and Benny Pinkas in 2001.
 reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
 */
 
+var curve = elliptic.P256()
+
 type naorPinkas struct {
 	baseCount int
 	curve     elliptic.Curve
@@ -27,8 +29,7 @@ func newNaorPinkas(baseCount int, msgLen []int) (naorPinkas, error) {
 	if len(msgLen) != baseCount {
 		return naorPinkas{}, ErrBaseCountMissMatch
 	}
-	curve, encodeLen := crypto.InitCurve()
-	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: encodeLen, msgLen: msgLen}, nil
+	return naorPinkas{baseCount: baseCount, curve: curve, encodeLen: crypto.LenEncodeOnCurve(curve), msgLen: msgLen}, nil
 }
 
 func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
