@@ -37,8 +37,8 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	}
 
 	// Instantiate Reader, Writer
-	reader := crypto.NewECPointsReader(rw, n.curve)
-	writer := crypto.NewECPointsWriter(rw)
+	reader := crypto.NewECPointReader(rw, n.curve)
+	writer := crypto.NewECPointWriter(rw)
 
 	// generate sender point A w/o secret, since a is never used.
 	_, pointA, err := crypto.GenerateKeyWithPoints(n.curve)
@@ -66,15 +66,15 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	pointA = pointA.ScalarMult(secretR)
 
 	// make a slice of points to receive K0.
-	pointK0 := make([]crypto.Points, n.baseCount)
+	pointK0 := make([]crypto.Point, n.baseCount)
 	for i := range pointK0 {
-		pointK0[i] = crypto.NewPoints(n.curve)
+		pointK0[i] = crypto.NewPoint(n.curve)
 		if err := reader.Read(pointK0[i]); err != nil {
 			return err
 		}
 	}
 
-	pointK := make([]crypto.Points, 2)
+	pointK := make([]crypto.Point, 2)
 	var ciphertext []byte
 	// encrypt plaintext messages and send them.
 	for i := 0; i < n.baseCount; i++ {
@@ -86,7 +86,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 		// encrypt plaintext message with key derived from K0, K1
 		for choice, plaintext := range messages[i] {
 			// encryption
-			ciphertext, err = crypto.Encrypt(pointK[choice].DeriveKeyFromECPoints(), uint8(choice), plaintext)
+			ciphertext, err = crypto.Encrypt(pointK[choice].DeriveKeyFromECPoint(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -106,21 +106,21 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		return ErrBaseCountMissMatch
 	}
 	// instantiate Reader, Writer
-	reader := crypto.NewECPointsReader(rw, n.curve)
-	writer := crypto.NewECPointsWriter(rw)
+	reader := crypto.NewECPointReader(rw, n.curve)
+	writer := crypto.NewECPointWriter(rw)
 	// receive point A from sender
-	pointA := crypto.NewPoints(n.curve)
+	pointA := crypto.NewPoint(n.curve)
 	if err := reader.Read(pointA); err != nil {
 		return err
 	}
 	// recieve point R from sender
-	pointR := crypto.NewPoints(n.curve)
+	pointR := crypto.NewPoint(n.curve)
 	if err := reader.Read(pointR); err != nil {
 		return err
 	}
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, n.baseCount)
-	var pointB crypto.Points
+	var pointB crypto.Point
 	for i := 0; i < n.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
 		bSecrets[i], pointB, err = crypto.GenerateKeyWithPoints(n.curve)
@@ -144,7 +144,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	}
 
 	e := make([][]byte, 2)
-	var pointK crypto.Points
+	var pointK crypto.Point
 	// receive encrypted messages, and decrypt it.
 	for i := 0; i < n.baseCount; i++ {
 		// read both msg
@@ -164,7 +164,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		if util.BitSetInByte(choices, i) {
 			bit = 1
 		}
-		messages[i], err = crypto.Decrypt(pointK.DeriveKeyFromECPoints(), bit, e[bit])
+		messages[i], err = crypto.Decrypt(pointK.DeriveKeyFromECPoint(), bit, e[bit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)
 		}

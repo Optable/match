@@ -19,34 +19,32 @@ import (
 // PseudorandomCode is passed the src as well as the associated hash
 // index. It also requires an AES block cipher.
 // The full pseudorandom code consists of four 16 byte encrypted AES
-// blocks that are encoded into a slice of 64 bytes. During construction
-// the last block (last 16 bytes) is used as a workspace.
-// For each block, first the block index (1, 2, 3, 4) is placed at the
-// 48th index (first element of the last block). The hash function is
+// blocks that are encoded into a slice of 64 bytes. The hash function is
 // constructed with the hash index as its two seeds. It is fed the full
-// ID source. It returns two uint64s which are cast to a slice of bytes
-// of which the first 15 bytes are copied into the remainder of the last
-// block (indices 49-64). Finally this block is used as the source for
-// the AES encode and the destination is the actual proper block position.
+// ID source. It returns two uint64s which are cast to a slice of bytes.
+// The output is shifted right to allow prepending of the block index.
+// For each block, the prepended value is changed to indicate the block
+// index (1, 2, 3, 4) before being used as the source for the AES encode.
 func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) []byte {
-	// prepare our destination
+	// prepare destination
 	dst := make([]byte, aes.BlockSize*4)
 
 	// hash id and the hash index
 	h1, h2 := murmur3.SeedSum128(uint64(hIdx), uint64(hIdx), src)
 
-	// copy into destination slice
-	copy(dst[aes.BlockSize*3+1:], unsafeslice.ByteSliceFromUint64Slice([]uint64{h1, h2}))
+	// store in scratch slice
+	s := unsafeslice.ByteSliceFromUint64Slice([]uint64{h1, h2})
+	copy(s[1:], s) // shift for prepending
 
 	// encrypt
-	dst[aes.BlockSize*3] = 1 // use last block as workspace to prepend block index
-	aesBlock.Encrypt(dst[:aes.BlockSize], dst[aes.BlockSize*3:])
-	dst[aes.BlockSize*3] = 2
-	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], dst[aes.BlockSize*3:])
-	dst[aes.BlockSize*3] = 3
-	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], dst[aes.BlockSize*3:])
-	dst[aes.BlockSize*3] = 4
-	aesBlock.Encrypt(dst[aes.BlockSize*3:], dst[aes.BlockSize*3:])
+	s[0] = 1
+	aesBlock.Encrypt(dst[:aes.BlockSize], s)
+	s[0] = 2
+	aesBlock.Encrypt(dst[aes.BlockSize:aes.BlockSize*2], s)
+	s[0] = 3
+	aesBlock.Encrypt(dst[aes.BlockSize*2:aes.BlockSize*3], s)
+	s[0] = 4
+	aesBlock.Encrypt(dst[aes.BlockSize*3:], s)
 	return dst
 }
 
