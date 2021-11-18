@@ -31,11 +31,11 @@ func showUsageAndExit(exitcode int) {
 	os.Exit(exitcode)
 }
 
-func memUsageToStdErr() {
+func memUsageToStdErr(logger logr.Logger) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
-	log.Printf("Total memory: %v\n", m.Sys)
-	log.Printf("Garbage collector calls: %v\n", m.NumGC)
+	logger.V(1).Info("Final stats", "total memory", m.Sys)
+	logger.V(1).Info("Final stats", "garbage collector calls", m.NumGC)
 }
 
 func exitOnErr(logger logr.Logger, err error, msg string) {
@@ -123,5 +123,5 @@ func main() {
 	ids := util.Exhaust(n, f)
 	err = s.Send(logr.NewContext(context.Background(), slog), n, ids)
 	exitOnErr(slog, err, "failed to perform PSI")
-	memUsageToStdErr()
+	memUsageToStdErr(slog)
 }

@@ -34,11 +34,11 @@ func showUsageAndExit(exitcode int) {
 	os.Exit(exitcode)
 }
 
-func memUsageToStdErr() {
+func memUsageToStdErr(logger logr.Logger) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m) // https://cs.opensource.google/go/go/+/go1.17.1:src/runtime/mstats.go;l=107
-	log.Printf("Total memory: %v\n", m.Sys)
-	log.Printf("Garbage collector calls: %v\n", m.NumGC)
+	logger.V(1).Info("Final stats", "Total memory", m.Sys)
+	logger.V(1).Info("Final stats", "Garbage collector calls:", m.NumGC)
 }
 
 func exitOnErr(logger logr.Logger, err error, msg string) {
@@ -160,10 +160,10 @@ func handle(r psi.Receiver, n int64, f io.ReadCloser, ctx context.Context) {
 	ids := util.Exhaust(n, f)
 	logger, _ := logr.FromContext(ctx)
 	if i, err := r.Intersect(ctx, n, ids); err != nil {
-		log.Printf("intersect failed (%d): %v", len(i), err)
+		exitOnErr(logger, err, "intersect failed")
 	} else {
 		// write memory usage to stderr
-		memUsageToStdErr()
+		memUsageToStdErr(logger)
 		// write out to common-ids.txt
 		log.Printf("intersected %d IDs, writing out to %s", len(i), *out)
 		if f, err := os.Create(*out); err == nil {
