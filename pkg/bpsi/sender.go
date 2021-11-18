@@ -66,6 +66,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 		return err
 	}
 
-	logger.V(1).Info("sender finished.")
+	logger.V(1).Info("sender finished")
 	return nil
 }
