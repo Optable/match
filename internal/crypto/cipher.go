@@ -30,10 +30,10 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) []byte {
 	dst := make([]byte, aes.BlockSize*4)
 
 	// hash id and the hash index
-	h1, h2 := murmur3.SeedSum128(uint64(hIdx), uint64(hIdx), src)
+	lo, hi := murmur3.SeedSum128(uint64(hIdx), uint64(hIdx), src)
 
 	// store in scratch slice
-	s := unsafeslice.ByteSliceFromUint64Slice([]uint64{h1, h2})
+	s := unsafeslice.ByteSliceFromUint64Slice([]uint64{lo, hi})
 	copy(s[1:], s) // shift for prepending
 
 	// encrypt
