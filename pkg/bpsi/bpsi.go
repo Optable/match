@@ -1,13 +1,10 @@
 package bpsi
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 
 	bloom "github.com/bits-and-blooms/bloom/v3"
-	root_bf "github.com/devopsfaith/bloomfilter"
-	base_bf "github.com/devopsfaith/bloomfilter/bloomfilter"
 )
 
 const (
@@ -15,16 +12,12 @@ const (
 	// expressed in terms of 0-1 is 0% - 100%
 	FalsePositive = 1e-6
 
-	BloomfilterTypeDevopsfaith = iota
-	BloomfilterTypeBitsAndBloom
+	BloomfilterTypeBitsAndBloom = iota
 )
 
 type Bloomfilter int
 
-var (
-	BloomfilterDevopsfaith  Bloomfilter = BloomfilterTypeDevopsfaith
-	BloomfilterBitsAndBloom Bloomfilter = BloomfilterTypeBitsAndBloom
-)
+var BloomfilterBitsAndBloom Bloomfilter = BloomfilterTypeBitsAndBloom
 
 // bloomfilter type to wrap around
 // an actual implementation
@@ -32,12 +25,6 @@ type bloomfilter interface {
 	Add(identifier []byte)
 	Check(identifier []byte) bool
 	WriteTo(rw io.Writer) (int64, error)
-}
-
-// devopsfaith implementation of the
-// bloomfilter interface
-type devopsfaith struct {
-	bf *base_bf.Bloomfilter
 }
 
 // bits-and-bloom implementation of the
@@ -50,9 +37,6 @@ type bitsAndBloom struct {
 // with the given type and number of items to be inserted.
 func NewBloomfilter(t Bloomfilter, n int64) (bloomfilter, error) {
 	switch t {
-	case BloomfilterTypeDevopsfaith:
-		var bf = base_bf.New(root_bf.Config{N: (uint)(max(n, 1)), P: FalsePositive, HashName: root_bf.HASHER_OPTIMAL})
-		return devopsfaith{bf: bf}, nil
 	case BloomfilterTypeBitsAndBloom:
 		return bitsAndBloom{bf: bloom.NewWithEstimates(uint(n), FalsePositive)}, nil
 	default:
@@ -60,31 +44,7 @@ func NewBloomfilter(t Bloomfilter, n int64) (bloomfilter, error) {
 	}
 }
 
-// Add an identifier to a devopsfaith bloomfilter
-func (bf devopsfaith) Add(identifier []byte) {
-	bf.bf.Add(identifier)
-}
-
-// Check for the presence of an identifier in the bloomfilter
-func (bf devopsfaith) Check(identifier []byte) bool {
-	return bf.bf.Check(identifier)
-}
-
-// WriteTo marshals the entire bloomfilter to rw
-func (bf devopsfaith) WriteTo(rw io.Writer) (int64, error) {
-	b, err := bf.bf.MarshalBinary()
-	if err != nil {
-		return 0, err
-	}
-	l := int64(len(b))
-	if err := binary.Write(rw, binary.BigEndian, l); err != nil {
-		return 0, err
-	}
-	n, err := rw.Write(b)
-	return int64(n), err
-}
-
-// Add an identifier to a BitsAndBlooms bloomfilter
+// Add an identifier to a bitsAndBloom bloomfilter
 func (bf bitsAndBloom) Add(identifier []byte) {
 	bf.bf.Add(identifier)
 }

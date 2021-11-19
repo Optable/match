@@ -31,7 +31,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // returning the matching intersection, using the NPSI protocol.
 // The format of an indentifier is
 //  string
-func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) (intersected [][]byte, err error) {
+func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
 	// fetch and set up logger
 	logger := logr.FromContextOrDiscard(ctx)
 	logger = logger.WithValues("protocol", "bpsi")
