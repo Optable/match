@@ -79,9 +79,8 @@ type Cuckoo struct {
 }
 
 // NewCuckoo instantiates a Cuckoo struct with a bucket of size Factor * size,
-// a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
+// and a CuckooHasher for the 3-way cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) (*Cuckoo, error) {
-	bSize := max(1, uint64(Factor*float64(size)))
 	cuckooHasher, err := NewCuckooHasher(size, seeds)
 	if err != nil {
 		return nil, err
@@ -93,7 +92,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) (*Cuckoo, error) {
 		make([][]byte, size+1),
 		0,
 		make([]byte, size+1),
-		make([]uint64, bSize),
+		make([]uint64, cuckooHasher.bucketSize),
 		cuckooHasher,
 	}, nil
 }
@@ -154,7 +153,7 @@ func (c *Cuckoo) Insert(item []byte) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to Insert item #%v", homelessIdx)
+	return fmt.Errorf("failed to Insert item %v, results in homeless item #%v", item, homelessIdx)
 }
 
 // tryAdd finds a free slot and inserts the item (at index, idx)

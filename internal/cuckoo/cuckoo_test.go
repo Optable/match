@@ -69,7 +69,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 
 	//test GetHashIdx
 	for i, item := range testData {
-		bIndices := cuckoo.CuckooHasher.BucketIndices(item)
+		bIndices := cuckoo.BucketIndices(item)
 		found, hIdx := cuckoo.Exists(item)
 		if !found {
 			t.Fatalf("Cuckoo GetHashIdx, %dth item: %v not inserted.", i+1, item)
