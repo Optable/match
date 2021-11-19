@@ -30,14 +30,16 @@ func genChoiceString() [][]byte {
 }
 
 func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, error) {
-	c := cuckoo.NewCuckoo(uint64(baseCount), seeds)
-	in := make(chan []byte, baseCount)
-	for _, id := range choices {
-		in <- id
+	c, err := cuckoo.NewCuckoo(uint64(baseCount), seeds)
+	if err != nil {
+		return nil, err
 	}
-	close(in)
-	err := c.Insert(in)
-	return c, err
+	for _, id := range choices {
+		if err = c.Insert(id); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
 }
 
 func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
@@ -70,7 +72,10 @@ func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, sk []b
 
 func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
 	// Testing encodings
-	senderCuckoo := cuckoo.NewDummyCuckoo(uint64(baseCount), seeds)
+	senderCuckoo, err := cuckoo.NewCuckooHasher(uint64(baseCount), seeds)
+	if err != nil {
+		return err
+	}
 	hasher := senderCuckoo.GetHasher()
 	var hashes [cuckoo.Nhash]uint64
 

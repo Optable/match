@@ -39,21 +39,27 @@ func TestNewCuckoo(t *testing.T) {
 	seeds := makeSeeds()
 
 	for _, tt := range cuckooTests {
-		c := NewCuckoo(tt.size, seeds)
-		if c.bucketSize != tt.bSize {
-			t.Errorf("cuckoo bucketsize: want: %d, got: %d", tt.bSize, c.bucketSize)
+		c, err := NewCuckoo(tt.size, seeds)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.CuckooHasher.bucketSize != tt.bSize {
+			t.Errorf("cuckoo bucketsize: want: %d, got: %d", tt.bSize, c.CuckooHasher.bucketSize)
 		}
 	}
 }
 
 func TestInsertAndGetHashIdx(t *testing.T) {
-	cuckoo := NewCuckoo(testN, makeSeeds())
+	cuckoo, err := NewCuckoo(testN, makeSeeds())
+	if err != nil {
+		t.Fatal(err)
+	}
 	errCount := 0
 	testData := genBytes(int(testN))
 
 	insertTime := time.Now()
-	for idx, item := range testData {
-		if err := cuckoo.insert(uint64(idx+1), item); err != nil {
+	for _, item := range testData {
+		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
 		}
 	}
@@ -79,13 +85,16 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
-	benchCuckoo = NewCuckoo(benchN, seeds)
+	benchCuckoo, err := NewCuckoo(benchN, seeds)
+	if err != nil {
+		b.Fatal(err)
+	}
 	benchData := genBytes(int(benchN))
 	b.ResetTimer()
 
 	for i := 1; i < b.N; i++ {
 		idx := uint64(i % int(benchN))
-		if err := benchCuckoo.insert(idx, benchData[idx]); err != nil {
+		if err := benchCuckoo.Insert(benchData[idx]); err != nil {
 			b.Fatal(err)
 		}
 	}

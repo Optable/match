@@ -20,69 +20,81 @@ const (
 	HashFunc      = hash.Highway
 )
 
-// Cuckoo represents a 3-way Cuckoo hash table data structure
-// that contains the items, bucket indices of each item and the 3
-// hash functions. The bucket lookup is a lookup table on items which
-// tells us which item should be in the bucket at that index. Upon
-// construction the items slice has an additional nil value prepended
-// so the index of the Cuckoo.items slice is +1 compared to the index
-// of the input slice you use.
-type Cuckoo struct {
-	items        [][]byte
-	hashIndices  []byte
-	bucketLookup []uint64
+// CuckooHasher is the building block of a Cuckoo hash table. It only holds
+// the bucket size and the hashers. This means the CuckooHasher can be used
+// when a full Cuckoo hash table is not needed.
+type CuckooHasher struct {
 	// Total bucket count, len(bucket)
 	bucketSize uint64
 	// 3 hash functions h_0, h_1, h_2
 	hashers [Nhash]hash.Hasher
 }
 
-// NewCuckoo instantiates a Cuckoo struct with a bucket of size Factor * size,
-// a stash and 3 seeded hash functions for the 3-way cuckoo hashing.
-func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
+// NewCuckooHasher instantiates a CuckooHasher struct.
+func NewCuckooHasher(size uint64, seeds [Nhash][]byte) (*CuckooHasher, error) {
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher
+	var err error
 	for i, s := range seeds {
-		hashers[i], _ = hash.New(HashFunc, s)
+		hashers[i], err = hash.New(HashFunc, s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &CuckooHasher{
+		bucketSize: bSize,
+		hashers:    hashers,
+	}, nil
+}
+
+// GetHasher returns the first seeded hash function from a CuckooHasher struct.
+func (h *CuckooHasher) GetHasher() hash.Hasher {
+	return h.hashers[0]
+}
+
+// BucketIndices returns the 3 possible bucket indices of an item
+func (h *CuckooHasher) BucketIndices(item []byte) (idxs [Nhash]uint64) {
+	for i := range idxs {
+		idxs[i] = h.hashers[i].Hash64(item) % h.bucketSize
+	}
+
+	return idxs
+}
+
+// Cuckoo represents a 3-way Cuckoo hash table data structure
+// that contains the items, bucket indices of each item and the 3
+// hash functions. The bucket lookup is a lookup table on items which
+// tells us which item should be in the bucket at that index. Upon
+// construction the items slice has an additional nil value prepended
+// so the index of the Cuckoo.items slice is +1 compared to the index
+// of the input slice you use. The number of inserted items is also
+// tracked.
+type Cuckoo struct {
+	items        [][]byte
+	inserted     uint64
+	hashIndices  []byte
+	bucketLookup []uint64
+	*CuckooHasher
+}
+
+// NewCuckoo instantiates a Cuckoo struct with a bucket of size Factor * size,
+// and a CuckooHasher for the 3-way cuckoo hashing.
+func NewCuckoo(size uint64, seeds [Nhash][]byte) (*Cuckoo, error) {
+	cuckooHasher, err := NewCuckooHasher(size, seeds)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Cuckoo{
 		// extra element is "keeper" to which the bucketLookup can be directed
 		// when there is no element present in the bucket.
-		items:        make([][]byte, size+1),
-		hashIndices:  make([]byte, size+1),
-		bucketLookup: make([]uint64, bSize),
-		bucketSize:   bSize,
-		hashers:      hashers,
-	}
-}
-
-// NewDummyCuckoo instantiates a Cuckoo struct that does not allocate buckets.
-func NewDummyCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
-	bSize := max(1, uint64(Factor*float64(size)))
-	var hashers [Nhash]hash.Hasher
-	for i, s := range seeds {
-		hashers[i], _ = hash.New(HashFunc, s)
-	}
-
-	return &Cuckoo{
-		bucketSize: bSize,
-		hashers:    hashers,
-	}
-}
-
-// GetHasher returns the first seeded hash function from a cuckoo struct.
-func (c *Cuckoo) GetHasher() hash.Hasher {
-	return c.hashers[0]
-}
-
-// BucketIndices returns the 3 possible bucket indices of an item
-func (c *Cuckoo) BucketIndices(item []byte) (idxs [Nhash]uint64) {
-	for i := range idxs {
-		idxs[i] = c.hashers[i].Hash64(item) % c.bucketSize
-	}
-
-	return idxs
+		make([][]byte, size+1),
+		0,
+		make([]byte, size+1),
+		make([]uint64, cuckooHasher.bucketSize),
+		cuckooHasher,
+	}, nil
 }
 
 // GetBucket returns the index in a given bucket which represents the value in
@@ -115,28 +127,15 @@ func (c *Cuckoo) Exists(item []byte) (bool, byte) {
 	return false, 0
 }
 
-// Insert tries to insert a given item (at index, idx) to the bucket
+// Insert tries to insert a given item at the next index to the bucket
 // in available slots, otherwise, it evicts a random occupied slot,
 // and reinserts evicted item.
 // Returns an error msg if all failed.
-func (c *Cuckoo) Insert(input <-chan []byte) error {
-	var i uint64 = 1 // skip "keeper" value
-	for item := range input {
-		err := c.insert(i, item)
-		if err != nil {
-			return err
-		}
-		i++
+func (c *Cuckoo) Insert(item []byte) error {
+	if int(c.inserted) == len(c.items) {
+		return fmt.Errorf("%v of %v items have already been inserted into the cuckoo hash table. Cannot insert again", c.inserted, len(c.items))
 	}
-	return nil
-}
-
-// insert tries to insert a given item (at index, idx) to the bucket
-// in available slots, otherwise, it evicts a random occupied slot,
-// and reinserts evicted item.
-// Returns an error msg if all failed.
-func (c *Cuckoo) insert(idx uint64, item []byte) error {
-	c.items[idx] = item
+	c.items[c.inserted+1] = item
 	bucketIndices := c.BucketIndices(item)
 
 	// check if item has already been inserted:
@@ -145,16 +144,19 @@ func (c *Cuckoo) insert(idx uint64, item []byte) error {
 	}
 
 	// add to free slots
-	if c.tryAdd(idx, bucketIndices, false, 0) {
+	if c.tryAdd(c.inserted+1, bucketIndices, false, 0) {
+		c.inserted++
 		return nil
 	}
 
 	// force insert by cuckoo (eviction)
-	if homelessIdx, added := c.tryGreedyAdd(idx, bucketIndices); added {
+	homelessIdx, added := c.tryGreedyAdd(c.inserted+1, bucketIndices)
+	if added {
+		c.inserted++
 		return nil
-	} else {
-		return fmt.Errorf("failed to Insert item #%v", homelessIdx)
 	}
+
+	return fmt.Errorf("failed to Insert item %v, results in homeless item #%v", item, homelessIdx)
 }
 
 // tryAdd finds a free slot and inserts the item (at index, idx)

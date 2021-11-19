@@ -110,7 +110,10 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// cuckoo hash table parameters as the receiver.
 		go func() {
 			defer close(pseudorandIds)
-			cuckooHashTable := cuckoo.NewDummyCuckoo(uint64(remoteN), seeds)
+			cuckooHasher, err := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
+			if err != nil {
+				errChan <- err
+			}
 			// instantiate an AES block as well as a Highway Hash
 			aesBlock, err := aes.NewCipher(sk)
 			if err != nil {
@@ -123,9 +126,9 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				for hIdx := 0; hIdx < cuckoo.Nhash; hIdx++ {
 					bytes[hIdx] = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 				}
-				pseudorandIds <- oprfEncodeInputs{prcEncoded: bytes, bucketIdx: cuckooHashTable.BucketIndices(id)}
+				pseudorandIds <- oprfEncodeInputs{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
 			}
-			hasher := cuckooHashTable.GetHasher()
+			hasher := cuckooHasher.GetHasher()
 			hashChan <- hasher
 		}()
 
