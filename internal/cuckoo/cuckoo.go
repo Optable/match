@@ -132,6 +132,9 @@ func (c *Cuckoo) Exists(item []byte) (bool, byte) {
 // and reinserts evicted item.
 // Returns an error msg if all failed.
 func (c *Cuckoo) Insert(item []byte) error {
+	if int(c.inserted) == len(c.items) {
+		return fmt.Errorf("%v of %v items have already been inserted into the cuckoo hash table. Cannot insert again", c.inserted, len(c.items))
+	}
 	c.items[c.inserted+1] = item
 	bucketIndices := c.BucketIndices(item)
 

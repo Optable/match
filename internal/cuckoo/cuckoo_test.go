@@ -65,7 +65,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	}
 
 	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, taken %v",
-		testN, cuckoo.CuckooHasher.bucketSize, cuckoo.LoadFactor(), errCount, time.Since(insertTime))
+		testN, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, time.Since(insertTime))
 
 	//test GetHashIdx
 	for i, item := range testData {
