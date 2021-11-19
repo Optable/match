@@ -7,7 +7,6 @@ require (
 	github.com/bwesterb/go-ristretto v1.2.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/dchest/siphash v1.2.2
-	github.com/devopsfaith/bloomfilter v1.4.0
 	github.com/dgryski/go-highway v0.0.0-20210309212254-61406496927c
 	github.com/go-logr/logr v1.2.0
 	github.com/go-logr/stdr v1.2.0
