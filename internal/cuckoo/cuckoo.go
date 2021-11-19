@@ -68,9 +68,11 @@ func (h *CuckooHasher) BucketIndices(item []byte) (idxs [Nhash]uint64) {
 // tells us which item should be in the bucket at that index. Upon
 // construction the items slice has an additional nil value prepended
 // so the index of the Cuckoo.items slice is +1 compared to the index
-// of the input slice you use.
+// of the input slice you use. The number of inserted items is also
+// tracked.
 type Cuckoo struct {
 	items        [][]byte
+	inserted     uint64
 	hashIndices  []byte
 	bucketLookup []uint64
 	*CuckooHasher
@@ -89,6 +91,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) (*Cuckoo, error) {
 		// extra element is "keeper" to which the bucketLookup can be directed
 		// when there is no element present in the bucket.
 		make([][]byte, size+1),
+		0,
 		make([]byte, size+1),
 		make([]uint64, bSize),
 		cuckooHasher,
@@ -125,28 +128,12 @@ func (c *Cuckoo) Exists(item []byte) (bool, byte) {
 	return false, 0
 }
 
-// Insert tries to insert a given item (at index, idx) to the bucket
+// Insert tries to insert a given item at the next index to the bucket
 // in available slots, otherwise, it evicts a random occupied slot,
 // and reinserts evicted item.
 // Returns an error msg if all failed.
-func (c *Cuckoo) Insert(input <-chan []byte) error {
-	var i uint64 = 1 // skip "keeper" value
-	for item := range input {
-		err := c.insert(i, item)
-		if err != nil {
-			return err
-		}
-		i++
-	}
-	return nil
-}
-
-// insert tries to insert a given item (at index, idx) to the bucket
-// in available slots, otherwise, it evicts a random occupied slot,
-// and reinserts evicted item.
-// Returns an error msg if all failed.
-func (c *Cuckoo) insert(idx uint64, item []byte) error {
-	c.items[idx] = item
+func (c *Cuckoo) Insert(item []byte) error {
+	c.items[c.inserted+1] = item
 	bucketIndices := c.BucketIndices(item)
 
 	// check if item has already been inserted:
@@ -155,16 +142,19 @@ func (c *Cuckoo) insert(idx uint64, item []byte) error {
 	}
 
 	// add to free slots
-	if c.tryAdd(idx, bucketIndices, false, 0) {
+	if c.tryAdd(c.inserted+1, bucketIndices, false, 0) {
+		c.inserted++
 		return nil
 	}
 
 	// force insert by cuckoo (eviction)
-	if homelessIdx, added := c.tryGreedyAdd(idx, bucketIndices); added {
+	homelessIdx, added := c.tryGreedyAdd(c.inserted+1, bucketIndices)
+	if added {
+		c.inserted++
 		return nil
-	} else {
-		return fmt.Errorf("failed to Insert item #%v", homelessIdx)
 	}
+
+	return fmt.Errorf("failed to Insert item #%v", homelessIdx)
 }
 
 // tryAdd finds a free slot and inserts the item (at index, idx)

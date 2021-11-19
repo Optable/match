@@ -58,8 +58,8 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	testData := genBytes(int(testN))
 
 	insertTime := time.Now()
-	for idx, item := range testData {
-		if err := cuckoo.insert(uint64(idx+1), item); err != nil {
+	for _, item := range testData {
+		if err := cuckoo.Insert(item); err != nil {
 			errCount += 1
 		}
 	}
@@ -94,7 +94,7 @@ func BenchmarkCuckooInsert(b *testing.B) {
 
 	for i := 1; i < b.N; i++ {
 		idx := uint64(i % int(benchN))
-		if err := benchCuckoo.insert(idx, benchData[idx]); err != nil {
+		if err := benchCuckoo.Insert(benchData[idx]); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -73,8 +73,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		if err != nil {
 			return err
 		}
-		if err = cuckooHashTable.Insert(identifiers); err != nil {
-			return err
+
+		for id := range identifiers {
+			if err = cuckooHashTable.Insert(id); err != nil {
+				return err
+			}
 		}
 
 		// receive secret key for AES-128 (16 byte)

@@ -39,8 +39,10 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 		in <- id
 	}
 	close(in)
-	if err = c.Insert(in); err != nil {
-		return nil, err
+	for i := range in {
+		if err = c.Insert(i); err != nil {
+			return nil, err
+		}
 	}
 	return c, nil
 }
