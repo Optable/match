@@ -36,7 +36,7 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // The format of an indentifier is string
 // example:
 //  0e1f461bbefa6e07cc2ef06b9ee1ed25101e24d4345af266ed2f5a58bcd26c5e
-func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) (intersection [][]byte, err error) {
 	// fetch and set up logger
 	logger := logr.FromContextOrDiscard(ctx)
 	logger = logger.WithValues("protocol", "kkrtpsi")
@@ -47,7 +47,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var mem uint64
 
 	var seeds [cuckoo.Nhash][]byte
-	var intersection [][]byte
 	var oprfOutput [cuckoo.Nhash]map[uint64]uint64
 	var cuckooHashTable *cuckoo.Cuckoo
 	var sk []byte
@@ -70,9 +69,11 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// instantiate cuckoo hash table
-		cuckooHashTable = cuckoo.NewCuckoo(uint64(n), seeds)
-		err := cuckooHashTable.Insert(identifiers)
+		cuckooHashTable, err = cuckoo.NewCuckoo(uint64(n), seeds)
 		if err != nil {
+			return err
+		}
+		if err = cuckooHashTable.Insert(identifiers); err != nil {
 			return err
 		}
 
@@ -92,7 +93,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
 		logger.V(1).Info("Starting stage 2")
-
 		oReceiver, err := oprf.NewOPRF(int(cuckooHashTable.Len()))
 		if err != nil {
 			return err

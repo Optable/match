@@ -39,15 +39,21 @@ func TestNewCuckoo(t *testing.T) {
 	seeds := makeSeeds()
 
 	for _, tt := range cuckooTests {
-		c := NewCuckoo(tt.size, seeds)
-		if c.bucketSize != tt.bSize {
-			t.Errorf("cuckoo bucketsize: want: %d, got: %d", tt.bSize, c.bucketSize)
+		c, err := NewCuckoo(tt.size, seeds)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.CuckooHasher.bucketSize != tt.bSize {
+			t.Errorf("cuckoo bucketsize: want: %d, got: %d", tt.bSize, c.CuckooHasher.bucketSize)
 		}
 	}
 }
 
 func TestInsertAndGetHashIdx(t *testing.T) {
-	cuckoo := NewCuckoo(testN, makeSeeds())
+	cuckoo, err := NewCuckoo(testN, makeSeeds())
+	if err != nil {
+		t.Fatal(err)
+	}
 	errCount := 0
 	testData := genBytes(int(testN))
 
@@ -59,11 +65,11 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 	}
 
 	t.Logf("To be inserted: %d, bucketSize: %d, load factor: %f, failure insertion:  %d, taken %v",
-		testN, cuckoo.bucketSize, cuckoo.LoadFactor(), errCount, time.Since(insertTime))
+		testN, cuckoo.CuckooHasher.bucketSize, cuckoo.LoadFactor(), errCount, time.Since(insertTime))
 
 	//test GetHashIdx
 	for i, item := range testData {
-		bIndices := cuckoo.BucketIndices(item)
+		bIndices := cuckoo.CuckooHasher.BucketIndices(item)
 		found, hIdx := cuckoo.Exists(item)
 		if !found {
 			t.Fatalf("Cuckoo GetHashIdx, %dth item: %v not inserted.", i+1, item)
@@ -79,7 +85,10 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
-	benchCuckoo = NewCuckoo(benchN, seeds)
+	benchCuckoo, err := NewCuckoo(benchN, seeds)
+	if err != nil {
+		b.Fatal(err)
+	}
 	benchData := genBytes(int(benchN))
 	b.ResetTimer()
 
