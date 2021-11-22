@@ -18,7 +18,7 @@ const (
 )
 
 // Protocol is the matching protocol enumeration
-type Protocol int
+type Protocol byte
 
 var (
 	ProtocolUnsupported Protocol = Unsupported
