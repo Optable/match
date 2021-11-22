@@ -87,8 +87,6 @@ func main() {
 	case "dhpsi":
 		psiType = psi.ProtocolDHPSI
 	default:
-		//log.Printf("unsupported protocol %s", *protocol)
-		//showUsageAndExit(0)
 		psiType = psi.ProtocolUnsupported
 	}
 
