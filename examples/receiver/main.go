@@ -81,17 +81,18 @@ func main() {
 	var psiType psi.Protocol
 	switch *protocol {
 	case "bpsi":
-		psiType = psi.BPSI
+		psiType = psi.ProtocolBPSI
 	case "npsi":
-		psiType = psi.NPSI
+		psiType = psi.ProtocolNPSI
 	case "dhpsi":
-		psiType = psi.DHPSI
+		psiType = psi.ProtocolDHPSI
 	default:
-		log.Printf("unsupported protocol %s", *protocol)
-		showUsageAndExit(0)
+		//log.Printf("unsupported protocol %s", *protocol)
+		//showUsageAndExit(0)
+		psiType = psi.ProtocolUnsupported
 	}
 
-	log.Printf("operating with protocol %s", *protocol)
+	log.Printf("operating with protocol %s", psiType)
 	// fetch stdr logger
 	mlog := getLogger(*verbose)
 
@@ -127,7 +128,8 @@ func main() {
 			}
 			// make the receiver
 
-			receiver, _ := psi.NewReceiver(psiType, c)
+			receiver, err := psi.NewReceiver(psiType, c)
+			exitOnErr(mlog, err, "failed to create receiver")
 			// and hand it off
 			wg.Add(1)
 			go func() {

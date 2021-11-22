@@ -10,21 +10,14 @@ import (
 	"github.com/optable/match/pkg/npsi"
 )
 
-const (
-	Unsupported = iota
-	DHPSI
-	NPSI
-	BPSI
-)
-
 // Protocol is the matching protocol enumeration
 type Protocol byte
 
-var (
-	ProtocolUnsupported Protocol = Unsupported
-	ProtocolDHPSI       Protocol = DHPSI
-	ProtocolNPSI        Protocol = NPSI
-	ProtocolBPSI        Protocol = BPSI
+const (
+	ProtocolUnsupported Protocol = iota
+	ProtocolDHPSI
+	ProtocolNPSI
+	ProtocolBPSI
 )
 
 var ErrUnsupportedPSIProtocol = errors.New("unsupported PSI protocol")
