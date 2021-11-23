@@ -1,7 +1,7 @@
 # KKRT Benchmarks
 
 ## Runtime with varying system threads
-This heatmap compares runtimes when the sender and receiver have been limited to a set number of system threads (on an n2-standard-64 VM). Both sender and receiver have 100m records with an intersection size of 50m. The receiver's datasets are represented row-wise while the sender's datasets are represented column-wise.
+This heatmap compares runtimes when the sender and receiver have been limited to a set number of system threads (on an n2-standard-64 VM). Both sender and receiver have 100m (million) records with an intersection size of 50m. The receiver's datasets are represented row-wise while the sender's datasets are represented column-wise.
 
 <p align="center">
   <img src="heatmap_kkrt_procs.png"/>

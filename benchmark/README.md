@@ -1,6 +1,6 @@
 # Benchmarks
 
-The following scatter plot shows the results of benchmarking match attempts using different PSI algorithms on Google Cloud n2-standard-64 [general-purpose virtual machines (VMs)](https://cloud.google.com/compute/docs/general-purpose-machines#n2_machines). For each benchmark, the sender and the receiver use the same type of VM. The plot shows runtime for various PSI algorithms when the sender and receiver have an equal number of records. The BPSI used for these experiments has a false positive rate fixed at 1e-6. All the match attempts performed have an intersection size of 50m. [Detailed benchmarks of the KKRT protocol can be found here](KKRT.md).
+The following scatter plot shows the results of benchmarking match attempts using different PSI algorithms on Google Cloud n2-standard-64 [general-purpose virtual machines (VMs)](https://cloud.google.com/compute/docs/general-purpose-machines#n2_machines). For each benchmark, the sender and the receiver use the same type of VM. The plot shows runtime for various PSI algorithms when the sender and receiver have an equal number of records. The BPSI used for these experiments has a false positive rate fixed at 1e-6. All the match attempts performed have an intersection size of 50m (million). [Detailed benchmarks of the KKRT protocol can be found here](KKRT.md).
 
 <p align="center">
   <img src="scatter_equal_sets.png"/>
