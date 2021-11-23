@@ -6,6 +6,7 @@ require (
 	github.com/alecthomas/unsafeslice v0.1.0
 	github.com/bits-and-blooms/bloom/v3 v3.0.1
 	github.com/bwesterb/go-ristretto v1.2.0
+	github.com/dgryski/go-metro v0.0.0-20211015221634-2661b20a2446 // indirect
 	github.com/go-logr/logr v1.2.0
 	github.com/go-logr/stdr v1.2.0
 	github.com/gtank/ristretto255 v0.1.2

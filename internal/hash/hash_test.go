@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/alecthomas/unsafeslice"
+	"github.com/dgryski/go-metro"
 	"github.com/minio/highwayhash"
 	"github.com/twmb/murmur3"
 )
@@ -91,5 +92,22 @@ func BenchmarkHighwayHash16(b *testing.B) {
 		h.Write(src)
 		h.Write([]byte{2})
 		h.Sum(nil)
+	}
+}
+
+func BenchmarkMetroHash16(b *testing.B) {
+	src := make([]byte, 66)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		hi, lo := metro.Hash128(src, 0)
+		unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo})
+	}
+}
+
+func BenchmarkMetro(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := New(Metro, s)
+	for i := 0; i < b.N; i++ {
+		h.Hash64(xxx)
 	}
 }
