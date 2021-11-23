@@ -17,7 +17,7 @@ const (
 	// kicked off egg
 	ReInsertLimit = 200
 	Factor        = 1.4
-	HashFunc      = hash.Highway
+	HashFunc      = hash.Metro
 )
 
 // CuckooHasher is the building block of a Cuckoo hash table. It only holds

@@ -54,7 +54,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 	stage2 := func() error {
 		logger.V(1).Info("Starting stage 2")
 		// get a hasher
-		h, err := hash.New(hash.Highway, k)
+		h, err := hash.New(hash.Metro, k)
 		if err != nil {
 			return err
 		}

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/alecthomas/unsafeslice"
-	"github.com/minio/highwayhash"
 	"github.com/twmb/murmur3"
 )
 
@@ -32,7 +31,7 @@ func TestUnknownHasher(t *testing.T) {
 	}
 }
 
-func TestGetTmurmur3(t *testing.T) {
+func TestGetMurmur3(t *testing.T) {
 	s, _ := makeSalt()
 	h, err := New(Murmur3, s)
 	if err != nil {
@@ -44,21 +43,17 @@ func TestGetTmurmur3(t *testing.T) {
 	}
 }
 
-func TestGetHighwayHash(t *testing.T) {
-	s, _ := makeSalt()
-	h, err := New(Highway, s)
-	if err != nil {
-		t.Fatalf("got error %v while requesting highway hash", err)
-	}
-
-	if _, ok := h.(hw); !ok {
-		t.Fatalf("expected type hw and got %T", h)
-	}
-}
-
 func BenchmarkMurmur3(b *testing.B) {
 	s, _ := makeSalt()
 	h, _ := New(Murmur3, s)
+	for i := 0; i < b.N; i++ {
+		h.Hash64(xxx)
+	}
+}
+
+func BenchmarkMetro(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := New(Metro, s)
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}
@@ -70,26 +65,5 @@ func BenchmarkMurmur316Unsafe(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hi, lo := murmur3.SeedSum128(0, 2, src)
 		unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo})
-	}
-}
-
-func BenchmarkHighwayHash(b *testing.B) {
-	s, _ := makeSalt()
-	h, _ := New(Highway, s)
-	for i := 0; i < b.N; i++ {
-		h.Hash64(xxx)
-	}
-}
-
-func BenchmarkHighwayHash16(b *testing.B) {
-	s, _ := makeSalt()
-	h, _ := highwayhash.New128(s)
-	src := make([]byte, 66)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		h.Reset()
-		h.Write(src)
-		h.Write([]byte{2})
-		h.Sum(nil)
 	}
 }
