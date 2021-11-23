@@ -68,7 +68,7 @@ type metro struct {
 	salt []byte
 }
 
-// NewShivMetroHasher returns a metro64 hasher that uses salt as a
+// NewMetroHasher returns a metro hasher that uses salt as a
 // prefix to the bytes being summed
 func NewMetroHasher(salt []byte) (metro, error) {
 	if len(salt) != SaltLength {
