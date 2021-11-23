@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/dgryski/go-metro"
-	"github.com/hungrybirder/cityhash"
-	"github.com/minio/highwayhash"
 	"github.com/shivakar/metrohash"
 	"github.com/twmb/murmur3"
 )
@@ -15,10 +12,7 @@ const (
 	SaltLength = 32
 
 	Murmur3 = iota
-	Highway
 	Metro
-	ShivMetro
-	City
 )
 
 var (
@@ -42,14 +36,8 @@ func New(t int, salt []byte) (Hasher, error) {
 	switch t {
 	case Murmur3:
 		return NewMurmur3Hasher(salt)
-	case Highway:
-		return NewHighwayHasher(salt)
 	case Metro:
 		return NewMetroHasher(salt)
-	case ShivMetro:
-		return NewShivMetroHasher(salt)
-	case City:
-		return NewCityHasher(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
@@ -75,80 +63,24 @@ func (t murmur64) Hash64(p []byte) uint64 {
 	return murmur3.Sum64(append(t.salt, p...))
 }
 
-// Highway Hash implementation of Hasher
-type hw struct {
-	salt []byte
-}
-
-// NewHighwayHasher returns a hw hasher that uses salt as the 4 lanes for the hashing
-func NewHighwayHasher(salt []byte) (hw, error) {
-	if len(salt) != SaltLength {
-		return hw{}, ErrSaltLengthMismatch
-	}
-
-	return hw{salt: salt}, nil
-}
-
-func (h hw) Hash64(p []byte) uint64 {
-	return highwayhash.Sum64(p, h.salt)
-}
-
 // Metro Hash implementation of Hasher
-type metro64 struct {
+type metro struct {
 	salt []byte
 }
 
-// NewMetroHasher returns a metro64 hasher that uses salt as a prefix to the
-// bytes being summed
-func NewMetroHasher(salt []byte) (metro64, error) {
-	if len(salt) != SaltLength {
-		return metro64{}, ErrSaltLengthMismatch
-	}
-
-	return metro64{salt: salt}, nil
-}
-
-func (m metro64) Hash64(p []byte) uint64 {
-	return metro.Hash64(append(m.salt, p...), 0)
-}
-
-// Metro Hash implementation of Hasher
-type shivMetro64 struct {
-	salt []byte
-}
-
-// NewShivMetroHasher returns a shivMetro64 hasher that uses salt as a
+// NewShivMetroHasher returns a metro64 hasher that uses salt as a
 // prefix to the bytes being summed
-func NewShivMetroHasher(salt []byte) (shivMetro64, error) {
+func NewMetroHasher(salt []byte) (metro, error) {
 	if len(salt) != SaltLength {
-		return shivMetro64{}, ErrSaltLengthMismatch
+		return metro{}, ErrSaltLengthMismatch
 	}
 
-	return shivMetro64{salt: salt}, nil
+	return metro{salt: salt}, nil
 }
 
-func (m shivMetro64) Hash64(p []byte) uint64 {
+func (m metro) Hash64(p []byte) uint64 {
 	h := metrohash.NewMetroHash64()
 	h.Write(m.salt)
 	h.Write(p)
 	return h.Sum64()
-}
-
-// City Hash implementation of Hasher
-type city struct {
-	salt []byte
-}
-
-// NewCityHasher returns a city hasher that uses salt as a
-// prefix to the bytes being summed
-func NewCityHasher(salt []byte) (city, error) {
-	if len(salt) != SaltLength {
-		return city{}, ErrSaltLengthMismatch
-	}
-
-	return city{salt: salt}, nil
-}
-
-func (c city) Hash64(p []byte) uint64 {
-	return cityhash.CityHash64(append(c.salt, p...), 64)
 }

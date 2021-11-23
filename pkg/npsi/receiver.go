@@ -61,7 +61,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		var localIDs = make(map[uint64][]byte)
 		var remoteIDs = make(map[uint64]bool)
 		// get a hasher
-		h, err := hash.New(hash.Highway, k)
+		h, err := hash.New(hash.Metro, k)
 		if err != nil {
 			return err
 		}
