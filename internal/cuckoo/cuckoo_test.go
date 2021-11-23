@@ -8,11 +8,7 @@ import (
 	"time"
 )
 
-var (
-	benchCuckoo *Cuckoo
-	testN       = uint64(1e6) // 1 Million
-	benchN      = uint64(1e6) // 1 Million
-)
+var testN = uint64(1e6) // 1 Million
 
 func makeSeeds() [Nhash][]byte {
 	var seeds [Nhash][]byte
@@ -85,15 +81,15 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
-	benchCuckoo, err := NewCuckoo(benchN, seeds)
+	benchCuckoo, err := NewCuckoo(uint64(b.N), seeds)
 	if err != nil {
 		b.Fatal(err)
 	}
-	benchData := genBytes(int(benchN))
+	benchData := genBytes(int(b.N))
 	b.ResetTimer()
 
 	for i := 1; i < b.N; i++ {
-		idx := uint64(i % int(benchN))
+		idx := uint64(i % int(b.N))
 		if err := benchCuckoo.Insert(benchData[idx]); err != nil {
 			b.Fatal(err)
 		}
@@ -102,11 +98,17 @@ func BenchmarkCuckooInsert(b *testing.B) {
 
 // Benchmark finding hash index and checking existance
 func BenchmarkCuckooExists(b *testing.B) {
-	benchData := genBytes(int(benchN))
+	seeds := makeSeeds()
+	benchCuckoo, err := NewCuckoo(uint64(b.N), seeds)
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchData := genBytes(int(b.N))
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		benchCuckoo.Exists(benchData[uint64(i%int(benchN))])
+	for i := 1; i < b.N; i++ {
+		idx := uint64(i % int(b.N))
+		benchCuckoo.Exists(benchData[idx])
 	}
 }
 

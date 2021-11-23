@@ -119,6 +119,7 @@ func (c *Cuckoo) GetItemWithHash(idx uint64) (item []byte, hIdx uint8) {
 // Exists returns true if an item is inserted in cuckoo, false otherwise
 func (c *Cuckoo) Exists(item []byte) (bool, byte) {
 	bucketIndices := c.BucketIndices(item)
+
 	for hIdx, bIdx := range bucketIndices {
 		if bytes.Equal(c.items[c.bucketLookup[bIdx]], item) {
 			return true, byte(hIdx)
