@@ -6,6 +6,7 @@ import (
 
 	"github.com/dgryski/go-metro"
 	"github.com/minio/highwayhash"
+	"github.com/shivakar/metrohash"
 	"github.com/twmb/murmur3"
 )
 
@@ -15,6 +16,7 @@ const (
 	Murmur3 = iota
 	Highway
 	Metro
+	ShivMetro
 )
 
 var (
@@ -42,6 +44,8 @@ func New(t int, salt []byte) (Hasher, error) {
 		return NewHighwayHasher(salt)
 	case Metro:
 		return NewMetroHasher(salt)
+	case ShivMetro:
+		return NewShivMetroHasher(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
@@ -102,4 +106,26 @@ func NewMetroHasher(salt []byte) (metro64, error) {
 
 func (m metro64) Hash64(p []byte) uint64 {
 	return metro.Hash64(append(m.salt, p...), 0)
+}
+
+// Metro Hash implementation of Hasher
+type shivMetro64 struct {
+	salt []byte
+}
+
+// NewShivMetroHasher returns a shivMetro64 hasher that uses salt as a
+// prefix to the bytes being summed
+func NewShivMetroHasher(salt []byte) (shivMetro64, error) {
+	if len(salt) != SaltLength {
+		return shivMetro64{}, ErrSaltLengthMismatch
+	}
+
+	return shivMetro64{salt: salt}, nil
+}
+
+func (m shivMetro64) Hash64(p []byte) uint64 {
+	h := metrohash.NewMetroHash64()
+	h.Write(m.salt)
+	h.Write(p)
+	return h.Sum64()
 }

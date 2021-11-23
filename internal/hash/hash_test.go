@@ -65,6 +65,22 @@ func BenchmarkMurmur3(b *testing.B) {
 	}
 }
 
+func BenchmarkMetro(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := New(Metro, s)
+	for i := 0; i < b.N; i++ {
+		h.Hash64(xxx)
+	}
+}
+
+func BenchmarkShivMetro(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := New(ShivMetro, s)
+	for i := 0; i < b.N; i++ {
+		h.Hash64(xxx)
+	}
+}
+
 func BenchmarkMurmur316Unsafe(b *testing.B) {
 	src := make([]byte, 66)
 	b.ResetTimer()
@@ -101,13 +117,5 @@ func BenchmarkMetroHash16(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hi, lo := metro.Hash128(src, 0)
 		unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo})
-	}
-}
-
-func BenchmarkMetro(b *testing.B) {
-	s, _ := makeSalt()
-	h, _ := New(Metro, s)
-	for i := 0; i < b.N; i++ {
-		h.Hash64(xxx)
 	}
 }
