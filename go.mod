@@ -10,6 +10,7 @@ require (
 	github.com/go-logr/logr v1.2.0
 	github.com/go-logr/stdr v1.2.0
 	github.com/gtank/ristretto255 v0.1.2
+	github.com/hungrybirder/cityhash v1.1.0 // indirect
 	github.com/minio/highwayhash v1.0.2
 	github.com/shivakar/metrohash v0.0.0-20160821164112-8d1c8b6bed28 // indirect
 	github.com/twmb/murmur3 v1.1.6

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/dgryski/go-metro"
+	"github.com/hungrybirder/cityhash"
 	"github.com/minio/highwayhash"
 	"github.com/shivakar/metrohash"
 	"github.com/twmb/murmur3"
@@ -17,6 +18,7 @@ const (
 	Highway
 	Metro
 	ShivMetro
+	City
 )
 
 var (
@@ -46,6 +48,8 @@ func New(t int, salt []byte) (Hasher, error) {
 		return NewMetroHasher(salt)
 	case ShivMetro:
 		return NewShivMetroHasher(salt)
+	case City:
+		return NewCityHasher(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
@@ -94,7 +98,7 @@ type metro64 struct {
 	salt []byte
 }
 
-// NewMetroHasher returns a metro hasher that uses salt as a prefix to the
+// NewMetroHasher returns a metro64 hasher that uses salt as a prefix to the
 // bytes being summed
 func NewMetroHasher(salt []byte) (metro64, error) {
 	if len(salt) != SaltLength {
@@ -128,4 +132,23 @@ func (m shivMetro64) Hash64(p []byte) uint64 {
 	h.Write(m.salt)
 	h.Write(p)
 	return h.Sum64()
+}
+
+// City Hash implementation of Hasher
+type city struct {
+	salt []byte
+}
+
+// NewCityHasher returns a city hasher that uses salt as a
+// prefix to the bytes being summed
+func NewCityHasher(salt []byte) (city, error) {
+	if len(salt) != SaltLength {
+		return city{}, ErrSaltLengthMismatch
+	}
+
+	return city{salt: salt}, nil
+}
+
+func (c city) Hash64(p []byte) uint64 {
+	return cityhash.CityHash64(append(c.salt, p...), 64)
 }

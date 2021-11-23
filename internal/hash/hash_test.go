@@ -81,6 +81,14 @@ func BenchmarkShivMetro(b *testing.B) {
 	}
 }
 
+func BenchmarkCity(b *testing.B) {
+	s, _ := makeSalt()
+	h, _ := New(City, s)
+	for i := 0; i < b.N; i++ {
+		h.Hash64(xxx)
+	}
+}
+
 func BenchmarkMurmur316Unsafe(b *testing.B) {
 	src := make([]byte, 66)
 	b.ResetTimer()
