@@ -80,11 +80,11 @@ func (p *Point) DeriveKeyFromECPoint() []byte {
 	return key[:]
 }
 
-// GenerateKeyWithPoint returns a secret and public key pair
-func GenerateKeyWithPoints() ([]byte, *Point, error) {
+// GenerateKey returns a secret and public key pair
+func GenerateKey() ([]byte, *Point, error) {
 	secret, x, y, err := elliptic.GenerateKey(curve, rand.Reader)
 	if err != nil {
-		return nil, &Point{}, err
+		return nil, nil, err
 	}
 
 	return secret, &Point{x: x, y: y}, nil
@@ -97,8 +97,7 @@ type pointWriter struct {
 
 // pointReader for elliptic curve points
 type pointReader struct {
-	r         io.Reader
-	encodeLen int
+	r io.Reader
 }
 
 // NewECPointWriter returns an elliptic curve point writer
@@ -108,7 +107,7 @@ func NewECPointWriter(w io.Writer) *pointWriter {
 
 // NewECPointReader returns an elliptic curve point reader
 func NewECPointReader(r io.Reader) *pointReader {
-	return &pointReader{r: r, encodeLen: encodeLen}
+	return &pointReader{r: r}
 }
 
 // Write writes the marshalled elliptic curve point to writer
@@ -119,7 +118,7 @@ func (w *pointWriter) Write(p *Point) (err error) {
 
 // Read reads a marshalled elliptic curve point from reader and stores it in point
 func (r *pointReader) Read(p *Point) (err error) {
-	pt := make([]byte, r.encodeLen)
+	pt := make([]byte, encodeLen)
 	if _, err = io.ReadFull(r.r, pt); err != nil {
 		return err
 	}

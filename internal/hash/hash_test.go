@@ -46,6 +46,7 @@ func TestGetMurmur3(t *testing.T) {
 func BenchmarkMurmur3(b *testing.B) {
 	s, _ := makeSalt()
 	h, _ := New(Murmur3, s)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}
@@ -54,6 +55,7 @@ func BenchmarkMurmur3(b *testing.B) {
 func BenchmarkMetro(b *testing.B) {
 	s, _ := makeSalt()
 	h, _ := New(Metro, s)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
 	}

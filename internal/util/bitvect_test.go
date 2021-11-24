@@ -210,6 +210,7 @@ func BenchmarkTranspose(b *testing.B) {
 // we allow a number of threads equal to the GOMAXPROCS.
 func BenchmarkConcurrentTranspose(b *testing.B) {
 	byteBlock := sampleRandomTall(nmsg)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentTransposeTall(byteBlock, nworkers)
 	}

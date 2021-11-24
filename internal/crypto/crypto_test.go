@@ -98,27 +98,26 @@ var xorCipherTestStrings = []xorCipherTest{
 	{"1f689e1201d164ed8ca9e2622c42d1628a7fe745fd741a736493eee3e1ce9aee456c65d23b626fac9901838d2086c9a2a576f24ceff4a97c826b1fd76aed522adef31a71971fe9349567d1865f31a146c2829818c20a10b572782b59830ddd40b37817c22988d95965a50a52cecccf89a4ebe8e34922ea1feeb643786dee8fc579a663fe", "The fugacity of a constituent in a mixture of gases at a given temperature is proportional to its mole fraction.  Lewis-Randall Rule", "2e87ae384abbb3b5d593385100bcee15a25766097128e4930353b88dc2a5e328", 1},
 }
 
-func TestMurmur3Hashing(t *testing.T) {
+func TestPseudorandomCode(t *testing.T) {
 	for _, s := range aesTestStrings {
+		// instantiate aes block
+		aesKey, err := hex.DecodeString(s.aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		aesBlock, err := aes.NewCipher(aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// validate hashing of input
 		lo, hi := murmur3.SeedSum128(uint64(s.hIdx), uint64(s.hIdx), []byte(s.in))
 		h := unsafeslice.ByteSliceFromUint64Slice([]uint64{lo, hi})
 		if s.hashedBlock != fmt.Sprintf("%x", h) {
 			t.Errorf("murmur3 hashing did not return expected result with hash index %v for\ninput: %v\nreturned: %x\nexpected: %v", s.hIdx, s.in, string(h), s.hashedBlock)
 		}
-	}
-}
 
-func TestPseudorandomCode(t *testing.T) {
-	for _, s := range aesTestStrings {
-		aesKey, err := hex.DecodeString(s.aesKey)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		aesBlock, err := aes.NewCipher(aesKey)
-		if err != nil {
-			t.Fatal(err)
-		}
+		// validate output of PseudorandomCode
 		enc := PseudorandomCode(aesBlock, []byte(s.in), s.hIdx)
 		if s.out != fmt.Sprintf("%x", enc) {
 			t.Errorf("AES block encoding did not return expected result with hash index %v for\ninput: %v\nreturned: %x\nexpected: %v", s.hIdx, s.in, string(enc), s.out)

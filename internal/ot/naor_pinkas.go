@@ -37,13 +37,13 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	writer := crypto.NewECPointWriter(rw)
 
 	// generate sender point A w/o secret, since a is never used.
-	_, pointA, err := crypto.GenerateKeyWithPoints()
+	_, pointA, err := crypto.GenerateKey()
 	if err != nil {
 		return err
 	}
 
 	// generate sender secret public key pairs used for encryption.
-	secretR, pointR, err := crypto.GenerateKeyWithPoints()
+	secretR, pointR, err := crypto.GenerateKey()
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	var pointB *crypto.Point
 	for i := 0; i < n.baseCount; i++ {
 		// generate receiver priv/pub key pairs going to take a long time.
-		bSecrets[i], pointB, err = crypto.GenerateKeyWithPoints()
+		bSecrets[i], pointB, err = crypto.GenerateKey()
 		if err != nil {
 			return err
 		}
