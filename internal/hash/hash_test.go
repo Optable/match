@@ -61,15 +61,6 @@ func BenchmarkMetro(b *testing.B) {
 	}
 }
 
-func BenchmarkMetroCached(b *testing.B) {
-	s, _ := makeSalt()
-	h, _ := New(MetroCached, s)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		h.Hash64(xxx)
-	}
-}
-
 func BenchmarkMurmur316Unsafe(b *testing.B) {
 	src := make([]byte, 66)
 	b.ResetTimer()
