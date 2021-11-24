@@ -125,7 +125,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 
 		// for each choice bit, compute the key material corresponding to
 		// the choice bit and sent it.
-		if !util.BitSetInByte(choices, i) {
+		if !util.IsBitSet(choices, i) {
 			// K0 = Kc = B
 			if err := writer.Write(pointB); err != nil {
 				return fmt.Errorf("error writing point: %w", err)
@@ -158,10 +158,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		pointK := pointR.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		var choiceBit byte
-		if util.BitSetInByte(choices, i) {
-			choiceBit = 1
-		}
+		choiceBit := util.BitExtract(choices, i)
 		messages[i], err = crypto.XorCipherWithBlake3(pointK.DeriveKeyFromECPoint(), choiceBit, encryptedOTMessages[choiceBit])
 		if err != nil {
 			return fmt.Errorf("error decrypting sender message: %s", err)

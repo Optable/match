@@ -251,11 +251,11 @@ func TestTestBitSetInByte(t *testing.T) {
 
 	for i := 0; i < 8; i++ {
 		if i == 0 {
-			if !BitSetInByte(b, i) {
+			if !IsBitSet(b, i) {
 				t.Fatal("bit extraction failed")
 			}
 		} else {
-			if BitSetInByte(b, i) {
+			if IsBitSet(b, i) {
 				t.Fatal("bit extraction failed")
 			}
 		}
@@ -264,15 +264,14 @@ func TestTestBitSetInByte(t *testing.T) {
 	b = []byte{161}
 	for i := 0; i < 8; i++ {
 		if i == 0 || i == 7 || i == 5 {
-			if !BitSetInByte(b, i) {
+			if !IsBitSet(b, i) {
 				t.Fatal("bit extraction failed")
 			}
 		} else {
-			if BitSetInByte(b, i) {
+			if IsBitSet(b, i) {
 				t.Fatal("bit extraction failed")
 			}
 		}
-
 	}
 }
 

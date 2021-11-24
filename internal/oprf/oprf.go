@@ -100,7 +100,7 @@ func (ext *OPRF) Send(rw io.ReadWriter) (keys Key, err error) {
 		// if bit is 0, we get a row of 0s which when XORed
 		// with q[row] just returns the same row, so no need to do
 		// an operation
-		if util.BitSetInByte(s, col) {
+		if util.IsBitSet(s, col) {
 			err = util.ConcurrentBitOp(util.Xor, q[col], u)
 			if err != nil {
 				return Key{}, err

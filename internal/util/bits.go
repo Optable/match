@@ -200,11 +200,20 @@ func ConcurrentDoubleBitOp(f func([]byte, []byte, []byte) error, dst, a, b []byt
 	return nil
 }
 
-// BitSetInByte returns true if bit i is set in a byte slice.
+// IsBitSet returns true if bit i is set in a byte slice.
 // It extracts bits from the least significant bit (i = 0) to the
 // most significant bit (i = 7).
-func BitSetInByte(b []byte, i int) bool {
+func IsBitSet(b []byte, i int) bool {
 	return b[i/8]&(1<<(i%8)) > 0
+}
+
+// BitExtract returns the ith bit in b
+func BitExtract(b []byte, i int) byte {
+	if IsBitSet(b, i) {
+		return 1
+	}
+
+	return 0
 }
 
 // SampleRandomBitMatrix allocates a 2D byte matrix of dimension row x col,

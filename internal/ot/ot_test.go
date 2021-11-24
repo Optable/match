@@ -133,10 +133,7 @@ func TestNaorPinkas(t *testing.T) {
 	}
 
 	for i, m := range msg {
-		var bit byte
-		if util.BitSetInByte(choices, i) {
-			bit = 1
-		}
+		bit := util.BitExtract(choices, i)
 		if !bytes.Equal(m, messages[i][bit]) {
 			t.Fatalf("OT failed got: %s, want %s", m, messages[i][bit])
 		}
