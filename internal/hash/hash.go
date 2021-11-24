@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	metrogo "github.com/dgryski/go-metro"
+	metro "github.com/dgryski/go-metro"
 	"github.com/optable/match/internal/util"
 	"github.com/twmb/murmur3"
 )
@@ -66,15 +66,15 @@ func (t murmur64) Hash64(p []byte) uint64 {
 }
 
 // Metro Hash implementation of Hasher
-type metro struct {
+type metro64 struct {
 	seed uint64
 }
 
 // NewMetroHasher returns a metro hasher that uses salt as a
 // prefix to the bytes being summed
-func NewMetroHasher(salt []byte) (metro, error) {
+func NewMetroHasher(salt []byte) (metro64, error) {
 	if len(salt) != SaltLength {
-		return metro{}, ErrSaltLengthMismatch
+		return metro64{}, ErrSaltLengthMismatch
 	}
 
 	// condense 32 byte salt to a uint64
@@ -84,9 +84,9 @@ func NewMetroHasher(salt []byte) (metro, error) {
 	util.Xor(seed, salt[16:24])
 	util.Xor(seed, salt[24:])
 
-	return metro{seed: binary.LittleEndian.Uint64(seed)}, nil
+	return metro64{seed: binary.LittleEndian.Uint64(seed)}, nil
 }
 
-func (m metro) Hash64(p []byte) uint64 {
-	return metrogo.Hash64(p, m.seed)
+func (m metro64) Hash64(p []byte) uint64 {
+	return metro.Hash64(p, m.seed)
 }

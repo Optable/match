@@ -23,7 +23,7 @@ var (
 func genChoiceString() [][]byte {
 	choices := make([][]byte, baseCount)
 	for i := range choices {
-		choices[i] = make([]byte, 64)
+		choices[i] = make([]byte, 66)
 		rand.Read(choices[i])
 	}
 	return choices
@@ -42,10 +42,10 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 	return c, nil
 }
 
-func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
+func initOPRFReceiver(oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
-		errs <- fmt.Errorf("net listen encountered error: %s", err)
+		return "", err
 	}
 
 	go func() {
@@ -59,19 +59,16 @@ func initOPRFReceiver(oprf OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<
 	return l.Addr().String(), nil
 }
 
-func oprfReceiveHandler(conn net.Conn, oprf OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
+func oprfReceiveHandler(conn net.Conn, oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
 	defer close(outBus)
-
 	out, err := oprf.Receive(choices, sk, conn)
 	if err != nil {
 		errs <- err
 	}
-
 	outBus <- out
 }
 
 func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
-	// Testing encodings
 	senderCuckoo, err := cuckoo.NewCuckooHasher(uint64(baseCount), seeds)
 	if err != nil {
 		return err
@@ -119,10 +116,10 @@ func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk 
 	return nil
 }
 
-func TestImprovedKKRT(t *testing.T) {
+func TestOPRF(t *testing.T) {
 	outBus := make(chan [cuckoo.Nhash]map[uint64]uint64)
 	keyBus := make(chan Key)
-	errs := make(chan error, 5)
+	errs := make(chan error, 1)
 	sk := make([]byte, 16)
 	choices := genChoiceString()
 
@@ -138,7 +135,9 @@ func TestImprovedKKRT(t *testing.T) {
 		t.Fatal(err)
 	}
 	// generate AES secret key (16-byte)
-	rand.Read(sk)
+	if _, err := rand.Read(sk); err != nil {
+		t.Fatal(err)
+	}
 
 	receiverOPRF, err := NewOPRF(int(choicesCuckoo.Len()))
 	if err != nil {
@@ -176,12 +175,12 @@ func TestImprovedKKRT(t *testing.T) {
 	}()
 
 	// any errors?
-	//errors?
 	select {
 	case err := <-errs:
 		t.Fatal(err)
 	default:
 	}
+
 	// Receive keys
 	keys := <-keyBus
 
@@ -192,7 +191,6 @@ func TestImprovedKKRT(t *testing.T) {
 	end := time.Now()
 	t.Logf("Time taken for %d ImprovedKKRT OPRF is: %v\n", baseCount, end.Sub(start))
 
-	// Testing encodings
 	// Testing encodings
 	err = testEncodings(encodedHashMap, keys, sk, seeds, choicesCuckoo, choices)
 	if err != nil {
@@ -212,11 +210,10 @@ func BenchmarkEncode(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	key := Key{s: s, q: q}
+	key := Key{secret: s, otMatrix: q}
 	bytes := crypto.PseudorandomCode(aesBlock, s, 0)
 
 	b.ResetTimer()
-
 	for i := 0; i < b.N; i++ {
 		if err := key.Encode(0, bytes); err != nil {
 			b.Fatal(err)
