@@ -51,25 +51,17 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) []byte {
 // Blake3 has XOF which is perfect for doing xor cipher.
 func XorCipherWithBlake3(key []byte, ind byte, src []byte) ([]byte, error) {
 	hash := make([]byte, len(src))
-	err := getBlake3Hash(key, ind, hash)
-	if err != nil {
-		return nil, err
-	}
-	err = util.ConcurrentBitOp(util.Xor, hash, src)
+	getBlake3Hash(key, ind, hash)
+	err := util.ConcurrentBitOp(util.Xor, hash, src)
 	return hash, err
 }
 
-func getBlake3Hash(key []byte, ind byte, dst []byte) error {
+func getBlake3Hash(key []byte, ind byte, dst []byte) {
 	h := blake3.New()
-	if _, err := h.Write(key); err != nil {
-		return err
-	}
-	if _, err := h.Write([]byte{ind}); err != nil {
-		return err
-	}
+	h.Write(key)
+	h.Write([]byte{ind})
 
 	// convert to *digest to take a snapshot of the hashstate for XOF
 	d := h.Digest()
-	_, err := d.Read(dst)
-	return err
+	d.Read(dst)
 }
