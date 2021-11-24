@@ -16,19 +16,15 @@ reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
 */
 
 type naorPinkas struct {
-	baseCount int
-	msgLen    []int
+	msgLen []int
 }
 
-func newNaorPinkas(baseCount int, msgLen []int) (naorPinkas, error) {
-	if len(msgLen) != baseCount {
-		return naorPinkas{}, ErrBaseCountMissMatch
-	}
-	return naorPinkas{baseCount: baseCount, msgLen: msgLen}, nil
+func NewNaorPinkas(msgLen []int) (OT, error) {
+	return naorPinkas{msgLen: msgLen}, nil
 }
 
-func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
-	if len(messages) != n.baseCount {
+func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
+	if len(n.msgLen) != len(otMessages) {
 		return ErrBaseCountMissMatch
 	}
 
@@ -61,28 +57,24 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 	// precompute A = rA
 	pointA = pointA.ScalarMult(secretR)
 
-	// make a slice of points to receive K0.
-	pointK0 := make([]*crypto.Point, n.baseCount)
-	for i := range pointK0 {
-		pointK0[i] = crypto.NewPoint()
-		if err := reader.Read(pointK0[i]); err != nil {
-			return err
-		}
-	}
-
-	pointK := make([]*crypto.Point, 2)
 	var ciphertext []byte
 	// encrypt plaintext messages and send them.
-	for i := 0; i < n.baseCount; i++ {
+	for i := range otMessages {
+		// receive key material
+		keyMaterial := crypto.NewPoint()
+		if err := reader.Read(keyMaterial); err != nil {
+			return err
+		}
+		var keys [2]*crypto.Point
 		// compute K0 = rK0
-		pointK[0] = pointK0[i].ScalarMult(secretR)
+		keys[0] = keyMaterial.ScalarMult(secretR)
 		// compute K1 = rA - rK0
-		pointK[1] = pointA.Sub(pointK[0])
+		keys[1] = pointA.Sub(keys[0])
 
 		// encrypt plaintext message with key derived from K0, K1
-		for choice, plaintext := range messages[i] {
+		for choice, plaintext := range otMessages[i] {
 			// encryption
-			ciphertext, err = crypto.XorCipherWithBlake3(pointK[choice].DeriveKeyFromECPoint(), uint8(choice), plaintext)
+			ciphertext, err = crypto.XorCipherWithBlake3(keys[choice].DeriveKeyFromECPoint(), uint8(choice), plaintext)
 			if err != nil {
 				return fmt.Errorf("error encrypting sender message: %s", err)
 			}
@@ -98,7 +90,7 @@ func (n naorPinkas) Send(messages [][][]byte, rw io.ReadWriter) (err error) {
 }
 
 func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices)*8 != len(messages) || len(choices)*8 != n.baseCount {
+	if len(choices)*8 != len(messages) || len(choices)*8 != len(n.msgLen) {
 		return ErrBaseCountMissMatch
 	}
 	// instantiate Reader, Writer
@@ -115,9 +107,9 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		return err
 	}
 	// Generate points B, 1 for each OT
-	bSecrets := make([][]byte, n.baseCount)
+	bSecrets := make([][]byte, len(messages))
 	var pointB *crypto.Point
-	for i := 0; i < n.baseCount; i++ {
+	for i := range messages {
 		// generate receiver priv/pub key pairs going to take a long time.
 		bSecrets[i], pointB, err = crypto.GenerateKey()
 		if err != nil {
@@ -142,7 +134,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	e := make([][]byte, 2)
 	var pointK *crypto.Point
 	// receive encrypted messages, and decrypt it.
-	for i := 0; i < n.baseCount; i++ {
+	for i := range messages {
 		// read both msg
 		for j := range e {
 			e[j] = make([]byte, n.msgLen[i])

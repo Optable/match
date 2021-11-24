@@ -43,6 +43,18 @@ func TestGetMurmur3(t *testing.T) {
 	}
 }
 
+func TestGetMetro(t *testing.T) {
+	s, _ := makeSalt()
+	h, err := New(Metro, s)
+	if err != nil {
+		t.Fatalf("got error %v while requesting metro hash", err)
+	}
+
+	if _, ok := h.(metro64); !ok {
+		t.Fatalf("expected type metro64 and got %T", h)
+	}
+}
+
 func BenchmarkMurmur3(b *testing.B) {
 	s, _ := makeSalt()
 	h, _ := New(Murmur3, s)

@@ -58,7 +58,7 @@ func NewOPRF(m int) (*OPRF, error) {
 		baseMsgLen[i] = baseOTCount / 8 // 64 bytes
 	}
 
-	ot, err := ot.NewBaseOT(baseOTCount, baseMsgLen)
+	ot, err := ot.NewNaorPinkas(baseMsgLen)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (e
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
-	baseMsgs, err := util.SampleRandom3DBitMatrix(baseOTCount, 2, baseOTCount)
+	baseMsgs, err := ot.SampleRandomOTMessages(baseOTCount, baseOTCount)
 	if err != nil {
 		return encodings, err
 	}

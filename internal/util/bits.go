@@ -226,28 +226,6 @@ func SampleRandomBitMatrix(row, col int) ([][]uint8, error) {
 	return matrix, nil
 }
 
-// SampleRandom3DBitMatrix allocates a 3D byte matrix of dimension rows x cols with
-// each column being another slice holding elems elements. Extra elements are added to
-// each column to be a multiple of 512. Every slice is filled with pseudorandom bytes
-// values from a rand reader.
-func SampleRandom3DBitMatrix(rows, cols, elems int) ([][][]byte, error) {
-	// instantiate matrix
-	matrix := make([][][]byte, rows)
-	for row := range matrix {
-		matrix[row] = make([][]byte, cols)
-		for col := range matrix[row] {
-			matrix[row][col] = make([]byte, (elems+PadTill512(elems))/8)
-			// fill
-			if _, err := rand.Read(matrix[row][col]); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return matrix, nil
-
-}
-
 // PadTill512 returns the number of rows/columns to pad such that the number is a
 // multiple of 512.
 func PadTill512(m int) int {

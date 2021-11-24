@@ -18,21 +18,9 @@ var (
 	otExtensionCount = 1400
 )
 
-func TestNewNaorPinkas(t *testing.T) {
-	ot, err := NewBaseOT(3, []int{1, 2, 3})
-	if err != nil {
-		t.Fatalf("got error %v while creating NaorPinkas baseOT", err)
-	}
-
-	if _, ok := ot.(naorPinkas); !ok {
-		t.Fatalf("expected type naorPinkas, got %T", ot)
-	}
-}
-
-func genMsg(n, t int) [][][]byte {
-	data := make([][][]byte, n)
+func genMsg(n, t int) []OTMessage {
+	data := make([]OTMessage, n)
 	for i := 0; i < n; i++ {
-		data[i] = make([][]byte, t)
 		for j := range data[i] {
 			data[i][j] = make([]byte, otExtensionCount)
 			rand.Read(data[i][j])
@@ -94,7 +82,7 @@ func TestNaorPinkas(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	ot, err := NewBaseOT(baseCount, msgLen)
+	ot, err := NewNaorPinkas(msgLen)
 	if err != nil {
 		t.Fatalf("Error creating NaorPinkas OT: %s", err)
 	}
@@ -109,7 +97,7 @@ func TestNaorPinkas(t *testing.T) {
 		if err != nil {
 			errs <- fmt.Errorf("Cannot dial: %s", err)
 		}
-		ss, err := NewBaseOT(baseCount, msgLen)
+		ss, err := NewNaorPinkas(msgLen)
 		if err != nil {
 			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
 		}
