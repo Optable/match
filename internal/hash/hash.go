@@ -1,9 +1,11 @@
 package hash
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 
+	"github.com/optable/match/internal/util"
 	"github.com/shivakar/metrohash"
 	"github.com/twmb/murmur3"
 )
@@ -13,6 +15,7 @@ const (
 
 	Murmur3 = iota
 	Metro
+	MetroCached
 )
 
 var (
@@ -38,6 +41,8 @@ func New(t int, salt []byte) (Hasher, error) {
 		return NewMurmur3Hasher(salt)
 	case Metro:
 		return NewMetroHasher(salt)
+	case MetroCached:
+		return NewMetroCachedHasher(salt)
 	default:
 		return nil, ErrUnknownHash
 	}
@@ -83,4 +88,31 @@ func (m metro) Hash64(p []byte) uint64 {
 	h.Write(m.salt)
 	h.Write(p)
 	return h.Sum64()
+}
+
+// Metro Hash implementation of Hasher
+type metroCached struct {
+	hasher *metrohash.MetroHash64
+}
+
+// NewMetroCachedHasher returns a metro hasher that uses salt internally
+func NewMetroCachedHasher(salt []byte) (metroCached, error) {
+	if len(salt) != SaltLength {
+		return metroCached{}, ErrSaltLengthMismatch
+	}
+
+	// condense 32 byte salt to a uint64
+	seed := make([]byte, 8)
+	copy(seed, salt)
+	util.Xor(seed, salt[8:16])
+	util.Xor(seed, salt[16:24])
+	util.Xor(seed, salt[24:])
+
+	return metroCached{hasher: metrohash.NewSeedMetroHash64(binary.LittleEndian.Uint64(seed))}, nil
+}
+
+func (m metroCached) Hash64(p []byte) uint64 {
+	m.hasher.Reset()
+	m.hasher.Write(p)
+	return m.hasher.Sum64()
 }
