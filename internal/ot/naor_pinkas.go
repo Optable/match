@@ -16,6 +16,9 @@ reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
 */
 
 type naorPinkas struct {
+	// msgLen holds the length of each pairs of OT message
+	// it serves to inform the receiver, how many bytes it is
+	// expected to read
 	msgLen []int
 }
 
@@ -57,7 +60,6 @@ func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
 	// precompute A = rA
 	pointA = pointA.ScalarMult(secretR)
 
-	var ciphertext []byte
 	// encrypt plaintext messages and send them.
 	for i := range otMessages {
 		// receive key material
@@ -66,17 +68,19 @@ func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
 			return err
 		}
 		var keys [2]*crypto.Point
-		// compute K0 = rK0
+		// compute and derive key for first OT message
+		// K0 = rK0
 		keys[0] = keyMaterial.ScalarMult(secretR)
-		// compute K1 = rA - rK0
+		// compute and derive key for second OT message
+		// K1 = rA - rK0
 		keys[1] = pointA.Sub(keys[0])
 
-		// encrypt plaintext message with key derived from K0, K1
+		// encrypt plaintext message with keys
 		for choice, plaintext := range otMessages[i] {
 			// encryption
-			ciphertext, err = crypto.XorCipherWithBlake3(keys[choice].DeriveKeyFromECPoint(), uint8(choice), plaintext)
+			ciphertext, err := crypto.XorCipherWithBlake3(keys[choice].DeriveKeyFromECPoint(), uint8(choice), plaintext)
 			if err != nil {
-				return fmt.Errorf("error encrypting sender message: %s", err)
+				return fmt.Errorf("base OT: error encrypting sender message: %s", err)
 			}
 
 			// send ciphertext
@@ -93,9 +97,11 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	if len(choices)*8 != len(messages) || len(choices)*8 != len(n.msgLen) {
 		return ErrBaseCountMissMatch
 	}
+
 	// instantiate Reader, Writer
 	reader := crypto.NewECPointReader(rw)
 	writer := crypto.NewECPointWriter(rw)
+
 	// receive point A from sender
 	pointA := crypto.NewPoint()
 	if err := reader.Read(pointA); err != nil {
@@ -106,17 +112,19 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 	if err := reader.Read(pointR); err != nil {
 		return err
 	}
+
 	// Generate points B, 1 for each OT
 	bSecrets := make([][]byte, len(messages))
-	var pointB *crypto.Point
 	for i := range messages {
+		var pointB = crypto.NewPoint()
 		// generate receiver priv/pub key pairs going to take a long time.
 		bSecrets[i], pointB, err = crypto.GenerateKey()
 		if err != nil {
 			return err
 		}
 
-		// for each choice bit, compute the resultant point Kc, K1-c and send K0
+		// for each choice bit, compute the key material corresponding to
+		// the choice bit and sent it.
 		if !util.BitSetInByte(choices, i) {
 			// K0 = Kc = B
 			if err := writer.Write(pointB); err != nil {
@@ -131,30 +139,32 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		}
 	}
 
-	e := make([][]byte, 2)
-	var pointK *crypto.Point
 	// receive encrypted messages, and decrypt it.
 	for i := range messages {
+		var encryptedOTMessages OTMessage
 		// read both msg
-		for j := range e {
-			e[j] = make([]byte, n.msgLen[i])
-			if _, err := io.ReadFull(rw, e[j]); err != nil {
-				return err
-			}
+		encryptedOTMessages[0] = make([]byte, n.msgLen[i])
+		if _, err := io.ReadFull(rw, encryptedOTMessages[0]); err != nil {
+			return err
+		}
+
+		encryptedOTMessages[1] = make([]byte, n.msgLen[i])
+		if _, err := io.ReadFull(rw, encryptedOTMessages[1]); err != nil {
+			return err
 		}
 
 		// build keys for decryption
 		// K = bR
-		pointK = pointR.ScalarMult(bSecrets[i])
+		pointK := pointR.ScalarMult(bSecrets[i])
 
 		// decrypt the message indexed by choice bit
-		var bit byte
+		var choiceBit byte
 		if util.BitSetInByte(choices, i) {
-			bit = 1
+			choiceBit = 1
 		}
-		messages[i], err = crypto.XorCipherWithBlake3(pointK.DeriveKeyFromECPoint(), bit, e[bit])
+		messages[i], err = crypto.XorCipherWithBlake3(pointK.DeriveKeyFromECPoint(), choiceBit, encryptedOTMessages[choiceBit])
 		if err != nil {
-			return fmt.Errorf("error decrypting sender message: %s", err)
+			return fmt.Errorf("base OT: error decrypting sender message: %s", err)
 		}
 	}
 
