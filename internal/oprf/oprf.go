@@ -43,14 +43,15 @@ type Key struct {
 	otMatrix [][]byte // m x k bit matrice
 }
 
-// OPRF implements the improved KKRT oprf
+// OPRF implements the oprf struct containing the base OT
+// as well as the number of message tuples.
 type OPRF struct {
 	baseOT ot.OT // base OT under the hood
 	m      int   // number of message tuples
 }
 
-// NewImprovedKKRT returns an Improved KKRT OPRF where
-// m specifies the number of message tuples being exchanged.
+// NewOPRF returns an OPRF where m specifies the number
+// of message tuples being exchanged.
 func NewOPRF(m int) (*OPRF, error) {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLen := make([]int, baseOTCount)

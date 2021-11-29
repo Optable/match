@@ -189,7 +189,7 @@ func TestOPRF(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for %d ImprovedKKRT OPRF is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for %d OPRF is: %v\n", baseCount, end.Sub(start))
 
 	// Testing encodings
 	err = testEncodings(encodedHashMap, keys, sk, seeds, choicesCuckoo, choices)
