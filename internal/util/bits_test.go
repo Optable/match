@@ -4,52 +4,9 @@ import (
 	"math/rand"
 	"runtime"
 	"testing"
-
-	"github.com/alecthomas/unsafeslice"
 )
 
 var benchmarkBytes = 10000000
-
-// Note the double conversion of bytes to uint64s to bytes does
-// result in added 0s.
-// Only tested on AMD64.
-func TestSliceConversions(t *testing.T) {
-	lengths := []int{8, 16, 24, 32, 40, 48}
-	for _, l := range lengths {
-		// Bytes to Uint64s
-		b := make([]byte, l)
-		if _, err := rand.Read(b); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-		u := unsafeslice.Uint64SliceFromByteSlice(b)
-		bb := unsafeslice.ByteSliceFromUint64Slice(u)
-
-		// test
-		for i, e := range b {
-			if e != bb[i] {
-				t.Error("byte-to-uint64-to-byte conversion did not result in identical slices")
-			}
-		}
-	}
-	lengths = []int{2, 8, 16, 34, 100}
-	for _, l := range lengths {
-		// Uint64s to Bytes
-		u := make([]uint64, l)
-		for i := range u {
-			u[i] = rand.Uint64()
-		}
-		b := unsafeslice.ByteSliceFromUint64Slice(u)
-		uu := unsafeslice.Uint64SliceFromByteSlice(b)
-
-		//test
-		for i, e := range u {
-			if e != uu[i] {
-				t.Error("uint64-to-byte-to-uint64 conversion did not result in identical slices")
-			}
-		}
-
-	}
-}
 
 func TestXor(t *testing.T) {
 	lengths := []int{3, 8, 16, 33}
