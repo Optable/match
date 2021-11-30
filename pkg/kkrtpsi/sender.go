@@ -34,6 +34,13 @@ type oprfEncodedInputs struct {
 	bucketIdx  [cuckoo.Nhash]uint64
 }
 
+// inputsAndHasher is used to pass the OPRF encoded
+// inputs along with the hasher from stage 1 to stage 3
+type inputsAndHasher struct {
+	inputs []oprfEncodedInputs
+	hasher hash.Hasher
+}
+
 // NewSender returns a KKRTPSI sender initialized to
 // use rw as the communication layer
 func NewSender(rw io.ReadWriter) *Sender {
@@ -60,9 +67,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var oprfInputSize int // nb of OPRF keys
 
 	var oprfKeys *oprf.Key
-	var pseudorandIds = make(chan oprfEncodedInputs, n)
-	var hashChan = make(chan hash.Hasher)
-	var errChan = make(chan error, 1)
+	var encodedInputChan = make(chan inputsAndHasher)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	// for cuckoo hashing parameters agreement.
@@ -88,7 +93,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// sample random 16 byte secret key for AES-128 and send to the receiver
-		sk := make([]byte, 16)
+		sk := make([]byte, aes.BlockSize)
 		if _, err = rand.Read(sk); err != nil {
 			return err
 		}
@@ -109,16 +114,20 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
 		go func() {
-			defer close(pseudorandIds)
 			cuckooHasher, err := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
 			if err != nil {
-				errChan <- err
+				panic(err)
 			}
-			// instantiate an AES block as well as a Highway Hash
+			// instantiate an AES block
 			aesBlock, err := aes.NewCipher(sk)
 			if err != nil {
-				errChan <- err
+				panic(err)
 			}
+
+			// prepare struct to send inputs and hasher to stage 3
+			var message inputsAndHasher
+			message.inputs = make([]oprfEncodedInputs, n)
+			i := 0
 
 			for id := range identifiers {
 				// hash and calculate pseudorandom code given each possible hash index
@@ -126,10 +135,11 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				for hIdx := 0; hIdx < cuckoo.Nhash; hIdx++ {
 					bytes[hIdx] = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 				}
-				pseudorandIds <- oprfEncodedInputs{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
+				message.inputs[i] = oprfEncodedInputs{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
+				i++
 			}
-			hasher := cuckooHasher.GetHasher()
-			hashChan <- hasher
+			message.hasher = cuckooHasher.GetHasher()
+			encodedInputChan <- message
 		}()
 
 		// end stage1
@@ -163,18 +173,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		var hasher hash.Hasher
-		// read error
-		select {
-		case err := <-errChan:
-			if err != nil {
-				return err
-			}
-		// block until we have the hasher
-		case hasher = <-hashChan:
-		}
-
-		localEncodings := EncodeAndHashAllParallel(oprfKeys, hasher, pseudorandIds)
+		localEncodings := EncodeAndHashAllParallel(oprfKeys, <-encodedInputChan)
 
 		// Add a buffer of 64k to amortize syscalls cost
 		var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)

@@ -56,7 +56,7 @@ func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Has
 
 // HashAllParallel reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
-func EncodeAndHashAllParallel(oprfKeys *oprf.Key, hasher hash.Hasher, identifiers <-chan oprfEncodedInputs) <-chan [cuckoo.Nhash]uint64 {
+func EncodeAndHashAllParallel(oprfKeys *oprf.Key, message inputsAndHasher) <-chan [cuckoo.Nhash]uint64 {
 	// one wg.Add() per batch + one for the batcher go routine
 	var jobPool = make(chan hashEncodingJob)
 	var wg sync.WaitGroup
@@ -68,7 +68,7 @@ func EncodeAndHashAllParallel(oprfKeys *oprf.Key, hasher hash.Hasher, identifier
 			for job := range jobPool {
 				var hashed = make([][cuckoo.Nhash]uint64, job.batchSize)
 				for i := 0; i < job.batchSize; i++ {
-					hashed[i], err = job.prc[i].encodeAndHash(oprfKeys, hasher)
+					hashed[i], err = job.prc[i].encodeAndHash(oprfKeys, message.hasher)
 					if err != nil {
 						panic(err)
 					}
@@ -93,8 +93,8 @@ func EncodeAndHashAllParallel(oprfKeys *oprf.Key, hasher hash.Hasher, identifier
 		defer wg.Done()
 		var i = 0
 		// init a first batch
-		var batch = makeJob(hasher, batchSize, execute)
-		for identifier := range identifiers {
+		var batch = makeJob(message.hasher, batchSize, execute)
+		for _, identifier := range message.inputs {
 			// accumulate a batch
 			batch.prc[i] = identifier
 			i++
@@ -103,7 +103,7 @@ func EncodeAndHashAllParallel(oprfKeys *oprf.Key, hasher hash.Hasher, identifier
 				wg.Add(1)
 				jobPool <- batch
 				// reset batch
-				batch = makeJob(hasher, batchSize, execute)
+				batch = makeJob(message.hasher, batchSize, execute)
 				i = 0
 			}
 		}
