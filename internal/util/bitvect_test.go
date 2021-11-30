@@ -7,8 +7,7 @@ import (
 )
 
 var (
-	nmsg     = 1024
-	nworkers = runtime.GOMAXPROCS(0)
+	nmsg = 1 << 20
 )
 
 // genTranBlock creates a 512x512 bit block where every bit position

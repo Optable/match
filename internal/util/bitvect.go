@@ -53,18 +53,32 @@ func (b BitVect) ravelToWide(matrix [][]byte, idx int) {
 	}
 }
 
-// ConcurrentTransposeTall tranposes a tall (64 column) matrix. First it
-// determines how many 512x512 bit blocks are necessary to contain the matrix
-// and holds the indices where the blocks should be split from the larger matrix.
-// The input matrix must have a multiple of 512 rows (tall). The indices are
-//  passed into a channel which is being read by a worker pool of goroutines.
-// Each goroutine reads an index, generates a BitVect from the matrix at that
-// index, performs a cache-oblivious, in-place, contiguous transpose on the
-// BitVect, and finally writes the result to a shared final output matrix.
+// ConcurrentTransposeTall tranposes a tall (64 column) matrix. If the input
+// matrix does not have a multiple of 512 rows (tall), panic. First it
+// determines how many 512x512 bit blocks are necessary to contain the matrix.
+// The blocks are divided among the number of workers. If there are fewer blocks
+// than workers, this function operates as though it were single-threaded. For
+// those small sets, performance could be improved by limiting the number of
+// workers to the number of blocks but this incurs a performance penaltly and it
+// is much more likely that there will be more blocks than workers/cpu cores.
+// Each goroutine, iterates over the blocks for which it is responsible. For
+// each block it generates a BitVect from the matrix at the appropriate index,
+// performs a cache-oblivious, in-place, contiguous transpose on the BitVect,
+// and finally writes the result to a shared final output matrix. The last
+// worker is responsible for any excess blocks which were not evenly divisible
+// into the number of workers.
 func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
+	if len(matrix)%512 != 0 {
+		panic("rows of input matrix not a multiple of 512")
+	}
+
 	nworkers := runtime.GOMAXPROCS(0)
-	// determine number of blocks to split original matrix
+
+	// number of blocks to split original matrix
 	nblks := len(matrix) / 512
+
+	// how many blocks each worker is responsible for
+	workerResp := nblks / nworkers
 
 	// build output matrix
 	trans := make([][]byte, 512)
@@ -72,23 +86,26 @@ func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
 		trans[r] = make([]byte, len(matrix)/8)
 	}
 
-	// feed into buffered channel
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
-
 	// Run a worker pool
 	var wg sync.WaitGroup
 	wg.Add(nworkers)
 	for w := 0; w < nworkers; w++ {
+		w := w
 		go func() {
 			defer wg.Done()
-			for id := range ch {
-				b := unravelTall(matrix, id)
-				b.transpose()
-				b.ravelToWide(trans, id)
+			step := workerResp * w
+			if w == nworkers-1 { // last worker has extra work
+				for i := step; i < nblks; i++ {
+					b := unravelTall(matrix, i)
+					b.transpose()
+					b.ravelToWide(trans, i)
+				}
+			} else {
+				for i := step; i < step+workerResp; i++ {
+					b := unravelTall(matrix, i)
+					b.transpose()
+					b.ravelToWide(trans, i)
+				}
 			}
 		}()
 	}
@@ -98,18 +115,32 @@ func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
 	return trans
 }
 
-// ConcurrentTransposeWide tranposes a wide (512 row) matrix. First it determines
-// how many 512x512 bit blocks are necessary to contain the matrix and holds the
-// indices where the blocks should be split from the larger matrix. The input
-// matrix must have a multiple of 64 columns (wide). The indices are passed into
-//  a channel which is being read by a worker pool of goroutines. Each goroutine
-// reads an index, generates a BitVect from the matrix at that index, performs a
-// cache-oblivious, in-place, contiguous transpose on the BitVect, and finally
-// writes the result to a shared final output matrix.
+// ConcurrentTransposeWide tranposes a wide (512 row) matrix. If the input
+// matrix does not have a multiple of 64 columns (tall), panic. First it
+// determines how many 512x512 bit blocks are necessary to contain the matrix.
+// The blocks are divided among the number of workers. If there are fewer blocks
+// than workers, this function operates as though it were single-threaded. For
+// those small sets, performance could be improved by limiting the number of
+// workers to the number of blocks but this incurs a performance penaltly and it
+// is much more likely that there will be more blocks than workers/cpu cores.
+// Each goroutine, iterates over the blocks for which it is responsible. For
+// each block it generates a BitVect from the matrix at the appropriate index,
+// performs a cache-oblivious, in-place, contiguous transpose on the BitVect,
+// and finally writes the result to a shared final output matrix. The last
+// worker is responsible for any excess blocks which were not evenly divisible
+// into the number of workers.
 func ConcurrentTransposeWide(matrix [][]byte) [][]byte {
+	if len(matrix[0])%64 != 0 {
+		panic("columns of input matrix not a multiple of 64")
+	}
+
 	nworkers := runtime.GOMAXPROCS(0)
+
 	// determine number of blocks to split original matrix
 	nblks := len(matrix[0]) / 64
+
+	// how many blocks each worker is responsible for
+	workerResp := nblks / nworkers
 
 	// build output matrix
 	trans := make([][]byte, len(matrix[0])*8)
@@ -117,26 +148,28 @@ func ConcurrentTransposeWide(matrix [][]byte) [][]byte {
 		trans[r] = make([]byte, 64)
 	}
 
-	// feed into buffered channel
-	ch := make(chan int, nblks)
-	for i := 0; i < nblks; i++ {
-		ch <- i
-	}
-	close(ch)
-
 	// Run a worker pool
 	var wg sync.WaitGroup
 	wg.Add(nworkers)
 	for w := 0; w < nworkers; w++ {
+		w := w
 		go func() {
 			defer wg.Done()
-			for id := range ch {
-				b := unravelWide(matrix, id)
-				b.transpose()
-				b.ravelToTall(trans, id)
+			step := workerResp * w
+			if w == nworkers-1 { // last worker has extra work
+				for i := step; i < nblks; i++ {
+					b := unravelWide(matrix, i)
+					b.transpose()
+					b.ravelToTall(trans, i)
+				}
+			} else {
+				for i := step; i < step+workerResp; i++ {
+					b := unravelWide(matrix, i)
+					b.transpose()
+					b.ravelToTall(trans, i)
+				}
 			}
 		}()
-
 	}
 
 	wg.Wait()
