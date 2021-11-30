@@ -1,11 +1,8 @@
 package ot
 
 import (
-	"crypto/rand"
 	"errors"
 	"io"
-
-	"github.com/optable/match/internal/util"
 )
 
 /*
@@ -29,23 +26,3 @@ type OT interface {
 // and an OT receiver with choice bit 1 will
 // correclty decode the second message
 type OTMessage [2][]byte
-
-// SampleRandomOTMessage allocates a slice of OTMessage, each OTMessage contains a pair of messages.
-// Extra elements are added to each column to be a multiple of 512. Every slice is filled with pseudorandom bytes
-// values from a rand reader.
-func SampleRandomOTMessages(rows, elems int) ([]OTMessage, error) {
-	// instantiate matrix
-	matrix := make([]OTMessage, rows)
-	for row := range matrix {
-		for col := range matrix[row] {
-			matrix[row][col] = make([]byte, util.PadBitMap(elems, 512))
-			// fill
-			if _, err := rand.Read(matrix[row][col]); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return matrix, nil
-
-}

@@ -149,8 +149,8 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 		pseudorandomChan <- util.ConcurrentTransposeTall(pseudorandomEncoding)
 	}()
 
-	// sample 2*k x k byte matrix (2*k x k bit matrix)
-	baseMsgs, err := ot.SampleRandomOTMessages(baseOTCount, baseOTCount)
+	// sample random OT messages
+	baseMsgs, err := sampleRandomOTMessages()
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 		// check if it was an empty input
 		if idx, err := choices.GetBucket(bIdx); idx != 0 {
 			if err != nil {
-				return encodings, err
+				panic(err)
 			}
 			// insert into proper map
 			_, hIdx := choices.GetItemWithHash(idx)
@@ -222,4 +222,24 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 // Encode computes and returns OPRF(k, in)
 func (k Key) Encode(j uint64, pseudorandomBytes []byte) error {
 	return util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.secret, k.otMatrix[j])
+}
+
+// sampleRandomOTMessage allocates a slice of OTMessage, each OTMessage contains a pair of messages.
+// Extra elements are added to each column to be a multiple of 512. Every slice is filled with pseudorandom bytes
+// values from a rand reader.
+func sampleRandomOTMessages() ([]ot.OTMessage, error) {
+	// instantiate matrix
+	matrix := make([]ot.OTMessage, baseOTCount)
+	for row := range matrix {
+		for col := range matrix[row] {
+			matrix[row][col] = make([]byte, baseOTCountBitmapWidth)
+			// fill
+			if _, err := rand.Read(matrix[row][col]); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return matrix, nil
+
 }
