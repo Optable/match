@@ -154,7 +154,7 @@ func TestConcurrentTransposeTall(t *testing.T) {
 	for _, m := range trange {
 		orig := sampleRandomTall(m)
 		tr := ConcurrentTransposeTall(orig)
-		dtr := ConcurrentTransposeWide(tr, nworkers)
+		dtr := ConcurrentTransposeWide(tr)
 		// test
 		for k := range orig {
 			for l := range orig[k] {
@@ -172,7 +172,7 @@ func TestConcurrentTransposeWide(t *testing.T) {
 	trange := []int{64, 64 * 2, 64 * 3, 64 * 4}
 	for _, m := range trange {
 		orig := sampleRandomWide(m)
-		tr := ConcurrentTransposeWide(orig, nworkers)
+		tr := ConcurrentTransposeWide(orig)
 		dtr := ConcurrentTransposeTall(tr)
 		//test
 		for k := range dtr {

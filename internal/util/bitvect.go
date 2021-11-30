@@ -106,7 +106,8 @@ func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
 // reads an index, generates a BitVect from the matrix at that index, performs a
 // cache-oblivious, in-place, contiguous transpose on the BitVect, and finally
 // writes the result to a shared final output matrix.
-func ConcurrentTransposeWide(matrix [][]byte, nworkers int) [][]byte {
+func ConcurrentTransposeWide(matrix [][]byte) [][]byte {
+	nworkers := runtime.GOMAXPROCS(0)
 	// determine number of blocks to split original matrix
 	nblks := len(matrix[0]) / 64
 

@@ -109,7 +109,7 @@ func (ext *OPRF) Send(rw io.ReadWriter) (keys Key, err error) {
 		}
 	}
 	runtime.GC()
-	q = util.ConcurrentTransposeWide(q, runtime.GOMAXPROCS(0))[:ext.m]
+	q = util.ConcurrentTransposeWide(q)[:ext.m]
 
 	// store oprf keys
 	return Key{secret: s, otMatrix: q}, err
@@ -198,7 +198,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (e
 	}
 
 	runtime.GC()
-	t = util.ConcurrentTransposeWide(t, runtime.GOMAXPROCS(0))[:ext.m]
+	t = util.ConcurrentTransposeWide(t)[:ext.m]
 
 	// Hash and index all local encodings
 	// the hash value of the oprf encoding is the key
