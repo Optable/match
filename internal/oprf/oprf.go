@@ -55,19 +55,14 @@ type OPRF struct {
 
 // NewOPRF returns an OPRF where m specifies the number
 // of message tuples being exchanged.
-func NewOPRF(m int) (*OPRF, error) {
+func NewOPRF(m int) *OPRF {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLen := make([]int, baseOTCount)
 	for i := range baseMsgLen {
 		baseMsgLen[i] = baseOTCount / 8 // 64 bytes
 	}
 
-	ot, err := ot.NewNaorPinkas(baseMsgLen)
-	if err != nil {
-		return nil, err
-	}
-
-	return &OPRF{baseOT: ot, m: m}, nil
+	return &OPRF{baseOT: ot.NewNaorPinkas(baseMsgLen), m: m}
 }
 
 // Send returns the OPRF keys

@@ -22,8 +22,8 @@ type naorPinkas struct {
 	msgLen []int
 }
 
-func NewNaorPinkas(msgLen []int) (OT, error) {
-	return naorPinkas{msgLen: msgLen}, nil
+func NewNaorPinkas(msgLen []int) OT {
+	return naorPinkas{msgLen: msgLen}
 }
 
 func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
@@ -60,17 +60,21 @@ func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
 	// precompute A = rA
 	pointA = pointA.ScalarMult(secretR)
 
-	// encrypt plaintext messages and send them.
-	for i := range otMessages {
-		// receive key material
-		keyMaterial := crypto.NewPoint()
-		if err := reader.Read(keyMaterial); err != nil {
+	keyMaterials := make([]*crypto.Point, len(otMessages))
+	for i := range keyMaterials {
+		keyMaterials[i] = crypto.NewPoint()
+		if err := reader.Read(keyMaterials[i]); err != nil {
 			return fmt.Errorf("error reading point: %w", err)
 		}
+	}
+
+	// encrypt plaintext messages and send them.
+	for i := range otMessages {
+		// use keyMaterials to derive keys
 		var keys [2]*crypto.Point
 		// compute and derive key for first OT message
 		// K0 = rK0
-		keys[0] = keyMaterial.ScalarMult(secretR)
+		keys[0] = keyMaterials[i].ScalarMult(secretR)
 		// compute and derive key for second OT message
 		// K1 = rA - rK0
 		keys[1] = pointA.Sub(keys[0])

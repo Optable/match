@@ -14,14 +14,10 @@ import (
 	"github.com/optable/match/internal/hash"
 )
 
-var (
-	network   = "tcp"
-	address   = "127.0.0.1:"
-	baseCount = 1 << 16
-)
+var msgCount = 1 << 16
 
 func genChoiceString() [][]byte {
-	choices := make([][]byte, baseCount)
+	choices := make([][]byte, msgCount)
 	for i := range choices {
 		choices[i] = make([]byte, 66)
 		rand.Read(choices[i])
@@ -30,7 +26,7 @@ func genChoiceString() [][]byte {
 }
 
 func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, error) {
-	c, err := cuckoo.NewCuckoo(uint64(baseCount), seeds)
+	c, err := cuckoo.NewCuckoo(uint64(msgCount), seeds)
 	if err != nil {
 		return nil, err
 	}
@@ -42,34 +38,8 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 	return c, nil
 }
 
-func initOPRFReceiver(oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- []map[uint64]uint64, errs chan<- error) (string, error) {
-	l, err := net.Listen(network, address)
-	if err != nil {
-		return "", err
-	}
-
-	go func() {
-		conn, err := l.Accept()
-		if err != nil {
-			errs <- fmt.Errorf("Cannot create connection in listen accept: %s", err)
-		}
-
-		go oprfReceiveHandler(conn, oprf, choices, sk, outBus, errs)
-	}()
-	return l.Addr().String(), nil
-}
-
-func oprfReceiveHandler(conn net.Conn, oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- []map[uint64]uint64, errs chan<- error) {
-	defer close(outBus)
-	out, err := oprf.Receive(choices, sk, conn)
-	if err != nil {
-		errs <- err
-	}
-	outBus <- out
-}
-
 func testEncodings(encodedHashMap []map[uint64]uint64, keys *Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
-	senderCuckoo, err := cuckoo.NewCuckooHasher(uint64(baseCount), seeds)
+	senderCuckoo, err := cuckoo.NewCuckooHasher(uint64(msgCount), seeds)
 	if err != nil {
 		return err
 	}
@@ -125,53 +95,49 @@ func TestOPRF(t *testing.T) {
 
 	// start timer
 	start := time.Now()
+	// sample seeds
 	var seeds [cuckoo.Nhash][]byte
 	for i := range seeds {
 		seeds[i] = make([]byte, hash.SaltLength)
 		rand.Read(seeds[i])
 	}
+
+	// generate oprf Input
 	choicesCuckoo, err := makeCuckoo(choices, seeds)
 	if err != nil {
 		t.Fatal(err)
 	}
+	oprfInputSize := int(choicesCuckoo.Len())
+
 	// generate AES secret key (16-byte)
 	if _, err := rand.Read(sk); err != nil {
 		t.Fatal(err)
 	}
 
-	receiverOPRF, err := NewOPRF(int(choicesCuckoo.Len()))
-	if err != nil {
-		t.Fatal(err)
-	}
+	// create client, server connections
+	senderConn, receiverConn := net.Pipe()
 
-	addr, err := initOPRFReceiver(receiverOPRF, choicesCuckoo, sk, outBus, errs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	senderOPRF, err := NewOPRF(int(choicesCuckoo.Len()))
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	// sender
 	go func() {
 		defer close(errs)
-		conn, err := net.Dial(network, addr)
-		if err != nil {
-			errs <- fmt.Errorf("Cannot dial: %s", err)
-		}
-		if err != nil {
-			errs <- fmt.Errorf("Error creating IKNP OT: %s", err)
-		}
-
 		defer close(keyBus)
-		keys, err := senderOPRF.Send(conn)
+		keys, err := NewOPRF(oprfInputSize).Send(senderConn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(outBus)
 		}
 
 		keyBus <- keys
+	}()
+
+	// receiver
+	go func() {
+		defer close(outBus)
+		out, err := NewOPRF(oprfInputSize).Receive(choicesCuckoo, sk, receiverConn)
+		if err != nil {
+			errs <- err
+		}
+		outBus <- out
 	}()
 
 	// any errors?
@@ -189,7 +155,7 @@ func TestOPRF(t *testing.T) {
 
 	// stop timer
 	end := time.Now()
-	t.Logf("Time taken for %d OPRF is: %v\n", baseCount, end.Sub(start))
+	t.Logf("Time taken for %d OPRF is: %v\n", msgCount, end.Sub(start))
 
 	// Testing encodings
 	err = testEncodings(encodedHashMap, keys, sk, seeds, choicesCuckoo, choices)

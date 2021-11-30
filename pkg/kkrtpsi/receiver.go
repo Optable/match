@@ -96,12 +96,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
 	stage2 := func() error {
 		logger.V(1).Info("Starting stage 2")
-		oReceiver, err := oprf.NewOPRF(int(cuckooHashTable.Len()))
-		if err != nil {
-			return err
-		}
-
-		oprfOutput, err = oReceiver.Receive(cuckooHashTable, sk, r.rw)
+		oprfInputSize := int(cuckooHashTable.Len())
+		oprfOutput, err = oprf.NewOPRF(oprfInputSize).Receive(cuckooHashTable, sk, r.rw)
 		if err != nil {
 			return err
 		}

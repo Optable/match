@@ -214,7 +214,7 @@ func TestBPSIReceiver(t *testing.T) {
 		// generate common data
 		common := emails.Common(hashLenTest.commonLen, hashLen)
 		// test
-		if err := testReceiver(psi.BPSI, common, hashLenTest, true); err != nil {
+		if err := testReceiver(psi.BPSI, common, hashLenTest, false); err != nil {
 			t.Fatalf("%s: %v", hashLenTest.scenario, err)
 		}
 	}

@@ -12,8 +12,6 @@ import (
 )
 
 var (
-	network          = "tcp"
-	address          = "127.0.0.1:"
 	baseCount        = 512
 	otExtensionCount = 1400
 )
@@ -36,37 +34,6 @@ func genChoiceBits(n int) []uint8 {
 	return choices
 }
 
-func initReceiver(ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) (string, error) {
-	l, err := net.Listen(network, address)
-	if err != nil {
-		errs <- fmt.Errorf("net listen encountered error: %s", err)
-	}
-
-	go func() {
-		conn, err := l.Accept()
-		if err != nil {
-			errs <- fmt.Errorf("cannot create connection in listen accept: %s", err)
-		}
-
-		go receiveHandler(conn, ot, choices, msgBus, errs)
-	}()
-	return l.Addr().String(), nil
-}
-
-func receiveHandler(conn net.Conn, ot OT, choices []uint8, msgBus chan<- []byte, errs chan<- error) {
-	defer close(msgBus)
-
-	msg := make([][]byte, baseCount)
-	err := ot.Receive(choices, msg, conn)
-	if err != nil {
-		errs <- err
-	}
-
-	for _, m := range msg {
-		msgBus <- m
-	}
-}
-
 func TestNaorPinkas(t *testing.T) {
 	messages := genMsg(baseCount, 2)
 	msgLen := make([]int, len(messages))
@@ -82,32 +49,31 @@ func TestNaorPinkas(t *testing.T) {
 	// start timer
 	start := time.Now()
 
-	ot, err := NewNaorPinkas(msgLen)
-	if err != nil {
-		t.Fatalf("Error creating NaorPinkas OT: %s", err)
-	}
+	// create client, server connections
+	senderConn, receiverConn := net.Pipe()
 
-	addr, err := initReceiver(ot, choices, msgBus, errs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	// sender
 	go func() {
-		conn, err := net.Dial(network, addr)
-		if err != nil {
-			errs <- fmt.Errorf("Cannot dial: %s", err)
-		}
-		ss, err := NewNaorPinkas(msgLen)
-		if err != nil {
-			errs <- fmt.Errorf("Error creating simplest OT: %s", err)
-		}
-
-		err = ss.Send(messages, conn)
-		if err != nil {
+		senderOT := NewNaorPinkas(msgLen)
+		if err := senderOT.Send(messages, senderConn); err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(msgBus)
 		}
+	}()
 
+	// receiver
+	go func() {
+		defer close(msgBus)
+		receiverOT := NewNaorPinkas(msgLen)
+
+		msg := make([][]byte, baseCount)
+		if err := receiverOT.Receive(choices, msg, receiverConn); err != nil {
+			errs <- err
+		}
+
+		for _, m := range msg {
+			msgBus <- m
+		}
 	}()
 
 	// Receive msg

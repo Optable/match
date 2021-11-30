@@ -56,8 +56,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var mem uint64
 
 	var seeds [cuckoo.Nhash][]byte
-	var remoteN int64       // receiver size
-	var oprfInputSize int64 // nb of OPRF keys
+	var remoteN int64     // receiver size
+	var oprfInputSize int // nb of OPRF keys
 
 	var oprfKeys *oprf.Key
 	var pseudorandIds = make(chan oprfEncodedInputs, n)
@@ -100,7 +100,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 		// calculate number of OPRF from the receiver based on
 		// number of buckets in cuckooHashTable
-		oprfInputSize = int64(cuckoo.Factor * float64(remoteN))
+		oprfInputSize = int(cuckoo.Factor * float64(remoteN))
 		if 1 > oprfInputSize {
 			oprfInputSize = 1
 		}
@@ -143,12 +143,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		logger.V(1).Info("Starting stage 2")
 
 		// instantiate OPRF sender with agreed parameters
-		oSender, err := oprf.NewOPRF(int(oprfInputSize))
-		if err != nil {
-			return err
-		}
-
-		oprfKeys, err = oSender.Send(s.rw)
+		oprfKeys, err = oprf.NewOPRF(oprfInputSize).Send(s.rw)
 		if err != nil {
 			return err
 		}
