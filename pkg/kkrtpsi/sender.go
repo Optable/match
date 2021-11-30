@@ -27,9 +27,9 @@ type Sender struct {
 	rw io.ReadWriter
 }
 
-// oprfEncodeInputs stores the possible bucket
+// oprfEncodedInputs stores the possible bucket
 // indexes in the receiver cuckoo hash table
-type oprfEncodeInputs struct {
+type oprfEncodedInputs struct {
 	prcEncoded [cuckoo.Nhash][]byte // PseudoRandom Code
 	bucketIdx  [cuckoo.Nhash]uint64
 }
@@ -60,7 +60,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var oprfInputSize int64 // nb of OPRF keys
 
 	var oprfKeys oprf.Key
-	var pseudorandIds = make(chan oprfEncodeInputs, n)
+	var pseudorandIds = make(chan oprfEncodedInputs, n)
 	var hashChan = make(chan hash.Hasher)
 	var errChan = make(chan error, 1)
 
@@ -126,7 +126,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				for hIdx := 0; hIdx < cuckoo.Nhash; hIdx++ {
 					bytes[hIdx] = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 				}
-				pseudorandIds <- oprfEncodeInputs{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
+				pseudorandIds <- oprfEncodedInputs{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
 			}
 			hasher := cuckooHasher.GetHasher()
 			hashChan <- hasher
