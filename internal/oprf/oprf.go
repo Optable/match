@@ -125,20 +125,19 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 
 	// compute code word using PseudorandomCode on choice string r in a separate thread
 	var pseudorandomChan = make(chan [][]byte)
-	var errChan = make(chan error, 1)
 	go func() {
-		defer close(errChan)
+		defer close(pseudorandomChan)
 		bitMapLen := util.Pad(ext.m, baseOTCount) + ext.m
 		pseudorandomEncoding := make([][]byte, bitMapLen)
 		aesBlock, err := aes.NewCipher(sk)
 		if err != nil {
-			errChan <- err
+			panic(err)
 		}
 		i := 0
 		for ; i < ext.m; i++ {
 			idx, err := choices.GetBucket(uint64(i))
 			if err != nil {
-				errChan <- err
+				panic(err)
 			}
 			item, hIdx := choices.GetItemWithHash(idx)
 			pseudorandomEncoding[i] = crypto.PseudorandomCode(aesBlock, item, hIdx)
@@ -161,41 +160,34 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 		return nil, err
 	}
 
-	// read error
-	var pseudorandomEncoding [][]byte
-	select {
-	case err := <-errChan:
-		if err != nil {
-			return nil, err
-		}
-	case pseudorandomEncoding = <-pseudorandomChan:
-	}
+	// read pseudorandomEncodings
+	pseudorandomEncoding := <-pseudorandomChan
 
 	oprfEncoding := make([][]byte, baseOTCount)
 	paddedLen := util.PadBitMap(ext.m, baseOTCount)
-	var u = make([]byte, paddedLen)
+	oprfMask := make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
-	h := blake3.New()
+	blakeHasher := blake3.New()
 	for col := range pseudorandomEncoding {
 		oprfEncoding[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerate(oprfEncoding[col], baseMsgs[col][0], h)
+		err = crypto.PseudorandomGenerate(oprfEncoding[col], baseMsgs[col][0], blakeHasher)
 		if err != nil {
 			return nil, err
 		}
 
-		err = crypto.PseudorandomGenerate(u, baseMsgs[col][1], h)
+		err = crypto.PseudorandomGenerate(oprfMask, baseMsgs[col][1], blakeHasher)
 		if err != nil {
 			return nil, err
 		}
 
-		err = util.ConcurrentDoubleBitOp(util.DoubleXor, u, oprfEncoding[col], pseudorandomEncoding[col])
+		err = util.ConcurrentDoubleBitOp(util.DoubleXor, oprfMask, oprfEncoding[col], pseudorandomEncoding[col])
 		if err != nil {
 			return nil, err
 		}
 
 		// send u
-		if _, err = rw.Write(u); err != nil {
+		if _, err = rw.Write(oprfMask); err != nil {
 			return nil, err
 		}
 	}
