@@ -1,6 +1,7 @@
 package util
 
 import (
+	"runtime"
 	"sync"
 
 	"github.com/alecthomas/unsafeslice"
@@ -60,7 +61,8 @@ func (b BitVect) ravelToWide(matrix [][]byte, idx int) {
 // Each goroutine reads an index, generates a BitVect from the matrix at that
 // index, performs a cache-oblivious, in-place, contiguous transpose on the
 // BitVect, and finally writes the result to a shared final output matrix.
-func ConcurrentTransposeTall(matrix [][]byte, nworkers int) [][]byte {
+func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
+	nworkers := runtime.GOMAXPROCS(0)
 	// determine number of blocks to split original matrix
 	nblks := len(matrix) / 512
 

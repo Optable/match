@@ -144,7 +144,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (e
 		for i := 0; i < pad; i++ {
 			d = append(d, make([]byte, 64))
 		}
-		pseudorandomChan <- util.ConcurrentTransposeTall(d, runtime.GOMAXPROCS(0))
+		pseudorandomChan <- util.ConcurrentTransposeTall(d)
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)

@@ -153,7 +153,7 @@ func TestConcurrentTransposeTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
 	for _, m := range trange {
 		orig := sampleRandomTall(m)
-		tr := ConcurrentTransposeTall(orig, nworkers)
+		tr := ConcurrentTransposeTall(orig)
 		dtr := ConcurrentTransposeWide(tr, nworkers)
 		// test
 		for k := range orig {
@@ -173,7 +173,7 @@ func TestConcurrentTransposeWide(t *testing.T) {
 	for _, m := range trange {
 		orig := sampleRandomWide(m)
 		tr := ConcurrentTransposeWide(orig, nworkers)
-		dtr := ConcurrentTransposeTall(tr, nworkers)
+		dtr := ConcurrentTransposeTall(tr)
 		//test
 		for k := range dtr {
 			for l := range dtr[k] {
@@ -200,9 +200,11 @@ func BenchmarkTranspose512x512(b *testing.B) {
 // a new tranposed matrix. In this case, we limit it to a single thread.
 func BenchmarkTranspose(b *testing.B) {
 	byteBlock := sampleRandomTall(nmsg)
+	runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ConcurrentTransposeTall(byteBlock, 1)
+		ConcurrentTransposeTall(byteBlock)
 	}
 }
 
@@ -212,6 +214,6 @@ func BenchmarkConcurrentTranspose(b *testing.B) {
 	byteBlock := sampleRandomTall(nmsg)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ConcurrentTransposeTall(byteBlock, nworkers)
+		ConcurrentTransposeTall(byteBlock)
 	}
 }
