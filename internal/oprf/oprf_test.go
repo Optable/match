@@ -42,7 +42,7 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 	return c, nil
 }
 
-func initOPRFReceiver(oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) (string, error) {
+func initOPRFReceiver(oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- []map[uint64]uint64, errs chan<- error) (string, error) {
 	l, err := net.Listen(network, address)
 	if err != nil {
 		return "", err
@@ -59,7 +59,7 @@ func initOPRFReceiver(oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan
 	return l.Addr().String(), nil
 }
 
-func oprfReceiveHandler(conn net.Conn, oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- [cuckoo.Nhash]map[uint64]uint64, errs chan<- error) {
+func oprfReceiveHandler(conn net.Conn, oprf *OPRF, choices *cuckoo.Cuckoo, sk []byte, outBus chan<- []map[uint64]uint64, errs chan<- error) {
 	defer close(outBus)
 	out, err := oprf.Receive(choices, sk, conn)
 	if err != nil {
@@ -68,7 +68,7 @@ func oprfReceiveHandler(conn net.Conn, oprf *OPRF, choices *cuckoo.Cuckoo, sk []
 	outBus <- out
 }
 
-func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
+func testEncodings(encodedHashMap []map[uint64]uint64, keys *Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
 	senderCuckoo, err := cuckoo.NewCuckooHasher(uint64(baseCount), seeds)
 	if err != nil {
 		return err
@@ -117,8 +117,8 @@ func testEncodings(encodedHashMap [cuckoo.Nhash]map[uint64]uint64, keys Key, sk 
 }
 
 func TestOPRF(t *testing.T) {
-	outBus := make(chan [cuckoo.Nhash]map[uint64]uint64)
-	keyBus := make(chan Key)
+	outBus := make(chan []map[uint64]uint64, cuckoo.Nhash)
+	keyBus := make(chan *Key)
 	errs := make(chan error, 1)
 	sk := make([]byte, 16)
 	choices := genChoiceString()

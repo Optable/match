@@ -38,7 +38,7 @@ func SampleRandomOTMessages(rows, elems int) ([]OTMessage, error) {
 	matrix := make([]OTMessage, rows)
 	for row := range matrix {
 		for col := range matrix[row] {
-			matrix[row][col] = make([]byte, (elems+util.PadTill512(elems))/8)
+			matrix[row][col] = make([]byte, util.PadBitMap(elems, 512))
 			// fill
 			if _, err := rand.Read(matrix[row][col]); err != nil {
 				return nil, err
