@@ -10,18 +10,20 @@ var (
 	nmsg = 1 << 20
 )
 
-// genTranBlock creates a 512x512 bit block where every bit position
+// genZebraBlock creates a 512x512 bit block where every bit position
 // alternates between 0 and 1. When transposed, this block should
 // consists of rows of all 0s alternating with rows of all 1s.
 func genZebraBlock() BitVect {
-	tranBlock2D := make([][]byte, 512)
-	for row := range tranBlock2D {
-		tranBlock2D[row] = make([]byte, 64)
+	zebraBlock2D := make([][]byte, 512)
+	var b BitVect
+	for row := range zebraBlock2D {
+		zebraBlock2D[row] = make([]byte, 64)
 		for c := 0; c < 64; c++ {
-			tranBlock2D[row][c] = 0b01010101
+			zebraBlock2D[row][c] = 0b01010101
 		}
 	}
-	return unravelTall(tranBlock2D, 0)
+	b.unravelTall(zebraBlock2D, 0)
+	return b
 }
 
 // sampleRandomTall fills an m by 64 byte matrix (512 bits wide) with
@@ -54,6 +56,7 @@ func sampleRandomWide(n int) [][]byte {
 
 func TestUnReRavelingTall(t *testing.T) {
 	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
+	var b BitVect
 	for _, a := range trange {
 		matrix := sampleRandomTall(a)
 		// determine number of blocks to split original matrix (m x 64)
@@ -65,7 +68,7 @@ func TestUnReRavelingTall(t *testing.T) {
 		}
 
 		for id := 0; id < nblks; id++ {
-			b := unravelTall(matrix, id)
+			b.unravelTall(matrix, id)
 			b.ravelToTall(rerav, id)
 		}
 
@@ -82,6 +85,7 @@ func TestUnReRavelingTall(t *testing.T) {
 
 func TestUnReRavelingWide(t *testing.T) {
 	trange := []int{64, 128, 512}
+	var b BitVect
 	for _, a := range trange {
 		matrix := sampleRandomWide(a)
 		// determine number of blocks to split original matrix (512 x n)
@@ -93,7 +97,7 @@ func TestUnReRavelingWide(t *testing.T) {
 		}
 
 		for id := 0; id < nblks; id++ {
-			b := unravelWide(matrix, id)
+			b.unravelWide(matrix, id)
 			b.ravelToWide(trans, id)
 		}
 
@@ -110,7 +114,8 @@ func TestUnReRavelingWide(t *testing.T) {
 
 // Test single block tranposition
 func TestTranspose512x512(t *testing.T) {
-	tr := unravelTall(sampleRandomTall(nmsg), 0)
+	var tr BitVect
+	tr.unravelTall(sampleRandomTall(nmsg), 0)
 	orig := BitVect{tr.set} // copy to check after
 
 	tr.transpose()
@@ -187,7 +192,8 @@ func TestConcurrentTransposeWide(t *testing.T) {
 // BenchmarkTranspose512x512 benchmarks just transposing a single
 // BitVect block.
 func BenchmarkTranspose512x512(b *testing.B) {
-	tr := unravelTall(sampleRandomTall(nmsg), 0)
+	var tr BitVect
+	tr.unravelTall(sampleRandomTall(nmsg), 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		tr.transpose()

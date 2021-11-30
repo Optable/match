@@ -13,33 +13,27 @@ type BitVect struct {
 	set [512 * 8]uint64
 }
 
-// unravelTall is a constructor used to create a BitVect from a 2D matrix of bytes.
-// The matrix must have 64 columns and a multiple of 512 rows. idx is the block target.
+// unravelTall populates a BitVect from a 2D matrix of bytes. The matrix
+// must have 64 columns and a multiple of 512 rows. idx is the block target.
 // Only tested on AMD64.
-func unravelTall(matrix [][]byte, idx int) BitVect {
-	set := [4096]uint64{}
-
+func (b *BitVect) unravelTall(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
-		copy(set[(i)*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[(512*idx)+i]))
+		copy(b.set[(i)*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[(512*idx)+i]))
 	}
-	return BitVect{set}
 }
 
-// unravelWide is a constructor used to create a BitVect from a 2D matrix of bytes.
-// The matrix must have a multiple of 64 columns and 512 rows. idx is the block target.
+// unravelWide populates a BitVect from a 2D matrix of bytes. The matrix
+// must have a multiple of 64 columns and 512 rows. idx is the block target.
 // Only tested on AMD64.
-func unravelWide(matrix [][]byte, idx int) BitVect {
-	set := [4096]uint64{}
-
+func (b *BitVect) unravelWide(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
-		copy(set[i*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[i][idx*64:(64*idx)+64]))
+		copy(b.set[i*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[i][idx*64:(64*idx)+64]))
 	}
-	return BitVect{set}
 }
 
 // ravelToTall reconstructs a subsection of a tall (mx64) matrix from a BitVect.
 // Only tested on AMD64.
-func (b BitVect) ravelToTall(matrix [][]byte, idx int) {
+func (b *BitVect) ravelToTall(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[(idx*512)+i][:], unsafeslice.ByteSliceFromUint64Slice(b.set[i*8:(i+1)*8]))
 	}
@@ -47,7 +41,7 @@ func (b BitVect) ravelToTall(matrix [][]byte, idx int) {
 
 // ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
 // Only tested on AMD64.
-func (b BitVect) ravelToWide(matrix [][]byte, idx int) {
+func (b *BitVect) ravelToWide(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[i][idx*64:(idx+1)*64], unsafeslice.ByteSliceFromUint64Slice(b.set[(i*8):(i+1)*8]))
 	}
@@ -94,15 +88,16 @@ func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
 		go func() {
 			defer wg.Done()
 			step := workerResp * w
+			var b BitVect
 			if w == nworkers-1 { // last worker has extra work
 				for i := step; i < nblks; i++ {
-					b := unravelTall(matrix, i)
+					b.unravelTall(matrix, i)
 					b.transpose()
 					b.ravelToWide(trans, i)
 				}
 			} else {
 				for i := step; i < step+workerResp; i++ {
-					b := unravelTall(matrix, i)
+					b.unravelTall(matrix, i)
 					b.transpose()
 					b.ravelToWide(trans, i)
 				}
@@ -156,15 +151,16 @@ func ConcurrentTransposeWide(matrix [][]byte) [][]byte {
 		go func() {
 			defer wg.Done()
 			step := workerResp * w
+			var b BitVect
 			if w == nworkers-1 { // last worker has extra work
 				for i := step; i < nblks; i++ {
-					b := unravelWide(matrix, i)
+					b.unravelWide(matrix, i)
 					b.transpose()
 					b.ravelToTall(trans, i)
 				}
 			} else {
 				for i := step; i < step+workerResp; i++ {
-					b := unravelWide(matrix, i)
+					b.unravelWide(matrix, i)
 					b.transpose()
 					b.ravelToTall(trans, i)
 				}
