@@ -223,7 +223,7 @@ func SampleRandomBitMatrix(row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
-		matrix[row] = make([]uint8, (col+PadTill512(col))/8)
+		matrix[row] = make([]uint8, (col+Pad(col, 512))/8)
 	}
 	// fill matrix
 	for row := range matrix {
@@ -235,13 +235,17 @@ func SampleRandomBitMatrix(row, col int) ([][]uint8, error) {
 	return matrix, nil
 }
 
-// PadTill512 returns the number of rows/columns to pad such that the number is a
-// multiple of 512.
-func PadTill512(m int) int {
-	n := m % 512
+// Pad returns the number of rows/columns to pad such that the number n is a
+// multiple of multiple.
+func Pad(n, multiple int) int {
+	n = n % multiple
 	if n == 0 {
 		return 0
 	}
 
-	return 512 - n
+	return multiple - n
+}
+
+func PadBitMap(n, multiple int) int {
+	return (n + Pad(n, multiple)) / 8
 }

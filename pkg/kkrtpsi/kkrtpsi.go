@@ -41,7 +41,7 @@ func makeJob(hasher hash.Hasher, batchSize int, f func(hashEncodingJob)) hashEnc
 		execute:   f}
 }
 
-func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64, err error) {
+func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64, err error) {
 	// oprfInput is instantiated at the required size
 	for hIdx, bucketIdx := range bytes.bucketIdx {
 		err = oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
@@ -56,7 +56,7 @@ func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys oprf.Key, hasher hash.Hash
 
 // HashAllParallel reads all identifiers from identifiers
 // and parallel hashes them until identifiers closes
-func EncodeAndHashAllParallel(oprfKeys oprf.Key, hasher hash.Hasher, identifiers <-chan oprfEncodedInputs) <-chan [cuckoo.Nhash]uint64 {
+func EncodeAndHashAllParallel(oprfKeys *oprf.Key, hasher hash.Hasher, identifiers <-chan oprfEncodedInputs) <-chan [cuckoo.Nhash]uint64 {
 	// one wg.Add() per batch + one for the batcher go routine
 	var jobPool = make(chan hashEncodingJob)
 	var wg sync.WaitGroup

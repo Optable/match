@@ -59,7 +59,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var remoteN int64       // receiver size
 	var oprfInputSize int64 // nb of OPRF keys
 
-	var oprfKeys oprf.Key
+	var oprfKeys *oprf.Key
 	var pseudorandIds = make(chan oprfEncodedInputs, n)
 	var hashChan = make(chan hash.Hasher)
 	var errChan = make(chan error, 1)

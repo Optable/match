@@ -47,7 +47,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var mem uint64
 
 	var seeds [cuckoo.Nhash][]byte
-	var oprfOutput [cuckoo.Nhash]map[uint64]uint64
+	var oprfOutput = make([]map[uint64]uint64, cuckoo.Nhash)
 	var cuckooHashTable *cuckoo.Cuckoo
 	var sk []byte
 

@@ -31,9 +31,12 @@ import (
 	"github.com/zeebo/blake3"
 )
 
-// width of base OT binary matrix  as well as the ouput
-// length of PseudorandomCode (in bits)
-const baseOTCount = aes.BlockSize * 4 * 8
+const (
+	// width of base OT binary matrix  as well as the ouput
+	// length of PseudorandomCode (in bits)
+	baseOTCount            = aes.BlockSize * 4 * 8
+	baseOTCountBitmapWidth = aes.BlockSize * 4
+)
 
 // Key contains the relaxed OPRF key: (C, s), (j, q_j)
 // Pseudorandom code C is represented by a received OT extension matrix otMatrix
@@ -68,43 +71,42 @@ func NewOPRF(m int) (*OPRF, error) {
 }
 
 // Send returns the OPRF keys
-func (ext *OPRF) Send(rw io.ReadWriter) (keys Key, err error) {
+func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 	// sample choice bits for baseOT
 	s := make([]byte, baseOTCount/8)
-	if _, err = rand.Read(s); err != nil {
-		return keys, err
+	if _, err := rand.Read(s); err != nil {
+		return nil, err
 	}
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
 	seeds := make([][]byte, baseOTCount)
-	if err = ext.baseOT.Receive(s, seeds, rw); err != nil {
-		return keys, err
+	if err := ext.baseOT.Receive(s, seeds, rw); err != nil {
+		return nil, err
 	}
 
 	// receive masked columns u
-	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
+	paddedLen := util.PadBitMap(ext.m, baseOTCount)
 	u := make([]byte, paddedLen)
 	q := make([][]byte, baseOTCount)
 	h := blake3.New()
 	for col := range q {
-		if _, err = io.ReadFull(rw, u); err != nil {
-			return keys, err
+		if _, err := io.ReadFull(rw, u); err != nil {
+			return nil, err
 		}
 
 		q[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerate(q[col], seeds[col], h)
-		if err != nil {
-			return keys, err
+		if err := crypto.PseudorandomGenerate(q[col], seeds[col], h); err != nil {
+			return nil, err
 		}
+
 		// Binary AND of each byte in u with the test bit
 		// if bit is 1, we get whole row u to XOR with q[row]
 		// if bit is 0, we get a row of 0s which when XORed
 		// with q[row] just returns the same row, so no need to do
 		// an operation
 		if util.IsBitSet(s, col) {
-			err = util.ConcurrentBitOp(util.Xor, q[col], u)
-			if err != nil {
-				return Key{}, err
+			if err := util.ConcurrentBitOp(util.Xor, q[col], u); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -112,13 +114,13 @@ func (ext *OPRF) Send(rw io.ReadWriter) (keys Key, err error) {
 	q = util.ConcurrentTransposeWide(q)[:ext.m]
 
 	// store oprf keys
-	return Key{secret: s, otMatrix: q}, err
+	return &Key{secret: s, otMatrix: q}, nil
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (encodings [cuckoo.Nhash]map[uint64]uint64, err error) {
+func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([]map[uint64]uint64, error) {
 	if int(choices.Len()) != ext.m {
-		return encodings, ot.ErrBaseCountMissMatch
+		return nil, ot.ErrBaseCountMissMatch
 	}
 
 	// compute code word using PseudorandomCode on choice string r in a separate thread
@@ -126,89 +128,91 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (e
 	var errChan = make(chan error, 1)
 	go func() {
 		defer close(errChan)
-		d := make([][]byte, ext.m)
+		bitMapLen := util.Pad(ext.m, baseOTCount) + ext.m
+		pseudorandomEncoding := make([][]byte, bitMapLen)
 		aesBlock, err := aes.NewCipher(sk)
 		if err != nil {
 			errChan <- err
 		}
-		for i := 0; i < ext.m; i++ {
+		i := 0
+		for ; i < ext.m; i++ {
 			idx, err := choices.GetBucket(uint64(i))
 			if err != nil {
 				errChan <- err
 			}
 			item, hIdx := choices.GetItemWithHash(idx)
-			d[i] = crypto.PseudorandomCode(aesBlock, item, hIdx)
+			pseudorandomEncoding[i] = crypto.PseudorandomCode(aesBlock, item, hIdx)
 		}
-		// pad matrix to ensure the number of rows is divisible by 512 for transposition
-		pad := util.PadTill512(len(d))
-		for i := 0; i < pad; i++ {
-			d = append(d, make([]byte, 64))
+		// pad matrix to ensure the number of rows is divisible by baseOTCount for transposition
+		for ; i < len(pseudorandomEncoding); i++ {
+			pseudorandomEncoding[i] = make([]byte, baseOTCountBitmapWidth)
 		}
-		pseudorandomChan <- util.ConcurrentTransposeTall(d)
+		pseudorandomChan <- util.ConcurrentTransposeTall(pseudorandomEncoding)
 	}()
 
 	// sample 2*k x k byte matrix (2*k x k bit matrix)
 	baseMsgs, err := ot.SampleRandomOTMessages(baseOTCount, baseOTCount)
 	if err != nil {
-		return encodings, err
+		return nil, err
 	}
 
 	// act as sender in baseOT to send k columns
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
-		return encodings, err
+		return nil, err
 	}
 
 	// read error
-	var d [][]byte
+	var pseudorandomEncoding [][]byte
 	select {
 	case err := <-errChan:
 		if err != nil {
-			return encodings, err
+			return nil, err
 		}
-	case d = <-pseudorandomChan:
+	case pseudorandomEncoding = <-pseudorandomChan:
 	}
 
-	t := make([][]byte, baseOTCount)
-	paddedLen := (ext.m + util.PadTill512(ext.m)) / 8
+	oprfEncoding := make([][]byte, baseOTCount)
+	paddedLen := util.PadBitMap(ext.m, baseOTCount)
 	var u = make([]byte, paddedLen)
 	// u^i = G(seeds[1])
 	// t^i = d^i ^ u^i
 	h := blake3.New()
-	for col := range d {
-		t[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerate(t[col], baseMsgs[col][0], h)
+	for col := range pseudorandomEncoding {
+		oprfEncoding[col] = make([]byte, paddedLen)
+		err = crypto.PseudorandomGenerate(oprfEncoding[col], baseMsgs[col][0], h)
 		if err != nil {
-			return encodings, err
+			return nil, err
 		}
 
 		err = crypto.PseudorandomGenerate(u, baseMsgs[col][1], h)
 		if err != nil {
-			return encodings, err
+			return nil, err
 		}
 
-		err = util.ConcurrentDoubleBitOp(util.DoubleXor, u, t[col], d[col])
+		err = util.ConcurrentDoubleBitOp(util.DoubleXor, u, oprfEncoding[col], pseudorandomEncoding[col])
 		if err != nil {
-			return encodings, err
+			return nil, err
 		}
 
 		// send u
 		if _, err = rw.Write(u); err != nil {
-			return encodings, err
+			return nil, err
 		}
 	}
 
 	runtime.GC()
-	t = util.ConcurrentTransposeWide(t)[:ext.m]
+	oprfEncoding = util.ConcurrentTransposeWide(oprfEncoding)[:ext.m]
 
 	// Hash and index all local encodings
 	// the hash value of the oprf encoding is the key
 	// the index of the corresponding ID in the cuckoo hash table is the value
+	encodings := make([]map[uint64]uint64, cuckoo.Nhash)
 	for i := range encodings {
 		encodings[i] = make(map[uint64]uint64, ext.m)
 	}
 	hasher := choices.GetHasher()
 	// hash local oprf output
-	for bIdx := uint64(0); bIdx < uint64(len(t)); bIdx++ {
+	for bIdx := uint64(0); bIdx < uint64(len(oprfEncoding)); bIdx++ {
 		// check if it was an empty input
 		if idx, err := choices.GetBucket(bIdx); idx != 0 {
 			if err != nil {
@@ -216,7 +220,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) (e
 			}
 			// insert into proper map
 			_, hIdx := choices.GetItemWithHash(idx)
-			encodings[hIdx][hasher.Hash64(t[bIdx])] = idx
+			encodings[hIdx][hasher.Hash64(oprfEncoding[bIdx])] = idx
 		}
 	}
 
