@@ -2,204 +2,186 @@ package util
 
 import (
 	"math/rand"
-	"runtime"
+	"reflect"
 	"testing"
+	"testing/quick"
 )
 
 var benchmarkBytes = 10000000
 
+func genBytes(size int) []byte {
+	bytes := make([]byte, size)
+	if _, err := rand.Read(bytes); err != nil {
+		panic("error generating random bytes")
+	}
+
+	return bytes
+}
+
+type bitOpResult struct {
+	A      []byte
+	B      []byte
+	C      []byte
+	Xor    []byte // A XOR B
+	And    []byte // A AND B
+	XorXor []byte // A XOR B XOR C
+	AndXor []byte // A AND B XOR C
+}
+
+func (bitOpResult) Generate(r *rand.Rand, size int) reflect.Value {
+	var result bitOpResult
+	// generate initial random slices
+	result.A = genBytes(size)
+	result.B = genBytes(size)
+	result.C = genBytes(size)
+	// XOR
+	result.Xor = make([]byte, size)
+	for i := range result.Xor {
+		result.Xor[i] = result.A[i] ^ result.B[i]
+	}
+
+	// AND
+	result.And = make([]byte, size)
+	for i := range result.And {
+		result.And[i] = result.A[i] & result.B[i]
+	}
+
+	// Double XOR
+	result.XorXor = make([]byte, size)
+	for i := range result.XorXor {
+		result.XorXor[i] = result.Xor[i] ^ result.C[i]
+	}
+
+	// AND XOR
+	result.AndXor = make([]byte, size)
+	for i := range result.AndXor {
+		result.AndXor[i] = result.And[i] ^ result.C[i]
+	}
+
+	return reflect.ValueOf(result)
+}
+
 func TestXor(t *testing.T) {
-	lengths := []int{3, 8, 16, 33}
-	for _, l := range lengths {
-		src := make([]byte, l)
-		if _, err := rand.Read(src); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		dst := make([]byte, l)
-		if _, err := rand.Read(dst); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		// copy for testing later
-		cop := make([]byte, l)
-		copy(cop, dst)
-
-		err := Xor(dst, src)
-		if err != nil {
-			t.Error("bitwise XOR operation failed")
-		}
-
-		for i := range src {
-			if dst[i] != cop[i]^src[i] {
-				t.Error("bitwise XOR operation was not performed properly")
+	correct := func(b bitOpResult) bool {
+		err := Xor(b.A, b.B)
+		for i := range b.Xor {
+			if b.A[i] != b.Xor[i] {
+				return false
 			}
 		}
+		return err == nil
+	}
+
+	if err := quick.Check(correct, nil); err != nil {
+		t.Errorf("bitwise XOR fail: %v", err)
 	}
 }
 
 func TestAnd(t *testing.T) {
-	lengths := []int{3, 8, 16, 33}
-	for _, l := range lengths {
-		src := make([]byte, l)
-		if _, err := rand.Read(src); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		dst := make([]byte, l)
-		if _, err := rand.Read(dst); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		// copy for testing later
-		cop := make([]byte, l)
-		copy(cop, dst)
-
-		err := And(dst, src)
-		if err != nil {
-			t.Error("bitwise AND operation failed")
-		}
-
-		for i := range src {
-			if dst[i] != cop[i]&src[i] {
-				t.Error("bitwise AND operation was not performed properly")
+	correct := func(b bitOpResult) bool {
+		err := And(b.A, b.B)
+		for i := range b.And {
+			if b.A[i] != b.And[i] {
+				return false
 			}
 		}
+		return err == nil
+	}
+
+	if err := quick.Check(correct, nil); err != nil {
+		t.Errorf("bitwise AND fail: %v", err)
 	}
 }
 
 func TestDoubleXor(t *testing.T) {
-	lengths := []int{3, 8, 16, 33}
-	for _, l := range lengths {
-		src := make([]byte, l)
-		if _, err := rand.Read(src); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		src2 := make([]byte, l)
-		if _, err := rand.Read(src2); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		dst := make([]byte, l)
-		if _, err := rand.Read(dst); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		// copy for testing later
-		cop := make([]byte, l)
-		copy(cop, dst)
-
-		err := DoubleXor(dst, src, src2)
-		if err != nil {
-			t.Error("bitwise double XOR operation failed")
-		}
-
-		for i := range src {
-			if dst[i] != cop[i]^src[i]^src2[i] {
-				t.Error("bitwise double XOR operation was not performed properly")
+	correct := func(b bitOpResult) bool {
+		err := DoubleXor(b.A, b.B, b.C)
+		for i := range b.XorXor {
+			if b.A[i] != b.XorXor[i] {
+				return false
 			}
 		}
+		return err == nil
+	}
+
+	if err := quick.Check(correct, nil); err != nil {
+		t.Errorf("bitwise double XOR fail: %v", err)
 	}
 }
 
 func TestAndXor(t *testing.T) {
-	lengths := []int{3, 8, 16, 33}
-	for _, l := range lengths {
-		src := make([]byte, l)
-		if _, err := rand.Read(src); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		src2 := make([]byte, l)
-		if _, err := rand.Read(src2); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		dst := make([]byte, l)
-		if _, err := rand.Read(dst); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		// copy for testing later
-		cop := make([]byte, l)
-		copy(cop, dst)
-
-		err := AndXor(dst, src, src2)
-		if err != nil {
-			t.Error("bitwise AND followed by bitwise XOR operation failed")
-		}
-
-		for i := range src {
-			if dst[i] != cop[i]&src[i]^src2[i] {
-				t.Error("bitwise AND followed by bitwise XOR operation was not performed properly")
+	correct := func(b bitOpResult) bool {
+		err := AndXor(b.A, b.B, b.C)
+		for i := range b.AndXor {
+			if b.A[i] != b.AndXor[i] {
+				return false
 			}
 		}
+		return err == nil
+	}
+
+	if err := quick.Check(correct, nil); err != nil {
+		t.Errorf("bitwise AND followed by XOR fail: %v", err)
 	}
 }
 
 func TestConcurrentBitOp(t *testing.T) {
-	lengths := []int{3, 16, 16384 * runtime.GOMAXPROCS(0), 2 * 16384 * runtime.GOMAXPROCS(0)}
-	for _, l := range lengths {
-		src := make([]byte, l)
-		if _, err := rand.Read(src); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		dst := make([]byte, l)
-		if _, err := rand.Read(dst); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		// copy for testing later
-		cop := make([]byte, l)
-		copy(cop, dst)
-
-		err := ConcurrentBitOp(Xor, dst, src)
-		if err != nil {
-			t.Error("concurrent bitwise XOR operation failed")
-		}
-
-		for i := range src {
-			if dst[i] != cop[i]^src[i] {
-				t.Error("concurrent bitwise XOR operation was not performed properly")
+	xor := func(b bitOpResult) bool {
+		err := ConcurrentBitOp(Xor, b.A, b.B)
+		for i := range b.Xor {
+			if b.A[i] != b.Xor[i] {
+				return false
 			}
 		}
+		return err == nil
+	}
+
+	if err := quick.Check(xor, nil); err != nil {
+		t.Errorf("concurrent bitwise XOR fail: %v", err)
+	}
+
+	and := func(b bitOpResult) bool {
+		err := ConcurrentBitOp(And, b.A, b.B)
+		for i := range b.And {
+			if b.A[i] != b.And[i] {
+				return false
+			}
+		}
+		return err == nil
+	}
+
+	if err := quick.Check(and, nil); err != nil {
+		t.Errorf("concurrent bitwise AND fail: %v", err)
 	}
 }
 
 func TestConcurrentDoubleBitOp(t *testing.T) {
-	lengths := []int{3, 16, 16384 * runtime.GOMAXPROCS(0), 2 * 16384 * runtime.GOMAXPROCS(0)}
-	for _, l := range lengths {
-		src := make([]byte, l)
-		if _, err := rand.Read(src); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		src2 := make([]byte, l)
-		if _, err := rand.Read(src2); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		dst := make([]byte, l)
-		if _, err := rand.Read(dst); err != nil {
-			t.Fatal("error generating random bytes")
-		}
-
-		// copy for testing later
-		cop := make([]byte, l)
-		copy(cop, dst)
-
-		err := ConcurrentDoubleBitOp(AndXor, dst, src, src2)
-		if err != nil {
-			t.Error("concurrent bitwise AND followed by bitwise XOR operation failed")
-		}
-
-		for i := range src {
-			if dst[i] != cop[i]&src[i]^src2[i] {
-				t.Error("concurrent bitwise AND followed by bitwise XOR operation was not performed properly")
+	xorxor := func(b bitOpResult) bool {
+		err := ConcurrentDoubleBitOp(DoubleXor, b.A, b.B, b.C)
+		for i := range b.XorXor {
+			if b.A[i] != b.XorXor[i] {
+				return false
 			}
 		}
+		return err == nil
+	}
+
+	if err := quick.Check(xorxor, nil); err != nil {
+		t.Errorf("concurrent bitwise double XOR fail: %v", err)
+	}
+
+	andxor := func(b bitOpResult) bool {
+		err := ConcurrentDoubleBitOp(AndXor, b.A, b.B, b.C)
+		for i := range b.AndXor {
+			if b.A[i] != b.AndXor[i] {
+				return false
+			}
+		}
+		return err == nil
+	}
+
+	if err := quick.Check(andxor, nil); err != nil {
+		t.Errorf("concurrent bitwise AND followed by XOR fail: %v", err)
 	}
 }
 
@@ -233,16 +215,8 @@ func TestTestBitSetInByte(t *testing.T) {
 }
 
 func BenchmarkXor(b *testing.B) {
-	src := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	dst := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(dst); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
+	src := genBytes(benchmarkBytes)
+	dst := genBytes(benchmarkBytes)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Xor(dst, src)
@@ -250,16 +224,8 @@ func BenchmarkXor(b *testing.B) {
 }
 
 func BenchmarkAnd(b *testing.B) {
-	src := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	dst := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(dst); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
+	src := genBytes(benchmarkBytes)
+	dst := genBytes(benchmarkBytes)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		And(dst, src)
@@ -267,21 +233,9 @@ func BenchmarkAnd(b *testing.B) {
 }
 
 func BenchmarkDoubleXor(b *testing.B) {
-	src := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	src2 := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src2); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	dst := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(dst); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
+	src := genBytes(benchmarkBytes)
+	src2 := genBytes(benchmarkBytes)
+	dst := genBytes(benchmarkBytes)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		DoubleXor(dst, src, src2)
@@ -289,21 +243,9 @@ func BenchmarkDoubleXor(b *testing.B) {
 }
 
 func BenchmarkAndXor(b *testing.B) {
-	src := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	src2 := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src2); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	dst := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(dst); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
+	src := genBytes(benchmarkBytes)
+	src2 := genBytes(benchmarkBytes)
+	dst := genBytes(benchmarkBytes)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		AndXor(dst, src, src2)
@@ -311,15 +253,8 @@ func BenchmarkAndXor(b *testing.B) {
 }
 
 func BenchmarkConcurrentBitOp(b *testing.B) {
-	src := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	dst := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(dst); err != nil {
-		b.Fatal("error generating random bytes")
-	}
+	src := genBytes(benchmarkBytes)
+	dst := genBytes(benchmarkBytes)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentBitOp(Xor, dst, src)
@@ -327,20 +262,9 @@ func BenchmarkConcurrentBitOp(b *testing.B) {
 }
 
 func BenchmarkConcurrentDoubleBitOp(b *testing.B) {
-	src := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	src2 := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(src2); err != nil {
-		b.Fatal("error generating random bytes")
-	}
-
-	dst := make([]byte, benchmarkBytes)
-	if _, err := rand.Read(dst); err != nil {
-		b.Fatal("error generating random bytes")
-	}
+	src := genBytes(benchmarkBytes)
+	src2 := genBytes(benchmarkBytes)
+	dst := genBytes(benchmarkBytes)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentDoubleBitOp(AndXor, dst, src, src2)
