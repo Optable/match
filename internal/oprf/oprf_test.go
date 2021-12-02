@@ -14,7 +14,7 @@ import (
 	"github.com/optable/match/internal/hash"
 )
 
-var msgCount = 1 << 16
+const msgCount = 1 << 16
 
 func genChoiceString() [][]byte {
 	choices := make([][]byte, msgCount)

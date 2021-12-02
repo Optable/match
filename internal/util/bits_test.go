@@ -7,7 +7,7 @@ import (
 	"testing/quick"
 )
 
-var benchmarkBytes = 10
+const benchmarkBytes = 1000000
 
 func genBytes(size int) []byte {
 	bytes := make([]byte, size)
