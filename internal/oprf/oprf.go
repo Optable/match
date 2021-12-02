@@ -100,9 +100,7 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 		// with q[row] just returns the same row, so no need to do
 		// an operation
 		if util.IsBitSet(s, col) {
-			if err := util.ConcurrentBitOp(util.Xor, q[col], u); err != nil {
-				return nil, err
-			}
+			util.ConcurrentBitOp(util.Xor, q[col], u)
 		}
 	}
 	runtime.GC()
@@ -176,10 +174,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 			return nil, err
 		}
 
-		err = util.ConcurrentDoubleBitOp(util.DoubleXor, oprfMask, oprfEncoding[col], pseudorandomEncoding[col])
-		if err != nil {
-			return nil, err
-		}
+		util.ConcurrentDoubleBitOp(util.DoubleXor, oprfMask, oprfEncoding[col], pseudorandomEncoding[col])
 
 		// send u
 		if _, err = rw.Write(oprfMask); err != nil {
@@ -215,8 +210,8 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, pseudorandomBytes []byte) error {
-	return util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.secret, k.otMatrix[j])
+func (k Key) Encode(j uint64, pseudorandomBytes []byte) {
+	util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.secret, k.otMatrix[j])
 }
 
 // sampleRandomOTMessage allocates a slice of OTMessage, each OTMessage contains a pair of messages.

@@ -31,21 +31,20 @@ type CuckooHasher struct {
 }
 
 // NewCuckooHasher instantiates a CuckooHasher struct.
-func NewCuckooHasher(size uint64, seeds [Nhash][]byte) (*CuckooHasher, error) {
+func NewCuckooHasher(size uint64, seeds [Nhash][]byte) *CuckooHasher {
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	var err error
 	for i, s := range seeds {
-		hashers[i], err = hash.New(HashFunc, s)
-		if err != nil {
-			return nil, err
+		if hashers[i], err = hash.New(HashFunc, s); err != nil {
+			panic(err)
 		}
 	}
 
 	return &CuckooHasher{
 		bucketSize: bSize,
 		hashers:    hashers,
-	}, nil
+	}
 }
 
 // GetHasher returns the first seeded hash function from a CuckooHasher struct.
@@ -80,11 +79,8 @@ type Cuckoo struct {
 
 // NewCuckoo instantiates a Cuckoo struct with a bucket of size Factor * size,
 // and a CuckooHasher for the 3-way cuckoo hashing.
-func NewCuckoo(size uint64, seeds [Nhash][]byte) (*Cuckoo, error) {
-	cuckooHasher, err := NewCuckooHasher(size, seeds)
-	if err != nil {
-		return nil, err
-	}
+func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
+	cuckooHasher := NewCuckooHasher(size, seeds)
 
 	return &Cuckoo{
 		// extra element is "keeper" to which the bucketLookup can be directed
@@ -94,7 +90,7 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) (*Cuckoo, error) {
 		make([]byte, size+1),
 		make([]uint64, cuckooHasher.bucketSize),
 		cuckooHasher,
-	}, nil
+	}
 }
 
 // GetBucket returns the index in a given bucket which represents the value in

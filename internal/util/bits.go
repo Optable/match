@@ -14,12 +14,12 @@ var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same len
 // Xor casts the first part of the byte slice (length divisible
 // by 8) into uint64 and then performs XOR on the slice of uint64.
 // The remaining elements that were not cast are XORed conventionally.
-// Of course a and dst must be the same length and the whole operation
-// is performed in place.
+// The whole operation is performed in place. Panic if a and dst do
+// not have the same length.
 // Only tested on AMD64.
-func Xor(dst, a []byte) error {
+func Xor(dst, a []byte) {
 	if len(dst) != len(a) {
-		return ErrByteLengthMissMatch
+		panic(ErrByteLengthMissMatch)
 	}
 
 	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
@@ -34,19 +34,17 @@ func Xor(dst, a []byte) error {
 	for j := 0; j < len(dst)%8; j++ {
 		dst[len(dst)-j-1] ^= a[len(a)-j-1]
 	}
-
-	return nil
 }
 
 // And casts the first part of the byte slice (length divisible
 // by 8) into uint64 and then performs AND on the slice of uint64.
 // The remaining elements that were not cast are ANDed conventionally.
-// Of course a and dst must be the same length and the whole operation
-// is performed in place.
+// The whole operation is performed in place. Panic if a and dst do
+// not have the same length.
 // Only tested on AMD64.
-func And(dst, a []byte) error {
+func And(dst, a []byte) {
 	if len(dst) != len(a) {
-		return ErrByteLengthMissMatch
+		panic(ErrByteLengthMissMatch)
 	}
 
 	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
@@ -61,19 +59,17 @@ func And(dst, a []byte) error {
 	for j := 0; j < len(dst)%8; j++ {
 		dst[len(dst)-j-1] &= a[len(a)-j-1]
 	}
-
-	return nil
 }
 
 // DoubleXor casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs XOR on the slices of uint64
 // (first with a and then with b). The remaining elements that were not
-// cast are XORed conventionally. Of course a, b and dst must be the same
-// length and the whole operation is performed in place.
+// cast are XORed conventionally. The whole operation is performed in
+// place. Panic if a, b and dst do not have the same length.
 // Only tested on AMD64.
-func DoubleXor(dst, a, b []byte) error {
+func DoubleXor(dst, a, b []byte) {
 	if len(dst) != len(a) || len(dst) != len(b) {
-		return ErrByteLengthMissMatch
+		panic(ErrByteLengthMissMatch)
 	}
 
 	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
@@ -91,20 +87,18 @@ func DoubleXor(dst, a, b []byte) error {
 		dst[len(dst)-j-1] ^= a[len(a)-j-1]
 		dst[len(dst)-j-1] ^= b[len(b)-j-1]
 	}
-
-	return nil
 }
 
 // AndXor casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs AND on the slices of uint64
 // (with a) and then performs XOR (with b). The remaining elements
-// that were not cast are operated on conventionally. Of course a, b
-// and dst must be the same length and the whole operation is
-// performed in place.
+// that were not cast are operated on conventionally. The whole
+// operation is performed in place. Panic if a, b and dst do not
+// have the same length.
 // Only tested on AMD64.
-func AndXor(dst, a, b []byte) error {
+func AndXor(dst, a, b []byte) {
 	if len(dst) != len(a) || len(dst) != len(b) {
-		return ErrByteLengthMissMatch
+		panic(ErrByteLengthMissMatch)
 	}
 
 	castDst := unsafeslice.Uint64SliceFromByteSlice(dst)
@@ -122,82 +116,72 @@ func AndXor(dst, a, b []byte) error {
 		dst[len(dst)-j-1] &= a[len(a)-j-1]
 		dst[len(dst)-j-1] ^= b[len(b)-j-1]
 	}
-
-	return nil
 }
 
 // ConcurrentBitOp performs an in-place bitwise operation, f, on each
-// byte from a with dst if they are both the same length
-func ConcurrentBitOp(f func([]byte, []byte) error, dst, a []byte) error {
+// byte from a with dst if they are both the same length.
+func ConcurrentBitOp(f func([]byte, []byte), dst, a []byte) {
 	nworkers := runtime.GOMAXPROCS(0)
-	if len(dst) != len(a) {
-		return ErrByteLengthMissMatch
-	}
 
 	// no need to split into goroutines
 	if len(dst) < nworkers*16384 {
-		return f(dst, a)
+		f(dst, a)
+	} else {
+
+		// determine number of blocks to split original matrix
+		blockSize := len(dst) / nworkers
+
+		// Run a worker pool
+		var wg sync.WaitGroup
+		wg.Add(nworkers)
+		for w := 0; w < nworkers; w++ {
+			w := w
+			go func() {
+				defer wg.Done()
+				step := blockSize * w
+				if w == nworkers-1 { // last block
+					f(dst[step:], a[step:])
+				} else {
+					f(dst[step:step+blockSize], a[step:step+blockSize])
+				}
+			}()
+		}
+
+		wg.Wait()
 	}
-
-	// determine number of blocks to split original matrix
-	blockSize := len(dst) / nworkers
-
-	// Run a worker pool
-	var wg sync.WaitGroup
-	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		w := w
-		go func() {
-			defer wg.Done()
-			step := blockSize * w
-			if w == nworkers-1 { // last block
-				f(dst[step:], a[step:])
-			} else {
-				f(dst[step:step+blockSize], a[step:step+blockSize])
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	return nil
 }
 
 // ConcurrentDoubleBitOp performs an in-place double bitwise operation, f,
 // on each byte from a with dst if they are both the same length
-func ConcurrentDoubleBitOp(f func([]byte, []byte, []byte) error, dst, a, b []byte) error {
+func ConcurrentDoubleBitOp(f func([]byte, []byte, []byte), dst, a, b []byte) {
 	nworkers := runtime.GOMAXPROCS(0)
-	if len(dst) != len(a) {
-		return ErrByteLengthMissMatch
-	}
 
 	// no need to split into goroutines
 	if len(dst) < nworkers*16384 {
-		return f(dst, a, b)
+		f(dst, a, b)
+	} else {
+
+		// determine number of blocks to split original matrix
+		blockSize := len(dst) / nworkers
+
+		// Run a worker pool
+		var wg sync.WaitGroup
+		wg.Add(nworkers)
+		for w := 0; w < nworkers; w++ {
+			w := w
+			go func() {
+				defer wg.Done()
+				step := blockSize * w
+				if w == nworkers-1 { // last block
+					f(dst[step:], a[step:], b[step:])
+				} else {
+					f(dst[step:step+blockSize], a[step:step+blockSize], b[step:step+blockSize])
+				}
+			}()
+		}
+
+		wg.Wait()
 	}
-
-	// determine number of blocks to split original matrix
-	blockSize := len(dst) / nworkers
-
-	// Run a worker pool
-	var wg sync.WaitGroup
-	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		w := w
-		go func() {
-			defer wg.Done()
-			step := blockSize * w
-			if w == nworkers-1 { // last block
-				f(dst[step:], a[step:], b[step:])
-			} else {
-				f(dst[step:step+blockSize], a[step:step+blockSize], b[step:step+blockSize])
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	return nil
 }
 
 // IsBitSet returns true if bit i is set in a byte slice.

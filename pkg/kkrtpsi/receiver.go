@@ -69,11 +69,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// instantiate cuckoo hash table
-		cuckooHashTable, err = cuckoo.NewCuckoo(uint64(n), seeds)
-		if err != nil {
-			return err
-		}
-
+		cuckooHashTable = cuckoo.NewCuckoo(uint64(n), seeds)
 		for id := range identifiers {
 			if err = cuckooHashTable.Insert(id); err != nil {
 				return err

@@ -110,19 +110,17 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			oprfInputSize = 1
 		}
 
+		// instantiate an AES block
+		aesBlock, err := aes.NewCipher(sk)
+		if err != nil {
+			return err
+		}
+
 		// exhaust local ids, and precompute all potential
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
 		go func() {
-			cuckooHasher, err := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
-			if err != nil {
-				panic(err)
-			}
-			// instantiate an AES block
-			aesBlock, err := aes.NewCipher(sk)
-			if err != nil {
-				panic(err)
-			}
+			cuckooHasher := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
 
 			// prepare struct to send inputs and hasher to stage 3
 			var message inputsAndHasher

@@ -26,12 +26,9 @@ func genChoiceString() [][]byte {
 }
 
 func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, error) {
-	c, err := cuckoo.NewCuckoo(uint64(msgCount), seeds)
-	if err != nil {
-		return nil, err
-	}
+	c := cuckoo.NewCuckoo(uint64(msgCount), seeds)
 	for _, id := range choices {
-		if err = c.Insert(id); err != nil {
+		if err := c.Insert(id); err != nil {
 			return nil, err
 		}
 	}
@@ -39,10 +36,7 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 }
 
 func testEncodings(encodedHashMap []map[uint64]uint64, keys *Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
-	senderCuckoo, err := cuckoo.NewCuckooHasher(uint64(msgCount), seeds)
-	if err != nil {
-		return err
-	}
+	senderCuckoo := cuckoo.NewCuckooHasher(uint64(msgCount), seeds)
 	hasher := senderCuckoo.GetHasher()
 	var hashes [cuckoo.Nhash]uint64
 
@@ -54,11 +48,7 @@ func testEncodings(encodedHashMap []map[uint64]uint64, keys *Key, sk []byte, see
 		// compute encoding and hash
 		for hIdx, bIdx := range senderCuckoo.BucketIndices(id) {
 			pseudorandId := crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
-			err = keys.Encode(bIdx, pseudorandId)
-			if err != nil {
-				return err
-			}
-
+			keys.Encode(bIdx, pseudorandId)
 			hashes[hIdx] = hasher.Hash64(pseudorandId)
 		}
 
@@ -181,8 +171,6 @@ func BenchmarkEncode(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := key.Encode(0, bytes); err != nil {
-			b.Fatal(err)
-		}
+		key.Encode(0, bytes)
 	}
 }
