@@ -103,10 +103,10 @@ func (c *Cuckoo) GetBucket(bIdx uint64) (uint64, error) {
 }
 
 // GetItemWithHash returns the item at a given index along with its
-// hash index.
+// hash index. Panic if the index is greater than the number of items.
 func (c *Cuckoo) GetItemWithHash(idx uint64) (item []byte, hIdx uint8) {
 	if idx > uint64(len(c.items)-1) {
-		return nil, 0
+		panic(fmt.Errorf("index greater than number of items"))
 	}
 
 	return c.items[idx], c.hashIndices[idx]
