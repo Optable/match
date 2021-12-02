@@ -159,17 +159,17 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 	oprfEncoding := make([][]byte, baseOTCount)
 	paddedLen := util.PadBitMap(ext.m, baseOTCount)
 	oprfMask := make([]byte, paddedLen)
-	// u^i = G(seeds[1])
-	// t^i = d^i ^ u^i
-	blakeHasher := blake3.New()
+	// oprfMask = G(seeds[1])
+	// oprfEncoding = G(seeds[0]) ^ oprfMask ^ pseudorandomEncoding
+	prg := blake3.New()
 	for col := range pseudorandomEncoding {
 		oprfEncoding[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerate(oprfEncoding[col], baseMsgs[col][0], blakeHasher)
+		err = crypto.PseudorandomGenerate(oprfEncoding[col], baseMsgs[col][0], prg)
 		if err != nil {
 			return nil, err
 		}
 
-		err = crypto.PseudorandomGenerate(oprfMask, baseMsgs[col][1], blakeHasher)
+		err = crypto.PseudorandomGenerate(oprfMask, baseMsgs[col][1], prg)
 		if err != nil {
 			return nil, err
 		}
