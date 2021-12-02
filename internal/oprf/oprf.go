@@ -43,7 +43,7 @@ const (
 // chosen with secret seed secret.
 type Key struct {
 	secret   []byte   // secret choice bits
-	otMatrix [][]byte // m x k bit matrice
+	oprfKeys [][]byte // m x k bit matrice
 }
 
 // OPRF implements the oprf struct containing the base OT
@@ -68,29 +68,29 @@ func NewOPRF(m int) *OPRF {
 // Send returns the OPRF keys
 func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 	// sample choice bits for baseOT
-	s := make([]byte, baseOTCount/8)
-	if _, err := rand.Read(s); err != nil {
+	choices := make([]byte, baseOTCount/8)
+	if _, err := rand.Read(choices); err != nil {
 		return nil, err
 	}
 
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
 	seeds := make([][]byte, baseOTCount)
-	if err := ext.baseOT.Receive(s, seeds, rw); err != nil {
+	if err := ext.baseOT.Receive(choices, seeds, rw); err != nil {
 		return nil, err
 	}
 
 	// receive masked columns u
 	paddedLen := util.Pad(ext.m, baseOTCount) / 8
-	u := make([]byte, paddedLen)
-	q := make([][]byte, baseOTCount)
-	h := blake3.New()
-	for col := range q {
-		if _, err := io.ReadFull(rw, u); err != nil {
+	oprfMask := make([]byte, paddedLen)
+	oprfKeys := make([][]byte, baseOTCount)
+	prg := blake3.New()
+	for col := range oprfKeys {
+		if _, err := io.ReadFull(rw, oprfMask); err != nil {
 			return nil, err
 		}
 
-		q[col] = make([]byte, paddedLen)
-		if err := crypto.PseudorandomGenerate(q[col], seeds[col], h); err != nil {
+		oprfKeys[col] = make([]byte, paddedLen)
+		if err := crypto.PseudorandomGenerate(oprfKeys[col], seeds[col], prg); err != nil {
 			return nil, err
 		}
 
@@ -99,15 +99,15 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 		// if bit is 0, we get a row of 0s which when XORed
 		// with q[row] just returns the same row, so no need to do
 		// an operation
-		if util.IsBitSet(s, col) {
-			util.ConcurrentBitOp(util.Xor, q[col], u)
+		if util.IsBitSet(choices, col) {
+			util.ConcurrentBitOp(util.Xor, oprfKeys[col], oprfMask)
 		}
 	}
 	runtime.GC()
-	q = util.ConcurrentTransposeWide(q)[:ext.m]
+	oprfKeys = util.ConcurrentTransposeWide(oprfKeys)[:ext.m]
 
 	// store oprf keys
-	return &Key{secret: s, otMatrix: q}, nil
+	return &Key{secret: choices, oprfKeys: oprfKeys}, nil
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
@@ -210,8 +210,8 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(j uint64, pseudorandomBytes []byte) {
-	util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.secret, k.otMatrix[j])
+func (k Key) Encode(rowIdx uint64, pseudorandomBytes []byte) {
+	util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.secret, k.oprfKeys[rowIdx])
 }
 
 // sampleRandomOTMessage allocates a slice of OTMessage, each OTMessage contains a pair of messages.
@@ -231,5 +231,4 @@ func sampleRandomOTMessages() ([]ot.OTMessage, error) {
 	}
 
 	return matrix, nil
-
 }

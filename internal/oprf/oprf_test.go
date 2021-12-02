@@ -166,7 +166,7 @@ func BenchmarkEncode(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	key := Key{secret: s, otMatrix: q}
+	key := Key{secret: s, oprfKeys: q}
 	bytes := crypto.PseudorandomCode(aesBlock, s, 0)
 
 	b.ResetTimer()
