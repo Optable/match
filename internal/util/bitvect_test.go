@@ -2,7 +2,6 @@ package util
 
 import (
 	"crypto/rand"
-	"runtime"
 	"testing"
 )
 
@@ -200,21 +199,9 @@ func BenchmarkTranspose512x512(b *testing.B) {
 	}
 }
 
-// BenchmarkTranspose tests the BitVect transpose with the overhead
-// of having to pull the blocks out of a larger matrix and write to
-// a new tranposed matrix. In this case, we limit it to a single thread.
-func BenchmarkTranspose(b *testing.B) {
-	byteBlock := sampleRandomTall(nmsg)
-	runtime.GOMAXPROCS(1)
-	defer runtime.GOMAXPROCS(0)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ConcurrentTransposeTall(byteBlock)
-	}
-}
-
-// BenchmarkConcurrentTranspose is the same as BenchmarkTranspose but
-// we allow a number of threads equal to the GOMAXPROCS.
+// BenchmarkConcurrentTranspose tests the BitVect transpose with the
+// overhead of having to pull the blocks out of a larger matrix and
+// write to a new tranposed matrix.
 func BenchmarkConcurrentTranspose(b *testing.B) {
 	byteBlock := sampleRandomTall(nmsg)
 	b.ResetTimer()
