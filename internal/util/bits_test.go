@@ -18,170 +18,386 @@ func genBytes(size int) []byte {
 	return bytes
 }
 
-type bitOpResult struct {
-	A      []byte
-	B      []byte
-	C      []byte
-	Xor    []byte // A XOR B
-	And    []byte // A AND B
-	XorXor []byte // A XOR B XOR C
-	AndXor []byte // A AND B XOR C
+type bitSets struct {
+	Scratch []byte
+	A       []byte
+	B       []byte
+	C       []byte
 }
 
-func (bitOpResult) Generate(r *rand.Rand, size int) reflect.Value {
-	var result bitOpResult
-	// generate initial random slices
-	result.A = genBytes(size)
-	result.B = genBytes(size)
-	result.C = genBytes(size)
-	// XOR
-	result.Xor = make([]byte, size)
-	for i := range result.Xor {
-		result.Xor[i] = result.A[i] ^ result.B[i]
-	}
-
-	// AND
-	result.And = make([]byte, size)
-	for i := range result.And {
-		result.And[i] = result.A[i] & result.B[i]
-	}
-
-	// Double XOR
-	result.XorXor = make([]byte, size)
-	for i := range result.XorXor {
-		result.XorXor[i] = result.Xor[i] ^ result.C[i]
-	}
-
-	// AND XOR
-	result.AndXor = make([]byte, size)
-	for i := range result.AndXor {
-		result.AndXor[i] = result.And[i] ^ result.C[i]
-	}
-
-	return reflect.ValueOf(result)
+// Generate creates a bitSets struct with three byte slices of
+// equal length
+func (bitSets) Generate(r *rand.Rand, size int) reflect.Value {
+	var sets bitSets
+	sets.Scratch = make([]byte, size)
+	sets.A = genBytes(size)
+	sets.B = genBytes(size)
+	sets.C = genBytes(size)
+	return reflect.ValueOf(sets)
 }
 
 func TestXor(t *testing.T) {
-	correct := func(b bitOpResult) bool {
-		err := Xor(b.A, b.B)
-		for i := range b.Xor {
-			if b.A[i] != b.Xor[i] {
+	fast := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := Xor(b.Scratch, b.B); err != nil {
+			return nil
+		}
+		return b.Scratch
+	}
+
+	naive := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] ^= b.B[i]
+		}
+		return b.Scratch
+	}
+
+	if err := quick.CheckEqual(fast, naive, nil); err != nil {
+		t.Errorf("fast XOR != naive XOR: %v", err)
+	}
+
+	commutative := func(b bitSets) bool {
+		copy(b.Scratch, b.A)
+		if err := Xor(b.Scratch, b.B); err != nil {
+			return false
+		}
+		if err := Xor(b.B, b.A); err != nil {
+			return false
+		}
+		// check
+		for i := range b.Scratch {
+			if b.Scratch[i] != b.B[i] {
 				return false
 			}
 		}
-		return err == nil
+		return true
 	}
 
-	if err := quick.Check(correct, nil); err != nil {
-		t.Errorf("bitwise XOR fail: %v", err)
+	if err := quick.Check(commutative, nil); err != nil {
+		t.Errorf("A ^ B != B ^ A (commutative): %v", err)
+	}
+
+	associative := func(b bitSets) bool {
+		copy(b.Scratch, b.B)
+		if err := Xor(b.Scratch, b.C); err != nil {
+			return false
+		}
+		if err := Xor(b.Scratch, b.A); err != nil {
+			return false
+		}
+
+		// check
+		if err := Xor(b.A, b.B); err != nil {
+			return false
+		}
+		if err := Xor(b.A, b.C); err != nil {
+			return false
+		}
+
+		for i := range b.Scratch {
+			if b.Scratch[i] != b.A[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(associative, nil); err != nil {
+		t.Errorf("A ^ (B ^ C) != (A ^ B) ^ C (associative): %v", err)
+	}
+
+	identityElement := func(b bitSets) bool {
+		if err := Xor(b.Scratch, b.A); err != nil {
+			return false
+		}
+		// check
+		for i := range b.Scratch {
+			if b.Scratch[i] != b.A[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(identityElement, nil); err != nil {
+		t.Errorf("A ^ 0 != A (identity): %v", err)
+	}
+
+	selfInverse := func(b bitSets) bool {
+		if err := Xor(b.A, b.A); err != nil {
+			return false
+		}
+		// check
+		for i := range b.A {
+			if b.A[i] != 0 {
+				return false
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(selfInverse, nil); err != nil {
+		t.Errorf("A ^ A != 0 (self-inverse): %v", err)
 	}
 }
 
 func TestAnd(t *testing.T) {
-	correct := func(b bitOpResult) bool {
-		err := And(b.A, b.B)
-		for i := range b.And {
-			if b.A[i] != b.And[i] {
+	fast := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := And(b.Scratch, b.B); err != nil {
+			return nil
+		}
+		return b.Scratch
+	}
+
+	naive := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] &= b.B[i]
+		}
+		return b.Scratch
+	}
+
+	if err := quick.CheckEqual(fast, naive, nil); err != nil {
+		t.Errorf("fast AND != naive AND: %v", err)
+	}
+
+	annulment := func(b bitSets) bool {
+		if err := And(b.Scratch, b.A); err != nil {
+			return false
+		}
+		// check
+		for i := range b.Scratch {
+			if b.Scratch[i] != 0 {
 				return false
 			}
 		}
-		return err == nil
+		return true
 	}
 
-	if err := quick.Check(correct, nil); err != nil {
-		t.Errorf("bitwise AND fail: %v", err)
+	if err := quick.Check(annulment, nil); err != nil {
+		t.Errorf("A & 0 != 0 (annulment): %v", err)
+	}
+
+	commutative := func(b bitSets) bool {
+		copy(b.Scratch, b.A)
+		if err := And(b.Scratch, b.B); err != nil {
+			return false
+		}
+		if err := And(b.B, b.A); err != nil {
+			return false
+		}
+		// check
+		for i := range b.Scratch {
+			if b.Scratch[i] != b.B[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(commutative, nil); err != nil {
+		t.Errorf("A & B != B & A (commutative): %v", err)
+	}
+
+	associative := func(b bitSets) bool {
+		copy(b.Scratch, b.B)
+		if err := And(b.Scratch, b.C); err != nil {
+			return false
+		}
+		if err := And(b.Scratch, b.A); err != nil {
+			return false
+		}
+
+		// check
+		if err := And(b.A, b.B); err != nil {
+			return false
+		}
+		if err := And(b.A, b.C); err != nil {
+			return false
+		}
+
+		for i := range b.Scratch {
+			if b.Scratch[i] != b.A[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(associative, nil); err != nil {
+		t.Errorf("A & (B & C) != (A & B) & C (associative): %v", err)
+	}
+
+	identityElement := func(b bitSets) bool {
+		for i := range b.Scratch {
+			b.Scratch[i] = 255
+		}
+		if err := And(b.Scratch, b.A); err != nil {
+			return false
+		}
+		// check
+		for i := range b.Scratch {
+			if b.Scratch[i] != b.A[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(identityElement, nil); err != nil {
+		t.Errorf("A & 1 != A (identity): %v", err)
+	}
+
+	idempotent := func(b bitSets) bool {
+		copy(b.Scratch, b.A)
+		if err := And(b.Scratch, b.A); err != nil {
+			return false
+		}
+		// check
+		for i := range b.Scratch {
+			if b.Scratch[i] != b.A[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(idempotent, nil); err != nil {
+		t.Errorf("A & A != A (idempotent): %v", err)
 	}
 }
 
 func TestDoubleXor(t *testing.T) {
-	correct := func(b bitOpResult) bool {
-		err := DoubleXor(b.A, b.B, b.C)
-		for i := range b.XorXor {
-			if b.A[i] != b.XorXor[i] {
-				return false
-			}
+	fast := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := DoubleXor(b.Scratch, b.B, b.C); err != nil {
+			return nil
 		}
-		return err == nil
+		return b.Scratch
 	}
 
-	if err := quick.Check(correct, nil); err != nil {
-		t.Errorf("bitwise double XOR fail: %v", err)
+	naive := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] &= b.B[i]
+			b.Scratch[i] &= b.C[i]
+		}
+		return b.Scratch
+	}
+
+	if err := quick.CheckEqual(fast, naive, nil); err != nil {
+		t.Errorf("fast double XOR != naive double XOR: %v", err)
 	}
 }
 
 func TestAndXor(t *testing.T) {
-	correct := func(b bitOpResult) bool {
-		err := AndXor(b.A, b.B, b.C)
-		for i := range b.AndXor {
-			if b.A[i] != b.AndXor[i] {
-				return false
-			}
+	fast := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := AndXor(b.Scratch, b.B, b.C); err != nil {
+			return nil
 		}
-		return err == nil
+		return b.Scratch
 	}
 
-	if err := quick.Check(correct, nil); err != nil {
-		t.Errorf("bitwise AND followed by XOR fail: %v", err)
+	naive := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] &= b.B[i]
+			b.Scratch[i] ^= b.C[i]
+		}
+		return b.Scratch
+	}
+
+	if err := quick.CheckEqual(fast, naive, nil); err != nil {
+		t.Errorf("fast AND followed by XOR != naive AND followed by XOR: %v", err)
 	}
 }
 
 func TestConcurrentBitOp(t *testing.T) {
-	xor := func(b bitOpResult) bool {
-		err := ConcurrentBitOp(Xor, b.A, b.B)
-		for i := range b.Xor {
-			if b.A[i] != b.Xor[i] {
-				return false
-			}
+	concXor := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := ConcurrentBitOp(Xor, b.Scratch, b.B); err != nil {
+			return nil
 		}
-		return err == nil
+		return b.Scratch
 	}
 
-	if err := quick.Check(xor, nil); err != nil {
-		t.Errorf("concurrent bitwise XOR fail: %v", err)
-	}
-
-	and := func(b bitOpResult) bool {
-		err := ConcurrentBitOp(And, b.A, b.B)
-		for i := range b.And {
-			if b.A[i] != b.And[i] {
-				return false
-			}
+	naiveXor := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] ^= b.B[i]
 		}
-		return err == nil
+		return b.Scratch
 	}
 
-	if err := quick.Check(and, nil); err != nil {
-		t.Errorf("concurrent bitwise AND fail: %v", err)
+	if err := quick.CheckEqual(concXor, naiveXor, nil); err != nil {
+		t.Errorf("concurrent fast XOR != naive XOR: %v", err)
+	}
+
+	concAnd := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := ConcurrentBitOp(And, b.Scratch, b.B); err != nil {
+			return nil
+		}
+		return b.Scratch
+	}
+
+	naiveAnd := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] &= b.B[i]
+		}
+		return b.Scratch
+	}
+
+	if err := quick.CheckEqual(concAnd, naiveAnd, nil); err != nil {
+		t.Errorf("concurrent fast AND != naive AND: %v", err)
 	}
 }
 
 func TestConcurrentDoubleBitOp(t *testing.T) {
-	xorxor := func(b bitOpResult) bool {
-		err := ConcurrentDoubleBitOp(DoubleXor, b.A, b.B, b.C)
-		for i := range b.XorXor {
-			if b.A[i] != b.XorXor[i] {
-				return false
-			}
+	concDoubleXor := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := ConcurrentDoubleBitOp(DoubleXor, b.Scratch, b.B, b.C); err != nil {
+			return nil
 		}
-		return err == nil
+		return b.Scratch
 	}
 
-	if err := quick.Check(xorxor, nil); err != nil {
-		t.Errorf("concurrent bitwise double XOR fail: %v", err)
-	}
-
-	andxor := func(b bitOpResult) bool {
-		err := ConcurrentDoubleBitOp(AndXor, b.A, b.B, b.C)
-		for i := range b.AndXor {
-			if b.A[i] != b.AndXor[i] {
-				return false
-			}
+	naiveDoubleXor := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] ^= b.B[i]
+			b.Scratch[i] ^= b.C[i]
 		}
-		return err == nil
+		return b.Scratch
 	}
 
-	if err := quick.Check(andxor, nil); err != nil {
-		t.Errorf("concurrent bitwise AND followed by XOR fail: %v", err)
+	if err := quick.CheckEqual(concDoubleXor, naiveDoubleXor, nil); err != nil {
+		t.Errorf("concurrent fast double XOR != naive double XOR: %v", err)
+	}
+
+	concAndXor := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		if err := ConcurrentDoubleBitOp(AndXor, b.Scratch, b.B, b.C); err != nil {
+			return nil
+		}
+		return b.Scratch
+	}
+
+	naiveAndXor := func(b bitSets) []byte {
+		copy(b.Scratch, b.A)
+		for i := range b.Scratch {
+			b.Scratch[i] &= b.B[i]
+			b.Scratch[i] ^= b.C[i]
+		}
+		return b.Scratch
+	}
+
+	if err := quick.CheckEqual(concAndXor, naiveAndXor, nil); err != nil {
+		t.Errorf("concurrent fast AND followed by XOR != naive AND followed by XOR: %v", err)
 	}
 }
 
