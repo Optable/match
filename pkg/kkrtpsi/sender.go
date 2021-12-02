@@ -172,6 +172,48 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		localEncodings := EncodeAndHashAllParallel(oprfKeys, <-encodedInputChan)
+		/*
+			nworkers := runtime.GOMAXPROCS(0)
+			var encoded = make(chan [cuckoo.Nhash]uint64, nworkers*2)
+
+			// determine number of blocks to split original matrix
+			workerResp := len(message.inputs) / nworkers
+
+			// Run a worker pool
+			var wg sync.WaitGroup
+			wg.Add(nworkers)
+			for w := 0; w < nworkers; w++ {
+				w := w
+				go func() {
+					defer wg.Done()
+					step := workerResp * w
+					if w == nworkers-1 { // last block
+						for i := step; i < len(message.inputs); i++ {
+							hashes, err := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+							if err != nil {
+								panic(err)
+							}
+							encoded <- hashes
+						}
+					} else {
+						for i := step; i < step+workerResp; i++ {
+							hashes, err := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+							if err != nil {
+								panic(err)
+							}
+							encoded <- hashes
+						}
+					}
+				}()
+			}
+
+			go func() {
+				wg.Wait()
+				close(encoded)
+			}()
+
+			return encoded
+		*/
 
 		// Add a buffer of 64k to amortize syscalls cost
 		var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
