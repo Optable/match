@@ -7,7 +7,7 @@ import (
 	"testing/quick"
 )
 
-var benchmarkBytes = 10000000
+var benchmarkBytes = 10
 
 func genBytes(size int) []byte {
 	bytes := make([]byte, size)
@@ -39,9 +39,7 @@ func (bitSets) Generate(r *rand.Rand, size int) reflect.Value {
 func TestXor(t *testing.T) {
 	fast := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := Xor(b.Scratch, b.B); err != nil {
-			return nil
-		}
+		Xor(b.Scratch, b.B)
 		return b.Scratch
 	}
 
@@ -59,12 +57,8 @@ func TestXor(t *testing.T) {
 
 	commutative := func(b bitSets) bool {
 		copy(b.Scratch, b.A)
-		if err := Xor(b.Scratch, b.B); err != nil {
-			return false
-		}
-		if err := Xor(b.B, b.A); err != nil {
-			return false
-		}
+		Xor(b.Scratch, b.B)
+		Xor(b.B, b.A)
 		// check
 		for i := range b.Scratch {
 			if b.Scratch[i] != b.B[i] {
@@ -80,20 +74,12 @@ func TestXor(t *testing.T) {
 
 	associative := func(b bitSets) bool {
 		copy(b.Scratch, b.B)
-		if err := Xor(b.Scratch, b.C); err != nil {
-			return false
-		}
-		if err := Xor(b.Scratch, b.A); err != nil {
-			return false
-		}
+		Xor(b.Scratch, b.C)
+		Xor(b.Scratch, b.A)
 
 		// check
-		if err := Xor(b.A, b.B); err != nil {
-			return false
-		}
-		if err := Xor(b.A, b.C); err != nil {
-			return false
-		}
+		Xor(b.A, b.B)
+		Xor(b.A, b.C)
 
 		for i := range b.Scratch {
 			if b.Scratch[i] != b.A[i] {
@@ -108,9 +94,7 @@ func TestXor(t *testing.T) {
 	}
 
 	identityElement := func(b bitSets) bool {
-		if err := Xor(b.Scratch, b.A); err != nil {
-			return false
-		}
+		Xor(b.Scratch, b.A)
 		// check
 		for i := range b.Scratch {
 			if b.Scratch[i] != b.A[i] {
@@ -125,9 +109,7 @@ func TestXor(t *testing.T) {
 	}
 
 	selfInverse := func(b bitSets) bool {
-		if err := Xor(b.A, b.A); err != nil {
-			return false
-		}
+		Xor(b.A, b.A)
 		// check
 		for i := range b.A {
 			if b.A[i] != 0 {
@@ -145,9 +127,7 @@ func TestXor(t *testing.T) {
 func TestAnd(t *testing.T) {
 	fast := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := And(b.Scratch, b.B); err != nil {
-			return nil
-		}
+		And(b.Scratch, b.B)
 		return b.Scratch
 	}
 
@@ -164,9 +144,7 @@ func TestAnd(t *testing.T) {
 	}
 
 	annulment := func(b bitSets) bool {
-		if err := And(b.Scratch, b.A); err != nil {
-			return false
-		}
+		And(b.Scratch, b.A)
 		// check
 		for i := range b.Scratch {
 			if b.Scratch[i] != 0 {
@@ -182,12 +160,8 @@ func TestAnd(t *testing.T) {
 
 	commutative := func(b bitSets) bool {
 		copy(b.Scratch, b.A)
-		if err := And(b.Scratch, b.B); err != nil {
-			return false
-		}
-		if err := And(b.B, b.A); err != nil {
-			return false
-		}
+		And(b.Scratch, b.B)
+		And(b.B, b.A)
 		// check
 		for i := range b.Scratch {
 			if b.Scratch[i] != b.B[i] {
@@ -203,20 +177,12 @@ func TestAnd(t *testing.T) {
 
 	associative := func(b bitSets) bool {
 		copy(b.Scratch, b.B)
-		if err := And(b.Scratch, b.C); err != nil {
-			return false
-		}
-		if err := And(b.Scratch, b.A); err != nil {
-			return false
-		}
+		And(b.Scratch, b.C)
+		And(b.Scratch, b.A)
 
 		// check
-		if err := And(b.A, b.B); err != nil {
-			return false
-		}
-		if err := And(b.A, b.C); err != nil {
-			return false
-		}
+		And(b.A, b.B)
+		And(b.A, b.C)
 
 		for i := range b.Scratch {
 			if b.Scratch[i] != b.A[i] {
@@ -234,9 +200,7 @@ func TestAnd(t *testing.T) {
 		for i := range b.Scratch {
 			b.Scratch[i] = 255
 		}
-		if err := And(b.Scratch, b.A); err != nil {
-			return false
-		}
+		And(b.Scratch, b.A)
 		// check
 		for i := range b.Scratch {
 			if b.Scratch[i] != b.A[i] {
@@ -252,9 +216,7 @@ func TestAnd(t *testing.T) {
 
 	idempotent := func(b bitSets) bool {
 		copy(b.Scratch, b.A)
-		if err := And(b.Scratch, b.A); err != nil {
-			return false
-		}
+		And(b.Scratch, b.A)
 		// check
 		for i := range b.Scratch {
 			if b.Scratch[i] != b.A[i] {
@@ -272,9 +234,7 @@ func TestAnd(t *testing.T) {
 func TestDoubleXor(t *testing.T) {
 	fast := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := DoubleXor(b.Scratch, b.B, b.C); err != nil {
-			return nil
-		}
+		DoubleXor(b.Scratch, b.B, b.C)
 		return b.Scratch
 	}
 
@@ -295,9 +255,7 @@ func TestDoubleXor(t *testing.T) {
 func TestAndXor(t *testing.T) {
 	fast := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := AndXor(b.Scratch, b.B, b.C); err != nil {
-			return nil
-		}
+		AndXor(b.Scratch, b.B, b.C)
 		return b.Scratch
 	}
 
@@ -318,9 +276,7 @@ func TestAndXor(t *testing.T) {
 func TestConcurrentBitOp(t *testing.T) {
 	concXor := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := ConcurrentBitOp(Xor, b.Scratch, b.B); err != nil {
-			return nil
-		}
+		ConcurrentBitOp(Xor, b.Scratch, b.B)
 		return b.Scratch
 	}
 
@@ -338,9 +294,7 @@ func TestConcurrentBitOp(t *testing.T) {
 
 	concAnd := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := ConcurrentBitOp(And, b.Scratch, b.B); err != nil {
-			return nil
-		}
+		ConcurrentBitOp(And, b.Scratch, b.B)
 		return b.Scratch
 	}
 
@@ -360,9 +314,7 @@ func TestConcurrentBitOp(t *testing.T) {
 func TestConcurrentDoubleBitOp(t *testing.T) {
 	concDoubleXor := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := ConcurrentDoubleBitOp(DoubleXor, b.Scratch, b.B, b.C); err != nil {
-			return nil
-		}
+		ConcurrentDoubleBitOp(DoubleXor, b.Scratch, b.B, b.C)
 		return b.Scratch
 	}
 
@@ -381,9 +333,7 @@ func TestConcurrentDoubleBitOp(t *testing.T) {
 
 	concAndXor := func(b bitSets) []byte {
 		copy(b.Scratch, b.A)
-		if err := ConcurrentDoubleBitOp(AndXor, b.Scratch, b.B, b.C); err != nil {
-			return nil
-		}
+		ConcurrentDoubleBitOp(AndXor, b.Scratch, b.B, b.C)
 		return b.Scratch
 	}
 

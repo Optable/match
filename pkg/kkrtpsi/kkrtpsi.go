@@ -28,10 +28,7 @@ func EncodesWrite(w io.Writer, u [cuckoo.Nhash]uint64) error {
 func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64, err error) {
 	// oprfInput is instantiated at the required size
 	for hIdx, bucketIdx := range bytes.bucketIdx {
-		err = oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
-		if err != nil {
-			return hashes, err
-		}
+		oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
 		hashes[hIdx] = hasher.Hash64(bytes.prcEncoded[hIdx])
 	}
 

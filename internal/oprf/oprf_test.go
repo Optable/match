@@ -54,11 +54,7 @@ func testEncodings(encodedHashMap []map[uint64]uint64, keys *Key, sk []byte, see
 		// compute encoding and hash
 		for hIdx, bIdx := range senderCuckoo.BucketIndices(id) {
 			pseudorandId := crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
-			err = keys.Encode(bIdx, pseudorandId)
-			if err != nil {
-				return err
-			}
-
+			keys.Encode(bIdx, pseudorandId)
 			hashes[hIdx] = hasher.Hash64(pseudorandId)
 		}
 
@@ -181,8 +177,6 @@ func BenchmarkEncode(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := key.Encode(0, bytes); err != nil {
-			b.Fatal(err)
-		}
+		key.Encode(0, bytes)
 	}
 }

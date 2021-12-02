@@ -121,10 +121,7 @@ func TestEncryptionWithXorCipherWithBlake3(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cipherText, err := XorCipherWithBlake3(xorKey, s.choice, []byte(s.plainText))
-		if err != nil {
-			t.Fatal(err)
-		}
+		cipherText := XorCipherWithBlake3(xorKey, s.choice, []byte(s.plainText))
 		if s.cipherText != fmt.Sprintf("%x", cipherText) {
 			t.Fatalf("Encryption via XOR cipher with Blake 3 did not return expected result with choice bit %v for\ninput: %v\nreturned: %x\nexpected: %v", s.choice, s.plainText, string(cipherText), s.cipherText)
 		}
@@ -142,10 +139,7 @@ func TestDecryptionWithXorCipherWithBlake3(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		plainText, err := XorCipherWithBlake3(xorKey, s.choice, cipherText)
-		if err != nil {
-			t.Fatal(err)
-		}
+		plainText := XorCipherWithBlake3(xorKey, s.choice, cipherText)
 		if s.plainText != string(plainText) {
 			t.Fatalf("Decryption via XOR cipher with Blake 3 did not return expected result with choice bit %v for\ninput: %v\nreturned: %x\nexpected: %v", s.choice, s.cipherText, string(plainText), s.plainText)
 		}
@@ -164,15 +158,8 @@ func TestEncryptDecrypt(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		encryptText, err := XorCipherWithBlake3(xorKey, s.choice, startText)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		decryptText, err := XorCipherWithBlake3(xorKey, s.choice, encryptText)
-		if err != nil {
-			t.Fatal(err)
-		}
+		encryptText := XorCipherWithBlake3(xorKey, s.choice, startText)
+		decryptText := XorCipherWithBlake3(xorKey, s.choice, encryptText)
 
 		if fmt.Sprintf("%x", startText) != fmt.Sprintf("%x", decryptText) {
 			t.Fatalf("Encryption followed by decryption via XOR cipher with Blake 3 did not return the original with choice bit %v for\noriginal: %v\nreturned: %x", s.cipherText, s.plainText, decryptText)
@@ -214,9 +201,7 @@ func BenchmarkEncryptionWithXorCipherWithBlake3(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := XorCipherWithBlake3(xorKey, 0, p); err != nil {
-			b.Fatal(err)
-		}
+		XorCipherWithBlake3(xorKey, 0, p)
 	}
 }
 
@@ -230,15 +215,10 @@ func BenchmarkDecryptionWithXorCipherWithBlake3(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	c, err := XorCipherWithBlake3(xorKey, 0, p)
-	if err != nil {
-		b.Fatal(err)
-	}
+	c := XorCipherWithBlake3(xorKey, 0, p)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := XorCipherWithBlake3(xorKey, 0, c); err != nil {
-			b.Fatal(err)
-		}
+		XorCipherWithBlake3(xorKey, 0, c)
 	}
 }
