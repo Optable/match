@@ -25,14 +25,14 @@ func EncodesWrite(w io.Writer, u [cuckoo.Nhash]uint64) error {
 	return binary.Write(w, binary.BigEndian, u)
 }
 
-func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64, err error) {
+func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
 	// oprfInput is instantiated at the required size
 	for hIdx, bucketIdx := range bytes.bucketIdx {
 		oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
 		hashes[hIdx] = hasher.Hash64(bytes.prcEncoded[hIdx])
 	}
 
-	return hashes, nil
+	return hashes
 }
 
 // HashAllParallel accepts the inputsAndHasher struct
@@ -55,18 +55,12 @@ func EncodeAndHashAllParallel(oprfKeys *oprf.Key, message inputsAndHasher) <-cha
 			step := workerResp * w
 			if w == nworkers-1 { // last block
 				for i := step; i < len(message.inputs); i++ {
-					hashes, err := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-					if err != nil {
-						panic(err)
-					}
+					hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
 					encoded <- hashes
 				}
 			} else {
 				for i := step; i < step+workerResp; i++ {
-					hashes, err := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-					if err != nil {
-						panic(err)
-					}
+					hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
 					encoded <- hashes
 				}
 			}
