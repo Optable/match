@@ -219,17 +219,13 @@ func SampleRandomBitMatrix(row, col int) ([][]uint8, error) {
 	return matrix, nil
 }
 
-// Pad returns the number of rows/columns to pad such that the number n is a
-// multiple of multiple.
+// Pad returns the total padded length such that n is padded to a multiple of
+// multiple.
 func Pad(n, multiple int) int {
-	n = n % multiple
-	if n == 0 {
-		return 0
+	p := n % multiple
+	if p == 0 {
+		return n
 	}
 
-	return multiple - n
-}
-
-func PadBitMap(n, multiple int) int {
-	return (n + Pad(n, multiple)) / 8
+	return n + (multiple - p)
 }
