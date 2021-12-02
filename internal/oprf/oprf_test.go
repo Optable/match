@@ -26,12 +26,9 @@ func genChoiceString() [][]byte {
 }
 
 func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, error) {
-	c, err := cuckoo.NewCuckoo(uint64(msgCount), seeds)
-	if err != nil {
-		return nil, err
-	}
+	c := cuckoo.NewCuckoo(uint64(msgCount), seeds)
 	for _, id := range choices {
-		if err = c.Insert(id); err != nil {
+		if err := c.Insert(id); err != nil {
 			return nil, err
 		}
 	}
@@ -39,10 +36,7 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 }
 
 func testEncodings(encodedHashMap []map[uint64]uint64, keys *Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
-	senderCuckoo, err := cuckoo.NewCuckooHasher(uint64(msgCount), seeds)
-	if err != nil {
-		return err
-	}
+	senderCuckoo := cuckoo.NewCuckooHasher(uint64(msgCount), seeds)
 	hasher := senderCuckoo.GetHasher()
 	var hashes [cuckoo.Nhash]uint64
 

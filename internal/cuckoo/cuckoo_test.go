@@ -35,10 +35,7 @@ func TestNewCuckoo(t *testing.T) {
 	seeds := makeSeeds()
 
 	for _, tt := range cuckooTests {
-		c, err := NewCuckoo(tt.size, seeds)
-		if err != nil {
-			t.Fatal(err)
-		}
+		c := NewCuckoo(tt.size, seeds)
 		if c.CuckooHasher.bucketSize != tt.bSize {
 			t.Errorf("cuckoo bucketsize: want: %d, got: %d", tt.bSize, c.CuckooHasher.bucketSize)
 		}
@@ -46,10 +43,7 @@ func TestNewCuckoo(t *testing.T) {
 }
 
 func TestInsertAndGetHashIdx(t *testing.T) {
-	cuckoo, err := NewCuckoo(testN, makeSeeds())
-	if err != nil {
-		t.Fatal(err)
-	}
+	cuckoo := NewCuckoo(testN, makeSeeds())
 	errCount := 0
 	testData := genBytes(int(testN))
 
@@ -81,10 +75,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 
 func BenchmarkCuckooInsert(b *testing.B) {
 	seeds := makeSeeds()
-	benchCuckoo, err := NewCuckoo(uint64(b.N), seeds)
-	if err != nil {
-		b.Fatal(err)
-	}
+	benchCuckoo := NewCuckoo(uint64(b.N), seeds)
 	benchData := genBytes(int(b.N))
 	b.ResetTimer()
 
@@ -99,10 +90,7 @@ func BenchmarkCuckooInsert(b *testing.B) {
 // Benchmark finding hash index and checking existance
 func BenchmarkCuckooExists(b *testing.B) {
 	seeds := makeSeeds()
-	benchCuckoo, err := NewCuckoo(uint64(b.N), seeds)
-	if err != nil {
-		b.Fatal(err)
-	}
+	benchCuckoo := NewCuckoo(uint64(b.N), seeds)
 	benchData := genBytes(int(b.N))
 	b.ResetTimer()
 

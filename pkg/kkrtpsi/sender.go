@@ -114,10 +114,8 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// hashes and store them using the same
 		// cuckoo hash table parameters as the receiver.
 		go func() {
-			cuckooHasher, err := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
-			if err != nil {
-				panic(err)
-			}
+			cuckooHasher := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
+
 			// instantiate an AES block
 			aesBlock, err := aes.NewCipher(sk)
 			if err != nil {
