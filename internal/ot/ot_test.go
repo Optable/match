@@ -11,7 +11,7 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-var (
+const (
 	baseCount        = 512
 	otExtensionCount = 1400
 )

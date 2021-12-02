@@ -60,21 +60,18 @@ func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
 	// precompute A = rA
 	pointA = pointA.ScalarMult(secretR)
 
-	keyMaterials := make([]*crypto.Point, len(otMessages))
-	for i := range keyMaterials {
-		keyMaterials[i] = crypto.NewPoint()
-		if err := reader.Read(keyMaterials[i]); err != nil {
-			return fmt.Errorf("error reading point: %w", err)
-		}
-	}
-
 	// encrypt plaintext messages and send them.
 	for i := range otMessages {
-		// use keyMaterials to derive keys
-		var keys [2]*crypto.Point
+		keyMaterial := crypto.NewPoint()
+		// read keyMaterials to derive keys
+		if err := reader.Read(keyMaterial); err != nil {
+			return fmt.Errorf("error reading point: %w", err)
+		}
+
 		// compute and derive key for first OT message
+		var keys [2]*crypto.Point
 		// K0 = rK0
-		keys[0] = keyMaterials[i].ScalarMult(secretR)
+		keys[0] = keyMaterial.ScalarMult(secretR)
 		// compute and derive key for second OT message
 		// K1 = rA - rK0
 		keys[1] = pointA.Sub(keys[0])
@@ -114,12 +111,9 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		return fmt.Errorf("error reading point: %w", err)
 	}
 
-	// Generate points B, 1 for each OT
-	bSecrets := make([][]byte, len(messages))
 	for i := range messages {
-		var pointB = crypto.NewPoint()
 		// generate receiver priv/pub key pairs going to take a long time.
-		bSecrets[i], pointB, err = crypto.GenerateKey()
+		secretB, pointB, err := crypto.GenerateKey()
 		if err != nil {
 			return fmt.Errorf("error generating keys: %w", err)
 		}
@@ -138,10 +132,8 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 				return fmt.Errorf("error writing point: %w", err)
 			}
 		}
-	}
 
-	// receive encrypted messages, and decrypt it.
-	for i := range messages {
+		// receive encrypted messages, and decrypt it.
 		var encryptedOTMessages OTMessage
 		// read both msg
 		encryptedOTMessages[0] = make([]byte, n.msgLen[i])
@@ -156,7 +148,7 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 
 		// build keys for decryption
 		// K = bR
-		pointK := pointR.ScalarMult(bSecrets[i])
+		pointK := pointR.ScalarMult(secretB)
 
 		// decrypt the message indexed by choice bit
 		choiceBit := util.BitExtract(choices, i)
