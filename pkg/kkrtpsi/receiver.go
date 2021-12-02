@@ -118,10 +118,10 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		var bufferedReader = bufio.NewReaderSize(r.rw, 1024*64)
 
 		// read remote encodings and intersect
-		var remoteEncodings [cuckoo.Nhash]uint64
 		for i := int64(0); i < remoteN; i++ {
 			// read 3 possible encodings
-			if err := EncodesRead(bufferedReader, &remoteEncodings); err != nil {
+			remoteEncodings, err := EncodesRead(bufferedReader)
+			if err != nil {
 				return err
 			}
 			// intersect

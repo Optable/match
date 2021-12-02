@@ -15,9 +15,9 @@ import (
 )
 
 // HashRead reads one hash
-func EncodesRead(r io.Reader, u *[cuckoo.Nhash]uint64) (err error) {
-	err = binary.Read(r, binary.BigEndian, u)
-	return
+func EncodesRead(r io.Reader) (u [cuckoo.Nhash]uint64, err error) {
+	err = binary.Read(r, binary.BigEndian, &u)
+	return u, err
 }
 
 // HashWrite writes one hash out
