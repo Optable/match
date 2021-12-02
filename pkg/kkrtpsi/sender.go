@@ -125,17 +125,17 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			// prepare struct to send inputs and hasher to stage 3
 			var message inputsAndHasher
 			message.inputs = make([]oprfEncodedInputs, n)
-			i := 0
 
-			for id := range identifiers {
+			for i := range message.inputs {
+				id := <-identifiers
 				// hash and calculate pseudorandom code given each possible hash index
 				var bytes [cuckoo.Nhash][]byte
 				for hIdx := 0; hIdx < cuckoo.Nhash; hIdx++ {
 					bytes[hIdx] = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 				}
 				message.inputs[i] = oprfEncodedInputs{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
-				i++
 			}
+
 			message.hasher = cuckooHasher.GetHasher()
 			encodedInputChan <- message
 		}()
