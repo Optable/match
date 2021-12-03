@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"runtime"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -16,6 +17,7 @@ import (
 	"github.com/optable/match/internal/hash"
 	"github.com/optable/match/internal/oprf"
 	"github.com/optable/match/internal/util"
+	"golang.org/x/sync/errgroup"
 )
 
 // stage 1: samples 3 hash seeds and sends them to receiver for cuckoo hash
@@ -171,59 +173,64 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		localEncodings := EncodeAndHashAllParallel(oprfKeys, <-encodedInputChan)
-		/*
-			nworkers := runtime.GOMAXPROCS(0)
-			var encoded = make(chan [cuckoo.Nhash]uint64, nworkers*2)
+		//localEncodings := EncodeAndHashAllParallel(oprfKeys, <-encodedInputChan)
+		message := <-encodedInputChan
+		nWorkers := runtime.GOMAXPROCS(0)
+		var localEncodings = make(chan [cuckoo.Nhash]uint64, nWorkers*2)
 
-			// determine number of blocks to split original matrix
-			workerResp := len(message.inputs) / nworkers
+		workerResp := len(message.inputs) / nWorkers
 
-			// Run a worker pool
-			var wg sync.WaitGroup
-			wg.Add(nworkers)
-			for w := 0; w < nworkers; w++ {
-				w := w
-				go func() {
-					defer wg.Done()
-					step := workerResp * w
-					if w == nworkers-1 { // last block
-						for i := step; i < len(message.inputs); i++ {
-							hashes, err := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-							if err != nil {
-								panic(err)
-							}
-							encoded <- hashes
-						}
-					} else {
-						for i := step; i < step+workerResp; i++ {
-							hashes, err := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-							if err != nil {
-								panic(err)
-							}
-							encoded <- hashes
+		g, ctx := errgroup.WithContext(ctx)
+
+		for w := 0; w < nWorkers; w++ {
+			w := w
+			g.Go(func() error {
+				step := workerResp * w
+				if w == nWorkers-1 { // last worker
+					for i := step; i < len(message.inputs); i++ {
+						hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case localEncodings <- hashes:
 						}
 					}
-				}()
+				} else {
+					for i := step; i < step+workerResp; i++ {
+						hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case localEncodings <- hashes:
+						}
+					}
+				}
+				return nil
+			})
+		}
+
+		g.Go(func() error {
+			// Add a buffer of 64k to amortize syscalls cost
+			var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
+			defer bufferedWriter.Flush()
+			sent := 0
+
+			for hashedEncodings := range localEncodings {
+				// send all 3 encoding at once
+				if err := EncodesWrite(bufferedWriter, hashedEncodings); err != nil {
+					return fmt.Errorf("stage3: %v", err)
+				}
+				sent++
+				if sent == len(message.inputs) {
+					fmt.Println("done")
+					close(localEncodings)
+				}
 			}
+			return nil
+		})
 
-			go func() {
-				wg.Wait()
-				close(encoded)
-			}()
-
-			return encoded
-		*/
-
-		// Add a buffer of 64k to amortize syscalls cost
-		var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
-		defer bufferedWriter.Flush()
-
-		for hashedEncodings := range localEncodings {
-			// send all 3 encoding at once
-			if err := EncodesWrite(bufferedWriter, hashedEncodings); err != nil {
-				return fmt.Errorf("stage3: %v", err)
-			}
+		if err := g.Wait(); err != nil {
+			return err
 		}
 
 		// end stage3

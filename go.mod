@@ -12,5 +12,6 @@ require (
 	github.com/gtank/ristretto255 v0.1.2
 	github.com/twmb/murmur3 v1.1.6
 	github.com/zeebo/blake3 v0.2.0
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
 )

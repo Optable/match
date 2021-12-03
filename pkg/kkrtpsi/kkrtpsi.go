@@ -5,7 +5,6 @@ import (
 	"io"
 	"math"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -33,46 +32,6 @@ func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Has
 	}
 
 	return hashes
-}
-
-// HashAllParallel accepts the inputsAndHasher struct
-// which contains the identifiers and the hasher and
-// parallel hashes them until identifiers closes
-func EncodeAndHashAllParallel(oprfKeys *oprf.Key, message inputsAndHasher) <-chan [cuckoo.Nhash]uint64 {
-	nworkers := runtime.GOMAXPROCS(0)
-	var encoded = make(chan [cuckoo.Nhash]uint64, 1024)
-
-	// determine number of blocks to split original matrix
-	workerResp := len(message.inputs) / nworkers
-
-	// Run a worker pool
-	var wg sync.WaitGroup
-	wg.Add(nworkers)
-	for w := 0; w < nworkers; w++ {
-		w := w
-		go func() {
-			defer wg.Done()
-			step := workerResp * w
-			if w == nworkers-1 { // last block
-				for i := step; i < len(message.inputs); i++ {
-					hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-					encoded <- hashes
-				}
-			} else {
-				for i := step; i < step+workerResp; i++ {
-					hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-					encoded <- hashes
-				}
-			}
-		}()
-	}
-
-	go func() {
-		wg.Wait()
-		close(encoded)
-	}()
-
-	return encoded
 }
 
 func printStageStats(log logr.Logger, stage int, prevTime, startTime time.Time, prevMem uint64) (time.Time, uint64) {
