@@ -65,7 +65,7 @@ func TestInsertAndGetHashIdx(t *testing.T) {
 			t.Fatalf("Cuckoo GetHashIdx, %dth item: %v not inserted.", i+1, item)
 		}
 
-		checkIndex, _ := cuckoo.GetBucket(bIndices[hIdx])
+		checkIndex := cuckoo.GetBucket(bIndices[hIdx])
 		checkItem, _ := cuckoo.GetItemWithHash(checkIndex)
 		if !bytes.Equal(checkItem, item) {
 			t.Fatalf("Cuckoo GetHashIdx, hashIdx not correct for item: %v, with hIdx: %d, item : %v", item, hIdx, checkItem)

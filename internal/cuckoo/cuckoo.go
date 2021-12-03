@@ -95,11 +95,11 @@ func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 
 // GetBucket returns the index in a given bucket which represents the value in
 // the list of identifiers to which it points.
-func (c *Cuckoo) GetBucket(bIdx uint64) (uint64, error) {
+func (c *Cuckoo) GetBucket(bIdx uint64) uint64 {
 	if bIdx > c.bucketSize {
-		return 0, fmt.Errorf("failed to retrieve item in bucket #%v", bIdx)
+		panic(fmt.Errorf("failed to retrieve item in bucket #%v", bIdx))
 	}
-	return c.bucketLookup[bIdx], nil
+	return c.bucketLookup[bIdx]
 }
 
 // GetItemWithHash returns the item at a given index along with its

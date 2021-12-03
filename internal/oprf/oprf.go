@@ -128,10 +128,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 		}
 		i := 0
 		for ; i < ext.m; i++ {
-			idx, err := choices.GetBucket(uint64(i))
-			if err != nil {
-				panic(err)
-			}
+			idx := choices.GetBucket(uint64(i))
 			item, hIdx := choices.GetItemWithHash(idx)
 			pseudorandomEncoding[i] = crypto.PseudorandomCode(aesBlock, item, hIdx)
 		}
@@ -156,15 +153,15 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	// read pseudorandomEncodings
 	pseudorandomEncoding := <-pseudorandomChan
 
-	oprfEncoding := make([][]byte, baseOTCount)
+	oprfEncodings := make([][]byte, baseOTCount)
 	paddedLen := util.Pad(ext.m, baseOTCount) / 8
 	oprfMask := make([]byte, paddedLen)
 	// oprfMask = G(seeds[1])
 	// oprfEncoding = G(seeds[0]) ^ oprfMask ^ pseudorandomEncoding
 	prg := blake3.New()
 	for col := range pseudorandomEncoding {
-		oprfEncoding[col] = make([]byte, paddedLen)
-		err = crypto.PseudorandomGenerate(oprfEncoding[col], baseMsgs[col][0], prg)
+		oprfEncodings[col] = make([]byte, paddedLen)
+		err = crypto.PseudorandomGenerate(oprfEncodings[col], baseMsgs[col][0], prg)
 		if err != nil {
 			return nil, err
 		}
@@ -174,19 +171,19 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 			return nil, err
 		}
 
-		util.ConcurrentDoubleBitOp(util.DoubleXor, oprfMask, oprfEncoding[col], pseudorandomEncoding[col])
+		util.ConcurrentDoubleBitOp(util.DoubleXor, oprfMask, oprfEncodings[col], pseudorandomEncoding[col])
 
-		// send u
+		// send oprfMask
 		if _, err = rw.Write(oprfMask); err != nil {
 			return nil, err
 		}
 	}
 
 	runtime.GC()
-	oprfEncoding = util.ConcurrentTransposeWide(oprfEncoding)[:ext.m]
+	oprfEncodings = util.ConcurrentTransposeWide(oprfEncodings)[:ext.m]
 
 	// Hash and index all local encodings
-	// the hash value of the oprf encoding is the key
+	// the hash value of the oprfEncodings is the key
 	// the index of the corresponding ID in the cuckoo hash table is the value
 	encodings := make([]map[uint64]uint64, cuckoo.Nhash)
 	for i := range encodings {
@@ -194,15 +191,12 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	}
 	hasher := choices.GetHasher()
 	// hash local oprf output
-	for bIdx := uint64(0); bIdx < uint64(len(oprfEncoding)); bIdx++ {
+	for bIdx := uint64(0); bIdx < uint64(len(oprfEncodings)); bIdx++ {
 		// check if it was an empty input
-		if idx, err := choices.GetBucket(bIdx); idx != 0 {
-			if err != nil {
-				panic(err)
-			}
+		if idx := choices.GetBucket(bIdx); idx != 0 {
 			// insert into proper map
 			_, hIdx := choices.GetItemWithHash(idx)
-			encodings[hIdx][hasher.Hash64(oprfEncoding[bIdx])] = idx
+			encodings[hIdx][hasher.Hash64(oprfEncodings[bIdx])] = idx
 		}
 	}
 
