@@ -17,7 +17,6 @@ const (
 	// kicked off egg
 	ReInsertLimit = 200
 	Factor        = 1.4
-	HashFunc      = hash.Metro
 )
 
 // CuckooHasher is the building block of a Cuckoo hash table. It only holds
@@ -36,7 +35,7 @@ func NewCuckooHasher(size uint64, seeds [Nhash][]byte) *CuckooHasher {
 	var hashers [Nhash]hash.Hasher
 	var err error
 	for i, s := range seeds {
-		if hashers[i], err = hash.New(HashFunc, s); err != nil {
+		if hashers[i], err = hash.NewMetroHasher(s); err != nil {
 			panic(err)
 		}
 	}

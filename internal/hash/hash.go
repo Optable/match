@@ -12,9 +12,6 @@ import (
 
 const (
 	SaltLength = 32
-
-	Murmur3 = iota
-	Metro
 )
 
 var (
@@ -31,18 +28,6 @@ func init() {
 // Hasher implements different non cryptographic hashing functions
 type Hasher interface {
 	Hash64([]byte) uint64
-}
-
-// New creates a Hasher of type t
-func New(t int, salt []byte) (Hasher, error) {
-	switch t {
-	case Murmur3:
-		return NewMurmur3Hasher(salt)
-	case Metro:
-		return NewMetroHasher(salt)
-	default:
-		return nil, ErrUnknownHash
-	}
 }
 
 // Murmur3 implementation of Hasher

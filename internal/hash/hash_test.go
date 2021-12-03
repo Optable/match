@@ -23,41 +23,9 @@ func makeSalt() ([]byte, error) {
 	}
 }
 
-func TestUnknownHasher(t *testing.T) {
-	s, _ := makeSalt()
-	h, err := New(666, s)
-	if err != ErrUnknownHash {
-		t.Fatalf("requested impossible hasher and got %v", h)
-	}
-}
-
-func TestGetMurmur3(t *testing.T) {
-	s, _ := makeSalt()
-	h, err := New(Murmur3, s)
-	if err != nil {
-		t.Fatalf("got error %v while requesting murmur3 hash", err)
-	}
-
-	if _, ok := h.(murmur64); !ok {
-		t.Fatalf("expected type murmur64 and got %T", h)
-	}
-}
-
-func TestGetMetro(t *testing.T) {
-	s, _ := makeSalt()
-	h, err := New(Metro, s)
-	if err != nil {
-		t.Fatalf("got error %v while requesting metro hash", err)
-	}
-
-	if _, ok := h.(metro64); !ok {
-		t.Fatalf("expected type metro64 and got %T", h)
-	}
-}
-
 func BenchmarkMurmur3(b *testing.B) {
 	s, _ := makeSalt()
-	h, _ := New(Murmur3, s)
+	h, _ := NewMurmur3Hasher(s)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
@@ -66,7 +34,7 @@ func BenchmarkMurmur3(b *testing.B) {
 
 func BenchmarkMetro(b *testing.B) {
 	s, _ := makeSalt()
-	h, _ := New(Metro, s)
+	h, _ := NewMetroHasher(s)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Hash64(xxx)
