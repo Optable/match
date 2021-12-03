@@ -175,32 +175,52 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 		message := <-encodedInputChan
 		nWorkers := runtime.GOMAXPROCS(0)
-		var localEncodings = make(chan [cuckoo.Nhash]uint64, nWorkers*2)
+		var localEncodings = make(chan [][cuckoo.Nhash]uint64, nWorkers*2)
 
-		workerResp := len(message.inputs) / nWorkers
+		batchSize := 2048
+		nBatches := len(message.inputs) / batchSize
+		if len(message.inputs)%batchSize > 0 {
+			nBatches++
+		}
+
+		workerResp := nBatches / nWorkers
 
 		g, ctx := errgroup.WithContext(ctx)
 
 		for w := 0; w < nWorkers; w++ {
 			w := w
 			g.Go(func() error {
-				step := workerResp * w
+				batch := make([][cuckoo.Nhash]uint64, batchSize)
+				bIdx := 0
+				step := workerResp * batchSize * w
 				if w == nWorkers-1 { // last worker
 					for i := step; i < len(message.inputs); i++ {
-						hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-						select {
-						case <-ctx.Done():
-							return ctx.Err()
-						case localEncodings <- hashes:
+						batch[bIdx] = message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+						bIdx++
+						if bIdx == batchSize {
+							select {
+							case <-ctx.Done():
+								return ctx.Err()
+							// send batch and reset
+							case localEncodings <- batch:
+								bIdx = 0
+							}
 						}
 					}
+					// send last partial batch
+					localEncodings <- batch[:len(message.inputs)%batchSize]
 				} else {
-					for i := step; i < step+workerResp; i++ {
-						hashes := message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
-						select {
-						case <-ctx.Done():
-							return ctx.Err()
-						case localEncodings <- hashes:
+					for i := step; i < step+(workerResp*batchSize); i++ {
+						batch[bIdx] = message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+						bIdx++
+						if bIdx == batchSize {
+							select {
+							case <-ctx.Done():
+								return ctx.Err()
+							// send batch and reset
+							case localEncodings <- batch:
+								bIdx = 0
+							}
 						}
 					}
 				}
@@ -212,16 +232,17 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			// Add a buffer of 64k to amortize syscalls cost
 			var bufferedWriter = bufio.NewWriterSize(s.rw, 1024*64)
 			defer bufferedWriter.Flush()
-			sent := 0
+			var sent int
 
-			for hashedEncodings := range localEncodings {
-				// send all 3 encoding at once
-				if err := EncodesWrite(bufferedWriter, hashedEncodings); err != nil {
-					return fmt.Errorf("stage3: %v", err)
+			for batch := range localEncodings {
+				for _, hashedEncodings := range batch {
+					// send all 3 encoding at once
+					if err := EncodesWrite(bufferedWriter, hashedEncodings); err != nil {
+						return fmt.Errorf("stage3: %v", err)
+					}
+					sent++
 				}
-				sent++
 				if sent == len(message.inputs) {
-					fmt.Println("done")
 					close(localEncodings)
 				}
 			}
