@@ -38,10 +38,10 @@ const (
 	baseOTCountBitmapWidth = aes.BlockSize * 4
 )
 
-// Keys contains the relaxed OPRF keys: (C, s), (j, q_j)
-// Pseudorandom code C is represented by a received OT extension matrix otMatrix
-// chosen with secret seed secret.
-type Keys struct {
+// Key contains the relaxed OPRF keys: (C, s), (j, q_j)
+// Pseudorandom code C is represented by a received OT extension matrix oprfKeys
+// chosen with choice bytes secret.
+type Key struct {
 	secret   []byte   // secret choice bits
 	oprfKeys [][]byte // m x k bit matrice
 }
@@ -66,7 +66,7 @@ func NewOPRF(m int) *OPRF {
 }
 
 // Send returns the OPRF keys
-func (ext *OPRF) Send(rw io.ReadWriter) (*Keys, error) {
+func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 	// sample choice bits for baseOT
 	choices := make([]byte, baseOTCount/8)
 	if _, err := rand.Read(choices); err != nil {
@@ -107,7 +107,7 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Keys, error) {
 	oprfKeys = util.ConcurrentTransposeWide(oprfKeys)[:ext.m]
 
 	// store oprf keys
-	return &Keys{secret: choices, oprfKeys: oprfKeys}, nil
+	return &Key{secret: choices, oprfKeys: oprfKeys}, nil
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
@@ -210,7 +210,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Keys) Encode(rowIdx uint64, pseudorandomBytes []byte) {
+func (k Key) Encode(rowIdx uint64, pseudorandomBytes []byte) {
 	util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.secret, k.oprfKeys[rowIdx])
 }
 

@@ -35,7 +35,7 @@ func makeCuckoo(choices [][]byte, seeds [cuckoo.Nhash][]byte) (*cuckoo.Cuckoo, e
 	return c, nil
 }
 
-func testEncodings(encodedHashMap []map[uint64]uint64, keys *Keys, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
+func testEncodings(encodedHashMap []map[uint64]uint64, key *Key, sk []byte, seeds [cuckoo.Nhash][]byte, choicesCuckoo *cuckoo.Cuckoo, choices [][]byte) error {
 	senderCuckoo := cuckoo.NewCuckooHasher(uint64(msgCount), seeds)
 	hasher := senderCuckoo.GetHasher()
 	var hashes [cuckoo.Nhash]uint64
@@ -48,7 +48,7 @@ func testEncodings(encodedHashMap []map[uint64]uint64, keys *Keys, sk []byte, se
 		// compute encoding and hash
 		for hIdx, bIdx := range senderCuckoo.BucketIndices(id) {
 			pseudorandId := crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
-			keys.Encode(bIdx, pseudorandId)
+			key.Encode(bIdx, pseudorandId)
 			hashes[hIdx] = hasher.Hash64(pseudorandId)
 		}
 
@@ -78,7 +78,7 @@ func testEncodings(encodedHashMap []map[uint64]uint64, keys *Keys, sk []byte, se
 
 func TestOPRF(t *testing.T) {
 	outBus := make(chan []map[uint64]uint64, cuckoo.Nhash)
-	keyBus := make(chan *Keys)
+	keyBus := make(chan *Key)
 	errs := make(chan error, 1)
 	sk := make([]byte, 16)
 	choices := genChoiceString()
@@ -166,7 +166,7 @@ func BenchmarkEncode(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	key := Keys{secret: s, oprfKeys: q}
+	key := Key{secret: s, oprfKeys: q}
 	bytes := crypto.PseudorandomCode(aesBlock, s, 0)
 
 	b.ResetTimer()

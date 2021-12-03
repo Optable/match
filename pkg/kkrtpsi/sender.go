@@ -68,7 +68,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var remoteN int64     // receiver size
 	var oprfInputSize int // nb of OPRF keys
 
-	var oprfKeys *oprf.Keys
+	var oprfKey *oprf.Key
 	var encodedInputChan = make(chan inputsAndHasher)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
@@ -153,7 +153,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		logger.V(1).Info("Starting stage 2")
 
 		// instantiate OPRF sender with agreed parameters
-		oprfKeys, err = oprf.NewOPRF(oprfInputSize).Send(s.rw)
+		oprfKey, err = oprf.NewOPRF(oprfInputSize).Send(s.rw)
 		if err != nil {
 			return err
 		}
@@ -195,7 +195,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				step := workerResp * batchSize * w
 				if w == nWorkers-1 { // last worker
 					for i := step; i < len(message.inputs); i++ {
-						batch[bIdx] = message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+						batch[bIdx] = message.inputs[i].encodeAndHash(oprfKey, message.hasher)
 						bIdx++
 						if bIdx == batchSize {
 							select {
@@ -211,7 +211,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 					localEncodings <- batch[:len(message.inputs)%batchSize]
 				} else {
 					for i := step; i < step+(workerResp*batchSize); i++ {
-						batch[bIdx] = message.inputs[i].encodeAndHash(oprfKeys, message.hasher)
+						batch[bIdx] = message.inputs[i].encodeAndHash(oprfKey, message.hasher)
 						bIdx++
 						if bIdx == batchSize {
 							select {
