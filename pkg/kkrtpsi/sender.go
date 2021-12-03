@@ -184,22 +184,22 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 		g, ctx := errgroup.WithContext(ctx)
 
-		// each worker is responsible of encode and hash workerResp batches and send it out
+		// each worker is responsible to encode and hash workerResp batches and send them out
 		for w := 0; w < nWorkers; w++ {
 			w := w
 			for batchNumber := 0; batchNumber < workerResp; batchNumber++ {
 				batchNumber := batchNumber
+				// each batch is done by a goroutine
 				g.Go(func() error {
 					batch := make([][cuckoo.Nhash]uint64, batchSize)
-					for bIdx, step := 0, (w*workerResp+batchNumber)*batchSize; bIdx < batchSize; bIdx, step = bIdx+1, step+1 {
-						batch[bIdx] = message.inputs[step].encodeAndHash(oprfKey, message.hasher)
+					for bIdx := 0; bIdx < batchSize; bIdx++ {
+						batch[bIdx] = message.inputs[(w*workerResp+batchNumber)*batchSize+bIdx].encodeAndHash(oprfKey, message.hasher)
 					}
 
-					// batch is filled, send it out
+					// batch is filled; send it out
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
-					// send batch and reset
 					case localEncodings <- batch:
 						return nil
 					}
@@ -207,22 +207,22 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			}
 		}
 
-		// last worker deal with the remaining inputs
+		// extra worker deals with the remaining inputs
 		g.Go(func() error {
-			workDone := workerResp * nWorkers * batchSize
-			remainingStep := len(message.inputs) - workDone
-			if remainingStep == 0 {
+			workLeft := len(message.inputs) - (workerResp * nWorkers * batchSize)
+			if workLeft == 0 {
 				return nil
 			}
 
-			lastBatch := make([][cuckoo.Nhash]uint64, remainingStep)
-			for bIdx, step := 0, workDone; step < len(message.inputs); bIdx, step = bIdx+1, step+1 {
-				lastBatch[bIdx] = message.inputs[step].encodeAndHash(oprfKey, message.hasher)
+			lastBatch := make([][cuckoo.Nhash]uint64, workLeft)
+			for bIdx := 0; bIdx < workLeft; bIdx++ {
+				lastBatch[bIdx] = message.inputs[len(message.inputs)-workLeft+bIdx].encodeAndHash(oprfKey, message.hasher)
 			}
+
+			// final batch filled; send it out
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			// send batch and reset
 			case localEncodings <- lastBatch:
 				return nil
 			}
@@ -234,7 +234,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			defer bufferedWriter.Flush()
 			var sent int
 			// no message
-			if sent == len(message.inputs) {
+			if len(message.inputs) == 0 {
 				close(localEncodings)
 			}
 
