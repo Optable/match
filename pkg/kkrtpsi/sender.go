@@ -173,7 +173,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			return err
 		}
 
-		//localEncodings := EncodeAndHashAllParallel(oprfKeys, <-encodedInputChan)
 		message := <-encodedInputChan
 		nWorkers := runtime.GOMAXPROCS(0)
 		var localEncodings = make(chan [cuckoo.Nhash]uint64, nWorkers*2)
