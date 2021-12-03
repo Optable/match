@@ -204,8 +204,8 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 }
 
 // Encode computes and returns OPRF(k, in)
-func (k Key) Encode(rowIdx uint64, pseudorandomBytes []byte) {
-	util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomBytes, k.secret, k.oprfKeys[rowIdx])
+func (k Key) Encode(rowIdx uint64, pseudorandomEncoding []byte) {
+	util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomEncoding, k.secret, k.oprfKeys[rowIdx])
 }
 
 // sampleRandomOTMessage allocates a slice of OTMessage, each OTMessage contains a pair of messages.

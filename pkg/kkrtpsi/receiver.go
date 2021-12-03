@@ -120,12 +120,12 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		// read remote encodings and intersect
 		for i := int64(0); i < remoteN; i++ {
 			// read 3 possible encodings
-			remoteEncodings, err := EncodesRead(bufferedReader)
-			if err != nil {
+			var remoteEncoding [cuckoo.Nhash]uint64
+			if err := EncodingsRead(bufferedReader, &remoteEncoding); err != nil {
 				return err
 			}
 			// intersect
-			for hashIdx, remoteHash := range remoteEncodings {
+			for hashIdx, remoteHash := range remoteEncoding {
 				if idx, ok := oprfOutput[hashIdx][remoteHash]; ok {
 					id, _ := cuckooHashTable.GetItemWithHash(idx)
 					if id == nil {

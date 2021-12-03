@@ -36,9 +36,9 @@ type oprfEncodedInputs struct {
 	bucketIdx  [cuckoo.Nhash]uint64
 }
 
-// inputsAndHasher is used to pass the OPRF encoded
+// stage1Result is used to pass the OPRF encoded
 // inputs along with the hasher from stage 1 to stage 3
-type inputsAndHasher struct {
+type stage1Result struct {
 	inputs []oprfEncodedInputs
 	hasher hash.Hasher
 }
@@ -69,7 +69,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var oprfInputSize int // nb of OPRF keys
 
 	var oprfKey *oprf.Key
-	var encodedInputChan = make(chan inputsAndHasher)
+	var encodedInputChan = make(chan stage1Result)
 
 	// stage 1: sample 3 hash seeds and write them to receiver
 	// for cuckoo hashing parameters agreement.
@@ -125,7 +125,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			cuckooHasher := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
 
 			// prepare struct to send inputs and hasher to stage 3
-			var message inputsAndHasher
+			var message stage1Result
 			message.inputs = make([]oprfEncodedInputs, n)
 
 			for i := range message.inputs {
@@ -237,7 +237,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			for batch := range localEncodings {
 				for _, hashedEncodings := range batch {
 					// send all 3 encoding at once
-					if err := EncodesWrite(bufferedWriter, hashedEncodings); err != nil {
+					if err := EncodingsWrite(bufferedWriter, hashedEncodings); err != nil {
 						return fmt.Errorf("stage3: %v", err)
 					}
 					sent++

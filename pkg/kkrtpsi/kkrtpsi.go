@@ -14,13 +14,12 @@ import (
 )
 
 // HashRead reads one hash
-func EncodesRead(r io.Reader) (u [cuckoo.Nhash]uint64, err error) {
-	err = binary.Read(r, binary.BigEndian, &u)
-	return u, err
+func EncodingsRead(r io.Reader, u *[cuckoo.Nhash]uint64) error {
+	return binary.Read(r, binary.BigEndian, u)
 }
 
 // HashWrite writes one hash out
-func EncodesWrite(w io.Writer, u [cuckoo.Nhash]uint64) error {
+func EncodingsWrite(w io.Writer, u [cuckoo.Nhash]uint64) error {
 	return binary.Write(w, binary.BigEndian, u)
 }
 
