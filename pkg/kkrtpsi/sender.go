@@ -29,9 +29,9 @@ type Sender struct {
 	rw io.ReadWriter
 }
 
-// oprfEncodedInputs stores the possible bucket
+// oprfEncodedInput stores the possible bucket
 // indexes in the receiver cuckoo hash table
-type oprfEncodedInputs struct {
+type oprfEncodedInput struct {
 	prcEncoded [cuckoo.Nhash][]byte // PseudoRandom Code
 	bucketIdx  [cuckoo.Nhash]uint64
 }
@@ -39,7 +39,7 @@ type oprfEncodedInputs struct {
 // stage1Result is used to pass the OPRF encoded
 // inputs along with the hasher from stage 1 to stage 3
 type stage1Result struct {
-	inputs []oprfEncodedInputs
+	inputs []oprfEncodedInput
 	hasher hash.Hasher
 }
 
@@ -95,13 +95,13 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// sample random 16 byte secret key for AES-128 and send to the receiver
-		sk := make([]byte, aes.BlockSize)
-		if _, err = rand.Read(sk); err != nil {
+		secretKey := make([]byte, aes.BlockSize)
+		if _, err = rand.Read(secretKey); err != nil {
 			return err
 		}
 
 		// send the secret key
-		if _, err := s.rw.Write(sk); err != nil {
+		if _, err := s.rw.Write(secretKey); err != nil {
 			return err
 		}
 
@@ -113,7 +113,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		}
 
 		// instantiate an AES block
-		aesBlock, err := aes.NewCipher(sk)
+		aesBlock, err := aes.NewCipher(secretKey)
 		if err != nil {
 			return err
 		}
@@ -125,21 +125,22 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			cuckooHasher := cuckoo.NewCuckooHasher(uint64(remoteN), seeds)
 
 			// prepare struct to send inputs and hasher to stage 3
-			var message stage1Result
-			message.inputs = make([]oprfEncodedInputs, n)
+			var result stage1Result
+			result.inputs = make([]oprfEncodedInput, n)
 
-			for i := range message.inputs {
-				id := <-identifiers
+			var i int
+			for id := range identifiers {
 				// hash and calculate pseudorandom code given each possible hash index
 				var bytes [cuckoo.Nhash][]byte
 				for hIdx := 0; hIdx < cuckoo.Nhash; hIdx++ {
 					bytes[hIdx] = crypto.PseudorandomCode(aesBlock, id, byte(hIdx))
 				}
-				message.inputs[i] = oprfEncodedInputs{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
+				result.inputs[i] = oprfEncodedInput{prcEncoded: bytes, bucketIdx: cuckooHasher.BucketIndices(id)}
+				i++
 			}
 
-			message.hasher = cuckooHasher.GetHasher()
-			encodedInputChan <- message
+			result.hasher = cuckooHasher.GetHasher()
+			encodedInputChan <- result
 		}()
 
 		// end stage1

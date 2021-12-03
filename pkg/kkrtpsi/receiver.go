@@ -49,7 +49,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	var seeds [cuckoo.Nhash][]byte
 	var oprfOutput = make([]map[uint64]uint64, cuckoo.Nhash)
 	var cuckooHashTable *cuckoo.Cuckoo
-	var sk []byte
+	var secretKey []byte
 
 	// stage 1: read the hash seeds from the remote side
 	//          initiate a cuckoo hash table and insert all local
@@ -78,8 +78,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// receive secret key for AES-128 (16 byte)
 		// use the first seed as the 32-byte key for highway hashing
-		sk = make([]byte, 16)
-		if _, err := io.ReadFull(r.rw, sk); err != nil {
+		secretKey = make([]byte, 16)
+		if _, err := io.ReadFull(r.rw, secretKey); err != nil {
 			return fmt.Errorf("stage1: %v", err)
 		}
 
@@ -93,7 +93,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 	stage2 := func() error {
 		logger.V(1).Info("Starting stage 2")
 		oprfInputSize := int(cuckooHashTable.Len())
-		oprfOutput, err = oprf.NewOPRF(oprfInputSize).Receive(cuckooHashTable, sk, r.rw)
+		oprfOutput, err = oprf.NewOPRF(oprfInputSize).Receive(cuckooHashTable, secretKey, r.rw)
 		if err != nil {
 			return err
 		}

@@ -23,11 +23,11 @@ func EncodingsWrite(w io.Writer, u [cuckoo.Nhash]uint64) error {
 	return binary.Write(w, binary.BigEndian, u)
 }
 
-func (bytes oprfEncodedInputs) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
+func (input oprfEncodedInput) encodeAndHash(oprfKeys *oprf.Key, hasher hash.Hasher) (hashes [cuckoo.Nhash]uint64) {
 	// oprfInput is instantiated at the required size
-	for hIdx, bucketIdx := range bytes.bucketIdx {
-		oprfKeys.Encode(bucketIdx, bytes.prcEncoded[hIdx])
-		hashes[hIdx] = hasher.Hash64(bytes.prcEncoded[hIdx])
+	for hIdx, bucketIdx := range input.bucketIdx {
+		oprfKeys.Encode(bucketIdx, input.prcEncoded[hIdx])
+		hashes[hIdx] = hasher.Hash64(input.prcEncoded[hIdx])
 	}
 
 	return hashes
