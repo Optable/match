@@ -117,15 +117,15 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	}
 
 	// compute code word using PseudorandomCode on choice string r in a separate thread
+	aesBlock, err := aes.NewCipher(secretKey)
+	if err != nil {
+		return nil, err
+	}
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		defer close(pseudorandomChan)
 		bitMapLen := util.Pad(ext.m, baseOTCount)
 		pseudorandomEncoding := make([][]byte, bitMapLen)
-		aesBlock, err := aes.NewCipher(secretKey)
-		if err != nil {
-			panic(err)
-		}
 		i := 0
 		for ; i < ext.m; i++ {
 			idx := choices.GetBucket(uint64(i))
