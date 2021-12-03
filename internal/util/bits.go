@@ -229,3 +229,9 @@ func Pad(n, multiple int) int {
 
 	return n + (multiple - p)
 }
+
+// PadBitMap returns the total padded length such that n is padded to a multiple of
+// multiple bytes to fit in a bitmap.
+func PadBitMap(n, multiple int) int {
+	return Pad(n, multiple) / 8
+}

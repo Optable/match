@@ -80,7 +80,7 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 	}
 
 	// receive masked columns u
-	paddedLen := util.Pad(ext.m, baseOTCount) / 8
+	paddedLen := util.PadBitMap(ext.m, baseOTCount)
 	oprfMask := make([]byte, paddedLen)
 	oprfKeys := make([][]byte, baseOTCount)
 	prg := blake3.New()
@@ -154,7 +154,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	pseudorandomEncoding := <-pseudorandomChan
 
 	oprfEncodings := make([][]byte, baseOTCount)
-	paddedLen := util.Pad(ext.m, baseOTCount) / 8
+	paddedLen := util.PadBitMap(ext.m, baseOTCount)
 	oprfMask := make([]byte, paddedLen)
 	// oprfMask = G(seeds[1])
 	// oprfEncoding = G(seeds[0]) ^ oprfMask ^ pseudorandomEncoding
