@@ -19,15 +19,15 @@ type naorPinkas struct {
 	// msgLen holds the length of each pairs of OT message
 	// it serves to inform the receiver, how many bytes it is
 	// expected to read
-	msgLen []int
+	msgLens []int
 }
 
-func NewNaorPinkas(msgLen []int) OT {
-	return naorPinkas{msgLen: msgLen}
+func NewNaorPinkas(msgLens []int) OT {
+	return naorPinkas{msgLens: msgLens}
 }
 
 func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
-	if len(n.msgLen) != len(otMessages) {
+	if len(n.msgLens) != len(otMessages) {
 		return ErrBaseCountMissMatch
 	}
 
@@ -92,7 +92,7 @@ func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
 }
 
 func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter) (err error) {
-	if len(choices)*8 != len(messages) || len(choices)*8 != len(n.msgLen) {
+	if len(choices)*8 != len(messages) || len(choices)*8 != len(n.msgLens) {
 		return ErrBaseCountMissMatch
 	}
 
@@ -136,12 +136,12 @@ func (n naorPinkas) Receive(choices []uint8, messages [][]byte, rw io.ReadWriter
 		// receive encrypted messages, and decrypt it.
 		var encryptedOTMessages OTMessage
 		// read both msg
-		encryptedOTMessages[0] = make([]byte, n.msgLen[i])
+		encryptedOTMessages[0] = make([]byte, n.msgLens[i])
 		if _, err := io.ReadFull(rw, encryptedOTMessages[0]); err != nil {
 			return fmt.Errorf("error reading bytes: %w", err)
 		}
 
-		encryptedOTMessages[1] = make([]byte, n.msgLen[i])
+		encryptedOTMessages[1] = make([]byte, n.msgLens[i])
 		if _, err := io.ReadFull(rw, encryptedOTMessages[1]); err != nil {
 			return fmt.Errorf("error writing point: %w", err)
 		}

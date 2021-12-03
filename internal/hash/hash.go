@@ -33,7 +33,7 @@ type Hasher interface {
 	Hash64([]byte) uint64
 }
 
-// New creates a hasher of type t
+// New creates a Hasher of type t
 func New(t int, salt []byte) (Hasher, error) {
 	switch t {
 	case Murmur3:

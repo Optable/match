@@ -57,12 +57,12 @@ type OPRF struct {
 // of message tuples being exchanged.
 func NewOPRF(m int) *OPRF {
 	// send k columns of messages of length k/8 (64 bytes)
-	baseMsgLen := make([]int, baseOTCount)
-	for i := range baseMsgLen {
-		baseMsgLen[i] = baseOTCount / 8 // 64 bytes
+	baseMsgLens := make([]int, baseOTCount)
+	for i := range baseMsgLens {
+		baseMsgLens[i] = baseOTCount / 8 // 64 bytes
 	}
 
-	return &OPRF{baseOT: ot.NewNaorPinkas(baseMsgLen), m: m}
+	return &OPRF{baseOT: ot.NewNaorPinkas(baseMsgLens), m: m}
 }
 
 // Send returns the OPRF keys
@@ -111,7 +111,7 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 }
 
 // Receive returns the OPRF output on receiver's choice strings using OPRF keys
-func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([]map[uint64]uint64, error) {
+func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWriter) ([]map[uint64]uint64, error) {
 	if int(choices.Len()) != ext.m {
 		return nil, ot.ErrBaseCountMissMatch
 	}
@@ -122,7 +122,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, sk []byte, rw io.ReadWriter) ([
 		defer close(pseudorandomChan)
 		bitMapLen := util.Pad(ext.m, baseOTCount)
 		pseudorandomEncoding := make([][]byte, bitMapLen)
-		aesBlock, err := aes.NewCipher(sk)
+		aesBlock, err := aes.NewCipher(secretKey)
 		if err != nil {
 			panic(err)
 		}
