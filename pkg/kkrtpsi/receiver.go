@@ -132,6 +132,8 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 						return fmt.Errorf("failed to retrieve item #%v", idx)
 					}
 					intersection = append(intersection, id)
+					// dedup
+					delete(oprfOutput[hashIdx], remoteHash)
 				}
 			}
 		}

@@ -209,7 +209,10 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 						}
 					}
 					// send last partial batch
-					localEncodings <- batch[:len(message.inputs)%batchSize]
+					excess := len(message.inputs) % batchSize
+					if excess > 0 {
+						localEncodings <- batch[:excess]
+					}
 				} else {
 					for i := step; i < step+(workerResp*batchSize); i++ {
 						batch[bIdx] = message.inputs[i].encodeAndHash(oprfKey, message.hasher)
