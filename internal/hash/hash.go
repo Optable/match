@@ -37,7 +37,7 @@ type murmur64 struct {
 
 // NewMurmur3Hasher returns a Murmur3 hasher that uses salt as a prefix to the
 // bytes being summed
-func NewMurmur3Hasher(salt []byte) (murmur64, error) {
+func NewMurmur3Hasher(salt []byte) (Hasher, error) {
 	if len(salt) != SaltLength {
 		return murmur64{}, ErrSaltLengthMismatch
 	}
@@ -57,7 +57,7 @@ type metro64 struct {
 
 // NewMetroHasher returns a metro hasher that uses salt as a
 // prefix to the bytes being summed
-func NewMetroHasher(salt []byte) (metro64, error) {
+func NewMetroHasher(salt []byte) (Hasher, error) {
 	if len(salt) != SaltLength {
 		return metro64{}, ErrSaltLengthMismatch
 	}
