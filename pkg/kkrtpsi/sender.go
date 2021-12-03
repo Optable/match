@@ -68,7 +68,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var remoteN int64     // receiver size
 	var oprfInputSize int // nb of OPRF keys
 
-	var oprfKeys *oprf.Key
+	var oprfKeys *oprf.Keys
 	var encodedInputChan = make(chan inputsAndHasher)
 
 	// stage 1: sample 3 hash seeds and write them to receiver

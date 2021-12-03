@@ -5,22 +5,15 @@ Cuckoo hash tables [1] is an optimized hash table data structure with O(1) look 
 
 ## Benchmark
 ```
-go test -v -bench=. --benchmem ./internal/cuckoo/
-=== RUN   TestNewCuckoo
---- PASS: TestNewCuckoo (0.00s)
-=== RUN   TestInsertAndGetHashIdx
-    cuckoo_test.go:61: To be inserted: 1000000, bucketSize: 1400000, load factor: 0.714286, failure insertion:  0, taken 657.621072ms
---- PASS: TestInsertAndGetHashIdx (1.15s)
+go test -bench=. -benchmem ./internal/cuckoo/...                                
 goos: darwin
 goarch: amd64
 pkg: github.com/optable/match/internal/cuckoo
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
-BenchmarkCuckooInsert
-BenchmarkCuckooInsert-12         1929448               555.0 ns/op             0 B/op          0 allocs/op
-BenchmarkCuckooExists
-BenchmarkCuckooExists-12         3647469               330.4 ns/op             0 B/op          0 allocs/op
+BenchmarkCuckooInsert-12         2627492               498.0 ns/op             0 B/op          0 allocs/op
+BenchmarkCuckooExists-12         7582648               203.0 ns/op             0 B/op          0 allocs/op
 PASS
-ok      github.com/optable/match/internal/cuckoo        5.146s
+ok      github.com/optable/match/internal/cuckoo        7.896s
 ```
 
 ## References
