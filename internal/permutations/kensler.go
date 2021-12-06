@@ -43,7 +43,7 @@ func NewKensler(l int64) (kensler, error) {
 // since this only works on uint32 size.
 //
 // As long as the number of items being matched is not >4b
-// its not an issue.
+// it is not an issue.
 func (k kensler) Shuffle(n int64) int64 {
 	var l = k.l
 	var p = k.p

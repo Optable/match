@@ -21,7 +21,7 @@ func TestSel(t *testing.T) {
 		t.Errorf("expected %v, got %v", err1, err)
 	}
 
-	// check context cancelled
+	// check context canceled
 	cancel()
 	if err := Sel(ctx, f1); err != context.Canceled {
 		t.Errorf("expected context.Canceled, got %v", err)

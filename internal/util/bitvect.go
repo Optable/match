@@ -15,7 +15,7 @@ type BitVect struct {
 
 // unravelTall populates a BitVect from a 2D matrix of bytes. The matrix
 // must have 64 columns and a multiple of 512 rows. idx is the block target.
-// Only tested on AMD64.
+// Only tested on x86-64.
 func (b *BitVect) unravelTall(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(b.set[(i)*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[(512*idx)+i]))
@@ -24,7 +24,7 @@ func (b *BitVect) unravelTall(matrix [][]byte, idx int) {
 
 // unravelWide populates a BitVect from a 2D matrix of bytes. The matrix
 // must have a multiple of 64 columns and 512 rows. idx is the block target.
-// Only tested on AMD64.
+// Only tested on x86-64.
 func (b *BitVect) unravelWide(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(b.set[i*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[i][idx*64:(64*idx)+64]))
@@ -32,7 +32,7 @@ func (b *BitVect) unravelWide(matrix [][]byte, idx int) {
 }
 
 // ravelToTall reconstructs a subsection of a tall (mx64) matrix from a BitVect.
-// Only tested on AMD64.
+// Only tested on x86-64.
 func (b *BitVect) ravelToTall(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[(idx*512)+i][:], unsafeslice.ByteSliceFromUint64Slice(b.set[i*8:(i+1)*8]))
@@ -40,7 +40,7 @@ func (b *BitVect) ravelToTall(matrix [][]byte, idx int) {
 }
 
 // ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
-// Only tested on AMD64.
+// Only tested on x86-64.
 func (b *BitVect) ravelToWide(matrix [][]byte, idx int) {
 	for i := 0; i < 512; i++ {
 		copy(matrix[i][idx*64:(idx+1)*64], unsafeslice.ByteSliceFromUint64Slice(b.set[(i*8):(i+1)*8]))
@@ -53,7 +53,7 @@ func (b *BitVect) ravelToWide(matrix [][]byte, idx int) {
 // The blocks are divided among the number of workers. If there are fewer blocks
 // than workers, this function operates as though it were single-threaded. For
 // those small sets, performance could be improved by limiting the number of
-// workers to the number of blocks but this incurs a performance penaltly and it
+// workers to the number of blocks but this incurs a performance penalty and it
 // is much more likely that there will be more blocks than workers/cpu cores.
 // Each goroutine, iterates over the blocks for which it is responsible. For
 // each block it generates a BitVect from the matrix at the appropriate index,
@@ -111,14 +111,14 @@ func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
 }
 
 // ConcurrentTransposeWide tranposes a wide (512 row) matrix. If the input
-// matrix does not have a multiple of 64 columns (tall), panic. First it
+// matrix does not have a multiple of 64 columns (wide), panic. First it
 // determines how many 512x512 bit blocks are necessary to contain the matrix.
 // The blocks are divided among the number of workers. If there are fewer blocks
 // than workers, this function operates as though it were single-threaded. For
 // those small sets, performance could be improved by limiting the number of
-// workers to the number of blocks but this incurs a performance penaltly and it
+// workers to the number of blocks but this incurs a performance penalty and it
 // is much more likely that there will be more blocks than workers/cpu cores.
-// Each goroutine, iterates over the blocks for which it is responsible. For
+// Each goroutine iterates over the blocks for which it is responsible. For
 // each block it generates a BitVect from the matrix at the appropriate index,
 // performs a cache-oblivious, in-place, contiguous transpose on the BitVect,
 // and finally writes the result to a shared final output matrix. The last
@@ -176,7 +176,7 @@ func ConcurrentTransposeWide(matrix [][]byte) [][]byte {
 // transpose performs a cache-oblivious, in-place, contiguous transpose.
 // Since a BitVect represents a 512 by 512 square bit matrix, transposition will
 // be performed blockwise starting with blocks of 256 x 4, swapped about the
-// principle diagonal. Then blocks size will decrease by half until it is only
+// principle diagonal. Then block size will decrease by half until it is only
 // 64 x 1. The remaining transposition steps are performed using bit masks and
 // shifts. Operations are performed on blocks of bits of size 32, 16, 8, 4, 2,
 // and 1. Since the input is square, the transposition can be performed in place.
@@ -245,7 +245,7 @@ func (b *BitVect) transpose() {
 		copy(tmp, b.set[(128*8)+jmp+7:(128*8)+jmp+8])
 		copy(b.set[(128*8)+jmp+7:(128*8)+jmp+8], b.set[(192*8)+jmp+6:(192*8)+jmp+7])
 		copy(b.set[(192*8)+jmp+6:(192*8)+jmp+7], tmp[:1])
-		//
+
 		copy(tmp, b.set[(256*8)+jmp+1:(256*8)+jmp+2])
 		copy(b.set[(256*8)+jmp+1:(256*8)+jmp+2], b.set[(320*8)+jmp:(320*8)+jmp+1])
 		copy(b.set[(320*8)+jmp:(320*8)+jmp+1], tmp[:1])

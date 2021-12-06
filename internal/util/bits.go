@@ -11,12 +11,12 @@ import (
 
 var ErrByteLengthMissMatch = fmt.Errorf("provided bytes do not have the same length for bit operations")
 
-// Xor casts the first part of the byte slice (length divisible
-// by 8) into uint64 and then performs XOR on the slice of uint64.
-// The remaining elements that were not cast are XORed conventionally.
+// Xor casts the first part of the byte slices (length divisible
+// by 8) into uint64 and then performs XOR on the slices of uint64.
+// The excess elements that could not be cast are XORed conventionally.
 // The whole operation is performed in place. Panic if a and dst do
 // not have the same length.
-// Only tested on AMD64.
+// Only tested on x86-64.
 func Xor(dst, a []byte) {
 	if len(dst) != len(a) {
 		panic(ErrByteLengthMissMatch)
@@ -29,19 +29,19 @@ func Xor(dst, a []byte) {
 		castDst[i] ^= castA[i]
 	}
 
-	// deal with excess bytes which couldn't be cast to uint64
+	// deal with excess bytes which could not be cast to uint64
 	// in the conventional manner
 	for j := 0; j < len(dst)%8; j++ {
 		dst[len(dst)-j-1] ^= a[len(a)-j-1]
 	}
 }
 
-// And casts the first part of the byte slice (length divisible
-// by 8) into uint64 and then performs AND on the slice of uint64.
-// The remaining elements that were not cast are ANDed conventionally.
+// And casts the first part of the byte slices (length divisible
+// by 8) into uint64 and then performs AND on the slices of uint64.
+// The excess elements that could not be cast are ANDed conventionally.
 // The whole operation is performed in place. Panic if a and dst do
 // not have the same length.
-// Only tested on AMD64.
+// Only tested on x86-64.
 func And(dst, a []byte) {
 	if len(dst) != len(a) {
 		panic(ErrByteLengthMissMatch)
@@ -54,7 +54,7 @@ func And(dst, a []byte) {
 		castDst[i] &= castA[i]
 	}
 
-	// deal with excess bytes which couldn't be cast to uint64
+	// deal with excess bytes which could not be cast to uint64
 	// in the conventional manner
 	for j := 0; j < len(dst)%8; j++ {
 		dst[len(dst)-j-1] &= a[len(a)-j-1]
@@ -63,10 +63,10 @@ func And(dst, a []byte) {
 
 // DoubleXor casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs XOR on the slices of uint64
-// (first with a and then with b). The remaining elements that were not
-// cast are XORed conventionally. The whole operation is performed in
-// place. Panic if a, b and dst do not have the same length.
-// Only tested on AMD64.
+// (first with a and then with b). The excess elements that could not
+// be cast are XORed conventionally. The whole operation is performed
+// in place. Panic if a, b and dst do not have the same length.
+// Only tested on x86-64.
 func DoubleXor(dst, a, b []byte) {
 	if len(dst) != len(a) || len(dst) != len(b) {
 		panic(ErrByteLengthMissMatch)
@@ -81,7 +81,7 @@ func DoubleXor(dst, a, b []byte) {
 		castDst[i] ^= castB[i]
 	}
 
-	// deal with excess bytes which couldn't be cast to uint64
+	// deal with excess bytes which could not be cast to uint64
 	// in the conventional manner
 	for j := 0; j < len(dst)%8; j++ {
 		dst[len(dst)-j-1] ^= a[len(a)-j-1]
@@ -91,11 +91,11 @@ func DoubleXor(dst, a, b []byte) {
 
 // AndXor casts the first part of the byte slices (length divisible
 // by 8) into uint64 and then performs AND on the slices of uint64
-// (with a) and then performs XOR (with b). The remaining elements
-// that were not cast are operated on conventionally. The whole
+// (with a) and then performs XOR (with b). The excess elements
+// that could not be cast are operated on conventionally. The whole
 // operation is performed in place. Panic if a, b and dst do not
 // have the same length.
-// Only tested on AMD64.
+// Only tested on x86-64.
 func AndXor(dst, a, b []byte) {
 	if len(dst) != len(a) || len(dst) != len(b) {
 		panic(ErrByteLengthMissMatch)
@@ -110,7 +110,7 @@ func AndXor(dst, a, b []byte) {
 		castDst[i] ^= castB[i]
 	}
 
-	// deal with excess bytes which couldn't be cast to uint64
+	// deal with excess bytes which could not be cast to uint64
 	// in the conventional manner
 	for j := 0; j < len(dst)%8; j++ {
 		dst[len(dst)-j-1] &= a[len(a)-j-1]

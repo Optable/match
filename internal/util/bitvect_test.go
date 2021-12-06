@@ -111,7 +111,7 @@ func TestUnReRavelingWide(t *testing.T) {
 	}
 }
 
-// Test single block tranposition
+// Test single block transposition
 func TestTranspose512x512(t *testing.T) {
 	var tr BitVect
 	tr.unravelTall(sampleRandomTall(nmsg), 0)
@@ -127,12 +127,10 @@ func TestTranspose512x512(t *testing.T) {
 
 func TestIfLittleEndianTranspose(t *testing.T) {
 	tr := genZebraBlock()
-	//tr.printBits(64)
 	// 0101....
 	// 0101....
 	// 0101....
 	tr.transpose()
-	//tr.printBits(64)
 	// If Little Endian, we expect the resulting rows to be
 	// 1111....
 	// 0000....
@@ -161,9 +159,7 @@ func TestConcurrentTransposeTall(t *testing.T) {
 		// test
 		for k := range orig {
 			for l := range orig[k] {
-				// note the weird aerobics we have to do here because of the residual insignificant rows added
-				// due to the encoding of 8 rows in one column element.
-				if orig[k][l] != dtr[len(dtr)-len(orig)+k][l] {
+				if orig[k][l] != dtr[k][l] {
 					t.Fatal("Doubly-transposed tall (", m, ") matrix did not match with original at row", k, ".")
 				}
 			}
@@ -188,7 +184,7 @@ func TestConcurrentTransposeWide(t *testing.T) {
 	}
 }
 
-// BenchmarkTranspose512x512 benchmarks just transposing a single
+// BenchmarkTranspose512x512 benchmarks transposing a single
 // BitVect block.
 func BenchmarkTranspose512x512(b *testing.B) {
 	var tr BitVect
@@ -201,7 +197,7 @@ func BenchmarkTranspose512x512(b *testing.B) {
 
 // BenchmarkConcurrentTranspose tests the BitVect transpose with the
 // overhead of having to pull the blocks out of a larger matrix and
-// write to a new tranposed matrix.
+// write to a new transposed matrix.
 func BenchmarkConcurrentTranspose(b *testing.B) {
 	byteBlock := sampleRandomTall(nmsg)
 	b.ResetTimer()
