@@ -189,7 +189,6 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			w := w
 			g.Go(func() error {
 				for batchNumber := 0; batchNumber < workerResp; batchNumber++ {
-					//batchNumber := batchNumber
 					batch := make([][cuckoo.Nhash]uint64, batchSize)
 					step := (w*workerResp + batchNumber) * batchSize
 					for bIdx := 0; bIdx < batchSize; bIdx++ {
