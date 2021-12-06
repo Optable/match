@@ -93,12 +93,11 @@ func main() {
 			format.ExitOnErr(mlog, err, "failed to open file")
 			// enable nagle
 			switch v := c.(type) {
-			// enable nagle
 			case *net.TCPConn:
 				v.SetNoDelay(false)
 			}
-			// make the receiver
 
+			// make the receiver
 			receiver, err := psi.NewReceiver(psiType, c)
 			format.ExitOnErr(mlog, err, "failed to create receiver")
 			// and hand it off

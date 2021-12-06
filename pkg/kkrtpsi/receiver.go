@@ -77,7 +77,6 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		}
 
 		// receive secret key for AES-128 (16 byte)
-		// use the first seed as the 32-byte key for highway hashing
 		secretKey = make([]byte, 16)
 		if _, err := io.ReadFull(r.rw, secretKey); err != nil {
 			return fmt.Errorf("stage1: %v", err)
@@ -119,7 +118,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 		// read remote encodings and intersect
 		for i := int64(0); i < remoteN; i++ {
-			// read 3 possible encodings
+			// read cuckoo.Nhash possible encodings
 			var remoteEncoding [cuckoo.Nhash]uint64
 			if err := EncodingsRead(bufferedReader, &remoteEncoding); err != nil {
 				return err

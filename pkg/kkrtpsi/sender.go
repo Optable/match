@@ -20,7 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// stage 1: samples 3 hash seeds and sends them to receiver for cuckoo hash
+// stage 1: samples cuckoo.Nhash hash seeds and sends them to receiver for cuckoo hash
 // stage 2: act as sender in OPRF, and receive OPRF keys
 // stage 3: compute OPRF(k, id) and send them to receiver for intersection.
 
@@ -77,7 +77,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	stage1 := func() error {
 		logger.V(1).Info("Starting stage 1")
 
-		// sample Nhash hash seeds
+		// sample cuckoo.Nhash hash seeds
 		for i := range seeds {
 			seeds[i] = make([]byte, hash.SaltLength)
 			if _, err := rand.Read(seeds[i]); err != nil {
