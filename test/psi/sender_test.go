@@ -17,7 +17,7 @@ func initTestDataSource(common []byte, bodyLen int) <-chan []byte {
 }
 
 // test receiver and return the addr string
-func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int) (addr string, err error) {
+func s_receiverInit(protocol psi.Protocol, common []byte, commonLen, receiverLen int) (addr string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return "", err
@@ -34,10 +34,10 @@ func s_receiverInit(protocol int, common []byte, commonLen, receiverLen int) (ad
 	return ln.Addr().String(), nil
 }
 
-func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, conn net.Conn) {
+func s_receiverHandle(protocol psi.Protocol, common []byte, commonLen, receiverLen int, conn net.Conn) {
 	r := initTestDataSource(common, receiverLen-commonLen)
 	// do a nil receive, ignore the results
-	rec, _ := psi.NewReceiver(psi.Protocol(protocol), conn)
+	rec, _ := psi.NewReceiver(protocol, conn)
 	_, err := rec.Intersect(context.Background(), int64(receiverLen), r)
 	if err != nil {
 		// hmm - send this to the main thread with a channel
@@ -45,14 +45,14 @@ func s_receiverHandle(protocol int, common []byte, commonLen, receiverLen int, c
 	}
 }
 
-func testSender(protocol int, addr string, common []byte, commonLen, senderLen int) error {
+func testSender(protocol psi.Protocol, addr string, common []byte, commonLen, senderLen int) error {
 	// test sender
 	r := initTestDataSource(common, senderLen-commonLen)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
-	snd, _ := psi.NewSender(psi.Protocol(protocol), conn)
+	snd, _ := psi.NewSender(protocol, conn)
 	err = snd.Send(context.Background(), int64(senderLen), r)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func testSender(protocol int, addr string, common []byte, commonLen, senderLen i
 	return nil
 }
 
-func testSenderByProtocol(p int, t *testing.T) {
+func testSenderByProtocol(p psi.Protocol, t *testing.T) {
 	for _, s := range test_sizes {
 		t.Logf("testing scenario %s", s.scenario)
 		// generate common data
@@ -79,13 +79,13 @@ func testSenderByProtocol(p int, t *testing.T) {
 }
 
 func TestDHPSISender(t *testing.T) {
-	testSenderByProtocol(psi.DHPSI, t)
+	testSenderByProtocol(psi.ProtocolDHPSI, t)
 }
 
 func TestNPSISender(t *testing.T) {
-	testSenderByProtocol(psi.NPSI, t)
+	testSenderByProtocol(psi.ProtocolNPSI, t)
 }
 
 func TestBPSISender(t *testing.T) {
-	testSenderByProtocol(psi.BPSI, t)
+	testSenderByProtocol(psi.ProtocolBPSI, t)
 }
