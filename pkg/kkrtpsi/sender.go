@@ -189,16 +189,17 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			w := w
 			g.Go(func() error {
 				for batchNumber := 0; batchNumber < workerResp; batchNumber++ {
-					batchNumber := batchNumber
+					//batchNumber := batchNumber
 					batch := make([][cuckoo.Nhash]uint64, batchSize)
+					step := (w*workerResp + batchNumber) * batchSize
 					for bIdx := 0; bIdx < batchSize; bIdx++ {
-						batch[bIdx] = message.inputs[(w*workerResp+batchNumber)*batchSize+bIdx].encodeAndHash(oprfKey, message.hasher)
+						batch[bIdx] = message.inputs[step+bIdx].encodeAndHash(oprfKey, message.hasher)
 					}
 
-					// batch is filled; send it out
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
+					// batch is filled; send it out
 					case localEncodings <- batch:
 					}
 				}
@@ -206,7 +207,10 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 			})
 		}
 
-		// extra worker deals with the remaining inputs
+		// Extra worker deals with the remaining inputs
+		// In the case that nBatches < nWorkers, this worker will be responsible
+		// for the entire set of inputs. In addition, since it aggregates its
+		// inputs into a single large batch, this process is not pipelined.
 		g.Go(func() error {
 			workLeft := len(message.inputs) - (workerResp * nWorkers * batchSize)
 			if workLeft == 0 {
@@ -218,10 +222,10 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 				lastBatch[bIdx] = message.inputs[len(message.inputs)-workLeft+bIdx].encodeAndHash(oprfKey, message.hasher)
 			}
 
-			// final batch filled; send it out
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
+			// final batch filled; send it out
 			case localEncodings <- lastBatch:
 				return nil
 			}
