@@ -2,7 +2,7 @@ package psi
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 
 	"github.com/optable/match/pkg/bpsi"
@@ -11,22 +11,18 @@ import (
 	"github.com/optable/match/pkg/npsi"
 )
 
-const (
-	DHPSI = iota
-	NPSI
-	BPSI
-	KKRTPSI
-)
-
 // Protocol is the matching protocol enumeration
-type Protocol int
+type Protocol byte
 
-var (
-	ProtocolDHPSI   Protocol = DHPSI
-	ProtocolNPSI    Protocol = NPSI
-	ProtocolBPSI    Protocol = BPSI
-	ProtocolKKRTPSI Protocol = KKRTPSI
+const (
+	ProtocolUnsupported Protocol = iota
+	ProtocolDHPSI
+	ProtocolNPSI
+	ProtocolBPSI
+	ProtocolKKRTPSI
 )
+
+var ErrUnsupportedPSIProtocol = errors.New("unsupported PSI protocol")
 
 // Sender is the sender side of the PSI operation
 type Sender interface {
@@ -48,9 +44,10 @@ func NewSender(protocol Protocol, rw io.ReadWriter) (Sender, error) {
 		return bpsi.NewSender(rw), nil
 	case ProtocolKKRTPSI:
 		return kkrtpsi.NewSender(rw), nil
-
+	case ProtocolUnsupported:
+		fallthrough
 	default:
-		return nil, fmt.Errorf("PSI sender protocol %d not supported", protocol)
+		return nil, ErrUnsupportedPSIProtocol
 	}
 }
 
@@ -64,9 +61,10 @@ func NewReceiver(protocol Protocol, rw io.ReadWriter) (Receiver, error) {
 		return bpsi.NewReceiver(rw), nil
 	case ProtocolKKRTPSI:
 		return kkrtpsi.NewReceiver(rw), nil
-
+	case ProtocolUnsupported:
+		fallthrough
 	default:
-		return nil, fmt.Errorf("PSI receiver protocol %d not supported", protocol)
+		return nil, ErrUnsupportedPSIProtocol
 	}
 }
 
@@ -80,7 +78,9 @@ func (p Protocol) String() string {
 		return "bpsi"
 	case ProtocolKKRTPSI:
 		return "kkrtpsi"
+	case ProtocolUnsupported:
+		fallthrough
 	default:
-		return "undefined"
+		return "unsupported"
 	}
 }

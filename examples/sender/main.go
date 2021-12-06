@@ -44,19 +44,18 @@ func main() {
 	var psiType psi.Protocol
 	switch *protocol {
 	case "bpsi":
-		psiType = psi.BPSI
+		psiType = psi.ProtocolBPSI
 	case "npsi":
-		psiType = psi.NPSI
+		psiType = psi.ProtocolNPSI
 	case "dhpsi":
-		psiType = psi.DHPSI
+		psiType = psi.ProtocolDHPSI
 	case "kkrt":
-		psiType = psi.KKRTPSI
+		psiType = psi.ProtocolKKRTPSI
 	default:
-		log.Printf("unsupported protocol %s", *protocol)
-		format.ShowUsageAndExit(usage, 0)
+		psiType = psi.ProtocolUnsupported
 	}
 
-	log.Printf("operating with protocol %s", *protocol)
+	log.Printf("operating with protocol %s", psiType)
 	// fetch stdr logger
 	slog := format.GetLogger(*verbose)
 
@@ -82,7 +81,8 @@ func main() {
 		v.SetNoDelay(false)
 	}
 
-	s, _ := psi.NewSender(psiType, c)
+	s, err := psi.NewSender(psiType, c)
+	format.ExitOnErr(slog, err, "failed to create sender")
 	ids := util.Exhaust(n, f)
 	err = s.Send(logr.NewContext(context.Background(), slog), n, ids)
 	format.ExitOnErr(slog, err, "failed to perform PSI")

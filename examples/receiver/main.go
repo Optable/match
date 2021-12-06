@@ -28,11 +28,6 @@ func usage() {
 	flag.PrintDefaults()
 }
 
-func showUsageAndExit(exitcode int) {
-	usage()
-	os.Exit(exitcode)
-}
-
 var out *string
 
 func main() {
@@ -50,26 +45,25 @@ func main() {
 	flag.Parse()
 
 	if *showHelp {
-		showUsageAndExit(0)
+		format.ShowUsageAndExit(usage, 0)
 	}
 
 	// validate protocol
 	var psiType psi.Protocol
 	switch *protocol {
 	case "bpsi":
-		psiType = psi.BPSI
+		psiType = psi.ProtocolBPSI
 	case "npsi":
-		psiType = psi.NPSI
+		psiType = psi.ProtocolNPSI
 	case "dhpsi":
-		psiType = psi.DHPSI
+		psiType = psi.ProtocolDHPSI
 	case "kkrt":
-		psiType = psi.KKRTPSI
+		psiType = psi.ProtocolKKRTPSI
 	default:
-		log.Printf("unsupported protocol %s", *protocol)
-		showUsageAndExit(0)
+		psiType = psi.ProtocolUnsupported
 	}
 
-	log.Printf("operating with protocol %s", *protocol)
+	log.Printf("operating with protocol %s", psiType)
 	// fetch stdr logger
 	mlog := format.GetLogger(*verbose)
 
@@ -105,7 +99,8 @@ func main() {
 			}
 			// make the receiver
 
-			receiver, _ := psi.NewReceiver(psiType, c)
+			receiver, err := psi.NewReceiver(psiType, c)
+			format.ExitOnErr(mlog, err, "failed to create receiver")
 			// and hand it off
 			wg.Add(1)
 			go func() {
