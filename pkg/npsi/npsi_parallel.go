@@ -7,10 +7,6 @@ import (
 	"github.com/optable/match/internal/hash"
 )
 
-//
-// parallel hashing engine
-//
-
 const (
 	batchSize = 512
 )

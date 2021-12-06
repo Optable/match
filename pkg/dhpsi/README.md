@@ -2,7 +2,7 @@
 
 ## protocol
 
-The Diffie-Hellman private set intersection (DHPSI) [1] is one of the first PSI protocol and is communication efficient, but requires expensive computations from both parties: a sender and a receiver. We implement DHPSI using elliptic curve (specifically `ristretto255` [2]) instead of finite field exponentiation for performance reasons. The point operation of _kP_ is the multiplication of a ristretto point _P_ with a scalar _k_ over an ellipic curve (Curve25519).
+The Diffie-Hellman private set intersection (DHPSI) [1] is one of the first PSI protocols and is communication efficient, but requires expensive computations from both parties: a sender and a receiver. We implement DHPSI using elliptic curve (specifically `ristretto255` [2]) instead of finite field exponentiation for performance reasons. The point operation of _kP_ is the multiplication of a ristretto point _P_ with a scalar _k_ over an ellipic curve (Curve25519).
 
 1. the receiver and the sender agree on a preset elliptic curve _E_ (Curve25519).
 1. the sender generates his private key (*scalar*) _a_, and hashes each identifier from his input audience list to obtains points _x<sub>i</sub> ∈ X_ on _E_. (*Derive*)

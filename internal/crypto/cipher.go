@@ -48,7 +48,8 @@ func PseudorandomCode(aesBlock cipher.Block, src []byte, hIdx byte) []byte {
 	return dst
 }
 
-// Blake3 has XOF which is perfect for doing xor cipher.
+// XorCipherWithBlake3 uses the output of Blake3 XOF as pseudorandom
+// bytes to perform a XOR cipher.
 func XorCipherWithBlake3(key []byte, ind byte, src []byte) []byte {
 	hash := make([]byte, len(src))
 	getBlake3Hash(key, ind, hash)

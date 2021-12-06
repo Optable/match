@@ -11,17 +11,19 @@ import (
 const (
 	// Nhash is the number of hash function used for cuckoo hash
 	Nhash = 3
-	// Maximum number of reinsertions.
+	// ReInsertLimit is the maximum number of reinsertions.
 	// Each reinsertion kicks off 1 egg (item) and replace it
 	// with the item being reinserted, and then reinserts the
 	// kicked off egg
 	ReInsertLimit = 200
-	Factor        = 1.4
+	// Factor is the multiplicative factor of items to be
+	// inserted which represents the capacity overhead of
+	// the hash table to reduce risk of failure on insertion.
+	Factor = 1.4
 )
 
 // CuckooHasher is the building block of a Cuckoo hash table. It only holds
-// the bucket size and the hashers. This means the CuckooHasher can be used
-// when a full Cuckoo hash table is not needed.
+// the bucket size and the hashers.
 type CuckooHasher struct {
 	// Total bucket count, len(bucket)
 	bucketSize uint64
@@ -134,7 +136,7 @@ func (c *Cuckoo) Insert(item []byte) error {
 	c.items[c.inserted+1] = item
 	bucketIndices := c.BucketIndices(item)
 
-	// check if item has already been inserted:
+	// check if item has already been inserted
 	if found, _ := c.Exists(item); found {
 		return nil
 	}
@@ -174,8 +176,8 @@ func (c *Cuckoo) tryAdd(idx uint64, bucketIndices [Nhash]uint64, ignore bool, ex
 }
 
 // tryGreedyAdd evicts a random occupied slot, inserts the item to the evicted slot
-// and reinserts the evicted item. Return false and the last evicted item, if reinsertions
-// failed after ReInsertLimit of tries.
+// and reinserts the evicted item. If reinsertions fail after ReInsertLimit tries
+// return false and the last evicted item.
 func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLessItem uint64, added bool) {
 	for i := 1; i < ReInsertLimit; i++ {
 		// select a random slot to be evicted
@@ -188,12 +190,12 @@ func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLess
 
 		evictedBucketIndices := c.BucketIndices(c.items[evictedIdx])
 		// try to reinsert the evicted items
-		// ignore the evictedBIdx since we newly inserted the item there
+		// ignore the evictedBIdx since we just inserted there
 		if c.tryAdd(evictedIdx, evictedBucketIndices, true, evictedBIdx) {
 			return 0, true
 		}
 
-		// insert evicted item not successful, recurse
+		// insertion of evicted item unsuccessful, recurse
 		idx = evictedIdx
 		bucketIndices = evictedBucketIndices
 	}
@@ -213,12 +215,14 @@ func (c *Cuckoo) LoadFactor() (factor float64) {
 	return float64(occupation) / float64(c.bucketSize)
 }
 
-// Len returns the total size of the cuckoo struct which is equal to bucketSize
+// Len returns the total size of the cuckoo struct which is equal
+// to bucketSize
 func (c *Cuckoo) Len() uint64 {
 	return c.bucketSize
 }
 
-// isEmpty returns true if bucket at bidx doesn't contain the index of an identifier
+// isEmpty returns true if bucket at bidx does not contain the index
+//  of an identifier
 func (c *Cuckoo) isEmpty(bidx uint64) bool {
 	return c.bucketLookup[bidx] == 0
 }

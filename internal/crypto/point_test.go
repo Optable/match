@@ -42,12 +42,12 @@ func TestAdd(t *testing.T) {
 		expectedX, _ := new(big.Int).SetString(e.xOut, 10)
 		expectedY, _ := new(big.Int).SetString(e.yOut, 10)
 		sum1 := pointL.Add(pointR)
-		if !sum1.Equal(&Point{x: expectedX, y: expectedY}) {
+		if !sum1.equal(&Point{x: expectedX, y: expectedY}) {
 			t.Errorf("#%d: got (%s, %s), want (%s, %s)", i, sum1.x.String(), sum1.y.String(), expectedX.String(), expectedY.String())
 		}
 
 		sum2 := pointL.Add(pointR)
-		if !sum2.Equal(&Point{x: expectedX, y: expectedY}) {
+		if !sum2.equal(&Point{x: expectedX, y: expectedY}) {
 			t.Errorf("#%d: got (%s, %s), want (%s, %s)", i, sum2.x.String(), sum2.y.String(), expectedX.String(), expectedY.String())
 		}
 	}
@@ -86,7 +86,7 @@ func TestScalarMult(t *testing.T) {
 		expectedY, _ := new(big.Int).SetString(e.yOut, 16)
 
 		kPoint := point.ScalarMult(k.Bytes())
-		if !kPoint.Equal(&Point{x: expectedX, y: expectedY}) {
+		if !kPoint.equal(&Point{x: expectedX, y: expectedY}) {
 			t.Errorf("#%d: got (%x, %x), want (%x, %x)", i, kPoint.x, kPoint.y, expectedX, expectedY)
 		}
 	}
@@ -104,7 +104,7 @@ func TestSub(t *testing.T) {
 		sum := &Point{x: xSum, y: ySum}
 
 		diff := sum.Sub(point)
-		if !diff.Equal(&Point{x: expectedX, y: expectedY}) {
+		if !diff.equal(&Point{x: expectedX, y: expectedY}) {
 			t.Errorf("#%d: got (%s, %s), want (%s, %s)", i, diff.x.String(), diff.y.String(), expectedX.String(), expectedY.String())
 		}
 	}
@@ -157,7 +157,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 		unmarshalPoint := NewPoint()
 		unmarshalPoint.Unmarshal(marshaled)
-		if !point.Equal(unmarshalPoint) {
+		if !point.equal(unmarshalPoint) {
 			t.Errorf("#%d: got (%x, %x), want (%x, %x)", i, unmarshalPoint.x, unmarshalPoint.y, point.x, point.y)
 		}
 	}

@@ -1,15 +1,14 @@
 # kkrtpsi implementation
 
 # protocol
-The KKRT PSI (Batched-OPRF PSI) [1] is one of the most efficient OT-extension ([oblivious transfer](https://en.wikipedia.org/wiki/Oblivious_transfer)) based PSI protocol that boast more than 100 times speed up in single core performance (350s for DHPSI vs 2.5s for KKRT for a match between two 1 Million records dataset). It is secure against semi-honest adversaries, a malicious party that adheres to the protocol honestly but wants to learn/extract the other party's private information from the data being exchanged.
+The KKRT PSI (Batched-OPRF PSI) [1] is one of the most efficient OT-extension ([oblivious transfer](https://en.wikipedia.org/wiki/Oblivious_transfer)) based PSI protocol that boasts more than 100 times speed up in single core performance (300s for DHPSI vs 3s for KKRT for a match between two 1 million records dataset). It is secure against semi-honest adversaries, a malicious party that adheres to the protocol honestly but wants to learn/extract the other party's private information from the data being exchanged.
 
 1. the sender generates [CuckooHash](https://en.wikipedia.org/wiki/Cuckoo_hashing) parameters and exchange with the receiver.
-2. the receiver Cuckoohashes his input sets _Y_.
-3. the sender and the receiver agree on OPRF (KKRT) parameters which includes which base OT (Naor-Pinkas [2] or Simplest [3]) to use.
-4. the receiver acts as the sender in the OPRF protocol and samples two matrices _T_ and  _U_ such that the matrix _T_ is a uniformly (crypto/rand) random bit matrix, and the matrix _U_ is the Pseudorandom Code (linear correcting code) _C_ on cuckoohashed inputs. The receiver outputs the matrix _T_ as the OPRF evaluation of his inputs _Y_.
-5. the sender acts as the receiver in the OPRF protocol with input secret choice bits _s_, and receives matrix _Q_, with columns of _Q_ correspond to either matrix _T_ or _U_ depending on the value of _s_, and outputs the matrix _Q_. Each row of the column _Q_ along with the secret choice bit _s_ serves as the OPRF keys to encode his own input _X_.
-6. the sender uses the key _k_ to encode his own input _X_, and sends it to the receiver.
-9. the receiver receives the OPRF evaluation of _X_, and compares with his own OPRF evaluation of _Y_, and outputs the intersection.
+2. the receiver inserts his input set _Y_ to the Cuckoo Hash Table.
+3. the receiver acts as the sender in the OPRF protocol and samples two matrices _T_ and _U_ such that the matrix _T_ is a uniformly random bit matrix, and the matrix _U_ is the Pseudorandom Code (linear correcting code) _C_ on cuckoohashed inputs. The receiver outputs the matrix _T_ as the OPRF evaluation of his inputs _Y_.
+4. the sender acts as the receiver in the OPRF protocol with input secret choice bits _s_, and receives matrix _Q_, with columns of _Q_ correspond to either matrix _T_ or _U_ depending on the value of _s_, and outputs the matrix _Q_. Each row of the column _Q_ along with the secret choice bit _s_ serves as the OPRF keys to encode his own input _X_.
+5. the sender uses the key _k_ to encode his own input _X_, and sends it to the receiver.
+6. the receiver receives the OPRF evaluation of _X_, and compares with his own OPRF evaluation of _Y_, and outputs the intersection.
 
 
 ## data flow

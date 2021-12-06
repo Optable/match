@@ -32,14 +32,14 @@ import (
 )
 
 const (
-	// width of base OT binary matrix  as well as the ouput
+	// width of base OT binary matrix as well as the output
 	// length of PseudorandomCode (in bits)
 	baseOTCount            = aes.BlockSize * 4 * 8
 	baseOTCountBitmapWidth = aes.BlockSize * 4
 )
 
 // Key contains the relaxed OPRF keys: (C, s), (j, q_j)
-// Pseudorandom code C is represented by a received OT extension matrix oprfKeys
+// oprfKeys is the received OT extension matrix oprfKeys
 // chosen with choice bytes secret.
 type Key struct {
 	secret   []byte   // secret choice bits
@@ -59,7 +59,7 @@ func NewOPRF(m int) *OPRF {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLens := make([]int, baseOTCount)
 	for i := range baseMsgLens {
-		baseMsgLens[i] = baseOTCount / 8 // 64 bytes
+		baseMsgLens[i] = baseOTCountBitmapWidth // 64 bytes
 	}
 
 	return &OPRF{baseOT: ot.NewNaorPinkas(baseMsgLens), m: m}
@@ -68,7 +68,7 @@ func NewOPRF(m int) *OPRF {
 // Send returns the OPRF keys
 func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 	// sample choice bits for baseOT
-	choices := make([]byte, baseOTCount/8)
+	choices := make([]byte, baseOTCountBitmapWidth)
 	if _, err := rand.Read(choices); err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 		return nil, err
 	}
 
-	// receive masked columns u
+	// receive masked columns oprfMask
 	paddedLen := util.PadBitMap(ext.m, baseOTCount)
 	oprfMask := make([]byte, paddedLen)
 	oprfKeys := make([][]byte, baseOTCount)
@@ -94,11 +94,11 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 			return nil, err
 		}
 
-		// Binary AND of each byte in u with the test bit
-		// if bit is 1, we get whole row u to XOR with q[row]
-		// if bit is 0, we get a row of 0s which when XORed
-		// with q[row] just returns the same row, so no need to do
-		// an operation
+		// Binary AND of each byte in oprfMask with the test bit
+		// if bit is 1, we get whole row oprfMask to XOR with
+		// oprfKeys[row] if bit is 0, we get a row of 0s which when
+		// XORed with oprfKeys[row] just returns the same row, so
+		// no need to do an operation
 		if util.IsBitSet(choices, col) {
 			util.ConcurrentBitOp(util.Xor, oprfKeys[col], oprfMask)
 		}
@@ -110,13 +110,14 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 	return &Key{secret: choices, oprfKeys: oprfKeys}, nil
 }
 
-// Receive returns the OPRF output on receiver's choice strings using OPRF keys
+// Receive returns the hashes of OPRF encodings of choice strings embedded
+// in the cuckoo hash table using OPRF keys
 func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWriter) ([]map[uint64]uint64, error) {
 	if int(choices.Len()) != ext.m {
 		return nil, ot.ErrBaseCountMissMatch
 	}
 
-	// compute code word using PseudorandomCode on choice string r in a separate thread
+	// compute code word using PseudorandomCode on choice strings in a separate thread
 	aesBlock, err := aes.NewCipher(secretKey)
 	if err != nil {
 		return nil, err
@@ -203,7 +204,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	return encodings, nil
 }
 
-// Encode computes and returns OPRF(k, in)
+// Encode computes and returns the OPRF encoding of a byte slice using an OPRF Key
 func (k Key) Encode(rowIdx uint64, pseudorandomEncoding []byte) {
 	util.ConcurrentDoubleBitOp(util.AndXor, pseudorandomEncoding, k.secret, k.oprfKeys[rowIdx])
 }

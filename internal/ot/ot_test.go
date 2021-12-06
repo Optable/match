@@ -82,7 +82,6 @@ func TestNaorPinkas(t *testing.T) {
 		msg = append(msg, m)
 	}
 
-	//errors?
 	select {
 	case err := <-errs:
 		t.Fatal(err)

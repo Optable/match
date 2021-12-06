@@ -19,13 +19,12 @@ var (
 	encodeLen = encodeLenWithCurve(curve)
 )
 
-// LenEncodeOnCurve returns the number of bytes needed to encode a point
-// on the curve
+// encodeLenWithCurve returns the number of bytes needed to encode a point
 func encodeLenWithCurve(curve elliptic.Curve) int {
 	return len(elliptic.MarshalCompressed(curve, curve.Params().Gx, curve.Params().Gy))
 }
 
-// Point represents a point on an elliptic curve
+// Point represents a point on the P256 elliptic curve
 type Point struct {
 	x *big.Int
 	y *big.Int
@@ -47,7 +46,7 @@ func (p *Point) Unmarshal(marshaledPoint []byte) error {
 
 	// on error of Unmarshal, x is nil
 	if x == nil {
-		return fmt.Errorf("error unmarshal elliptic curve point")
+		return fmt.Errorf("error unmarshalling elliptic curve point")
 	}
 
 	p.x.Set(x)
@@ -55,7 +54,7 @@ func (p *Point) Unmarshal(marshaledPoint []byte) error {
 	return nil
 }
 
-// Add adds two points on the same curve
+// Add adds two points
 func (p *Point) Add(q *Point) *Point {
 	x, y := curve.Add(p.x, p.y, q.x, q.y)
 	return &Point{x: x, y: y}
@@ -67,14 +66,14 @@ func (p *Point) ScalarMult(scalar []byte) *Point {
 	return &Point{x: x, y: y}
 }
 
-// Sub substract point p with q
+// Sub substracts point p from q
 func (p *Point) Sub(q *Point) *Point {
 	// p - q = p.x + q.x, p.y - q.y
 	x, y := curve.Add(p.x, p.y, q.x, new(big.Int).Neg(q.y))
 	return &Point{x: x, y: y}
 }
 
-// DeriveKeyFromECPoint returns a key of 32 byte from an elliptic curve point
+// DeriveKeyFromECPoint returns a key of 32 byte
 func (p *Point) DeriveKeyFromECPoint() []byte {
 	key := blake3.Sum256(p.x.Bytes())
 	return key[:]
@@ -126,7 +125,7 @@ func (r *pointReader) Read(p *Point) (err error) {
 	return p.Unmarshal(pt)
 }
 
-// Equal returns true when 2 points on P256 curve are equal
-func (p *Point) Equal(q *Point) bool {
+// Equal returns true when 2 points are equal
+func (p *Point) equal(q *Point) bool {
 	return p.x.Cmp(q.x) == 0 && p.y.Cmp(q.y) == 0
 }

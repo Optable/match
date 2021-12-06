@@ -16,7 +16,7 @@ reference: https://dl.acm.org/doi/abs/10.5555/365411.365502
 */
 
 type naorPinkas struct {
-	// msgLen holds the length of each pairs of OT message
+	// msgLen holds the length of each pair of OT message
 	// it serves to inform the receiver, how many bytes it is
 	// expected to read
 	msgLens []int
@@ -31,7 +31,7 @@ func (n naorPinkas) Send(otMessages []OTMessage, rw io.ReadWriter) (err error) {
 		return ErrBaseCountMissMatch
 	}
 
-	// Instantiate Reader, Writer
+	// instantiate reader, writer
 	reader := crypto.NewECPointReader(rw)
 	writer := crypto.NewECPointWriter(rw)
 
