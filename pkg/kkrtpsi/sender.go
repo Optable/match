@@ -187,10 +187,9 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		// each worker is responsible to encode and hash workerResp batches and send them out
 		for w := 0; w < nWorkers; w++ {
 			w := w
-			for batchNumber := 0; batchNumber < workerResp; batchNumber++ {
-				batchNumber := batchNumber
-				// each batch is done by a goroutine
-				g.Go(func() error {
+			g.Go(func() error {
+				for batchNumber := 0; batchNumber < workerResp; batchNumber++ {
+					batchNumber := batchNumber
 					batch := make([][cuckoo.Nhash]uint64, batchSize)
 					for bIdx := 0; bIdx < batchSize; bIdx++ {
 						batch[bIdx] = message.inputs[(w*workerResp+batchNumber)*batchSize+bIdx].encodeAndHash(oprfKey, message.hasher)
@@ -201,10 +200,10 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 					case <-ctx.Done():
 						return ctx.Err()
 					case localEncodings <- batch:
-						return nil
 					}
-				})
-			}
+				}
+				return nil
+			})
 		}
 
 		// extra worker deals with the remaining inputs
