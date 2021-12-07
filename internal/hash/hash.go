@@ -10,14 +10,13 @@ import (
 	"github.com/twmb/murmur3"
 )
 
-const (
-	SaltLength = 32
-)
+// SaltLength is the number of bytes which should be used as salt in
+// hashing functions
+const SaltLength = 32
 
-var (
-	ErrUnknownHash        = fmt.Errorf("cannot create a hasher of unknown hash type")
-	ErrSaltLengthMismatch = fmt.Errorf("provided salt is not %d length", SaltLength)
-)
+// ErrSaltLengthMismath is used when the provided salt does not match
+// the expected SaltLength
+var ErrSaltLengthMismatch = fmt.Errorf("provided salt is not %d length", SaltLength)
 
 func init() {
 	if SaltLength != 32 {

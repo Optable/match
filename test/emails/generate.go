@@ -8,7 +8,9 @@ import (
 )
 
 const (
-	Prefix  = "e:"
+	// Prefix is value to be prepended to each generated email
+	Prefix = "e:"
+	// HashLen is the number of bytes to generate
 	HashLen = 32
 )
 
