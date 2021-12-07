@@ -71,7 +71,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 	var oprfKey *oprf.Key
 	var encodedInputChan = make(chan stage1Result)
 
-	// stage 1: sample 3 hash seeds and write them to receiver
+	// stage 1: sample hash seeds and write them to receiver
 	// for cuckoo hashing parameters agreement.
 	// read local ids and store the potential bucket indexes for each id.
 	stage1 := func() error {
@@ -242,7 +242,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 
 			for batch := range localEncodings {
 				for _, hashedEncodings := range batch {
-					// send all 3 encoding at once
+					// send all encodings of an ID at once
 					if err := EncodingsWrite(bufferedWriter, hashedEncodings); err != nil {
 						return fmt.Errorf("stage3: %v", err)
 					}

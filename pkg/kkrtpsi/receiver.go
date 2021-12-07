@@ -15,10 +15,10 @@ import (
 	"github.com/optable/match/internal/util"
 )
 
-// stage 1: read the 3 hash seeds for cuckoo hash, read local IDs until exhaustion
+// stage 1: read hash seeds for cuckoo hash, read local IDs until exhaustion
 //          and insert them all into a cuckoo hash table
 // stage 2: OPRF Receive
-// stage 3: receive remote OPRF outputs and intersect
+// stage 3: receive sender's OPRF encodings and intersect
 
 // Receiver side of the KKRTPSI protocol
 type Receiver struct {
@@ -88,7 +88,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		return nil
 	}
 
-	// stage 2: prepare OPRF receive input and run Receive to get OPRF output
+	// stage 2: prepare OPRF receive input and run Receive to get local OPRF encodings
 	stage2 := func() error {
 		logger.V(1).Info("Starting stage 2")
 		oprfInputSize := int(cuckooHashTable.Len())
