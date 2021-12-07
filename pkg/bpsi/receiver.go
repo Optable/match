@@ -31,12 +31,11 @@ func NewReceiver(rw io.ReadWriter) *Receiver {
 // returning the matching intersection, using the NPSI protocol.
 // The format of an indentifier is
 //  string
-func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) ([][]byte, error) {
+func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []byte) (intersection [][]byte, err error) {
 	// fetch and set up logger
 	logger := logr.FromContextOrDiscard(ctx)
 	logger = logger.WithValues("protocol", "bpsi")
 	var bf bloomfilter
-	var intersected [][]byte
 
 	// stage 1: read the bloomfilter from the remote side
 	stage1 := func() error {
@@ -58,7 +57,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		logger.V(1).Info("Starting stage 2")
 		for identifier := range identifiers {
 			if bf.Check(identifier) {
-				intersected = append(intersected, identifier)
+				intersection = append(intersection, identifier)
 			}
 		}
 
@@ -68,14 +67,14 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 
 	// run stage1
 	if err := util.Sel(ctx, stage1); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
 	// run stage2
 	if err := util.Sel(ctx, stage2); err != nil {
-		return intersected, err
+		return intersection, err
 	}
 
-	logger.V(1).Info("receiver finished", "intersected", len(intersected))
-	return intersected, nil
+	logger.V(1).Info("receiver finished", "intersected", len(intersection))
+	return intersection, nil
 }

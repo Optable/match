@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/stdr"
+	"github.com/optable/match/examples/format"
 	"github.com/optable/match/internal/util"
 	"github.com/optable/match/pkg/psi"
 )
@@ -25,37 +25,8 @@ func usage() {
 	flag.PrintDefaults()
 }
 
-func showUsageAndExit(exitcode int) {
-	usage()
-	os.Exit(exitcode)
-}
-
-func exitOnErr(logger logr.Logger, err error, msg string) {
-	if err != nil {
-		logger.Error(err, msg)
-		os.Exit(1)
-	}
-}
-
-// getLogger returns a stdr.Logger that implements the logr.Logger interface
-// and sets the verbosity of the returned logger.
-// set v to 0 for info level messages,
-// 1 for debug messages and 2 for trace level message.
-// any other verbosity level will default to 0.
-func getLogger(v int) logr.Logger {
-	logger := stdr.New(nil)
-	// bound check
-	if v > 2 || v < 0 {
-		v = 0
-		logger.Info("Invalid verbosity, setting logger to display info level messages only.")
-	}
-	stdr.SetVerbosity(v)
-
-	return logger
-}
-
 func main() {
-	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (dhpsi,npsi)")
+	var protocol = flag.String("proto", defaultProtocol, "the psi protocol (bpsi,npsi,dhpsi,kkrt)")
 	var addr = flag.String("a", defaultAddress, "The receiver address")
 	var file = flag.String("in", defaultSenderFileName, "A list of IDs terminated with a newline")
 	var verbose = flag.Int("v", 0, "Verbosity level, default to -v 0 for info level messages, -v 1 for debug messages, and -v 2 for trace level message.")
@@ -66,7 +37,7 @@ func main() {
 	flag.Parse()
 
 	if *showHelp {
-		showUsageAndExit(0)
+		format.ShowUsageAndExit(usage, 0)
 	}
 
 	// validate protocol
@@ -78,29 +49,31 @@ func main() {
 		psiType = psi.ProtocolNPSI
 	case "dhpsi":
 		psiType = psi.ProtocolDHPSI
+	case "kkrt":
+		psiType = psi.ProtocolKKRTPSI
 	default:
 		psiType = psi.ProtocolUnsupported
 	}
 
 	log.Printf("operating with protocol %s", psiType)
 	// fetch stdr logger
-	slog := getLogger(*verbose)
+	slog := format.GetLogger(*verbose)
 
 	// open file
 	f, err := os.Open(*file)
-	exitOnErr(slog, err, "failed to open file")
+	format.ExitOnErr(slog, err, "failed to open file")
 
 	// count lines
 	log.Printf("counting lines in %s", *file)
 	n, err := util.Count(f)
-	exitOnErr(slog, err, "failed to count")
+	format.ExitOnErr(slog, err, "failed to count")
 	log.Printf("operating on %s with %d IDs", *file, n)
 
 	// rewind
 	f.Seek(0, io.SeekStart)
 
 	c, err := net.Dial("tcp", *addr)
-	exitOnErr(slog, err, "failed to dial")
+	format.ExitOnErr(slog, err, "failed to dial")
 	defer c.Close()
 	// enable nagle
 	switch v := c.(type) {
@@ -109,8 +82,9 @@ func main() {
 	}
 
 	s, err := psi.NewSender(psiType, c)
-	exitOnErr(slog, err, "failed to create sender")
+	format.ExitOnErr(slog, err, "failed to create sender")
 	ids := util.Exhaust(n, f)
 	err = s.Send(logr.NewContext(context.Background(), slog), n, ids)
-	exitOnErr(slog, err, "failed to perform PSI")
+	format.ExitOnErr(slog, err, "failed to perform PSI")
+	format.MemUsageToStdErr(slog)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/optable/match/pkg/bpsi"
 	"github.com/optable/match/pkg/dhpsi"
+	"github.com/optable/match/pkg/kkrtpsi"
 	"github.com/optable/match/pkg/npsi"
 )
 
@@ -18,6 +19,7 @@ const (
 	ProtocolDHPSI
 	ProtocolNPSI
 	ProtocolBPSI
+	ProtocolKKRTPSI
 )
 
 var ErrUnsupportedPSIProtocol = errors.New("unsupported PSI protocol")
@@ -40,6 +42,8 @@ func NewSender(protocol Protocol, rw io.ReadWriter) (Sender, error) {
 		return npsi.NewSender(rw), nil
 	case ProtocolBPSI:
 		return bpsi.NewSender(rw), nil
+	case ProtocolKKRTPSI:
+		return kkrtpsi.NewSender(rw), nil
 	case ProtocolUnsupported:
 		fallthrough
 	default:
@@ -55,6 +59,8 @@ func NewReceiver(protocol Protocol, rw io.ReadWriter) (Receiver, error) {
 		return npsi.NewReceiver(rw), nil
 	case ProtocolBPSI:
 		return bpsi.NewReceiver(rw), nil
+	case ProtocolKKRTPSI:
+		return kkrtpsi.NewReceiver(rw), nil
 	case ProtocolUnsupported:
 		fallthrough
 	default:
@@ -70,6 +76,8 @@ func (p Protocol) String() string {
 		return "npsi"
 	case ProtocolBPSI:
 		return "bpsi"
+	case ProtocolKKRTPSI:
+		return "kkrtpsi"
 	case ProtocolUnsupported:
 		fallthrough
 	default:

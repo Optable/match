@@ -21,7 +21,7 @@ func main() {
 	var ws sync.WaitGroup
 	fmt.Printf("generating %d sender(s) and %d receiver(s) IDs with %d in common\r\n", senderCardinality, receiverCardinality, commonCardinality)
 	// make the common part
-	common := emails.Common(commonCardinality)
+	common := emails.Common(commonCardinality, emails.HashLen)
 	// do advertisers & publishers in parallel
 	ws.Add(2)
 	go output(senderFileName, common, senderCardinality-commonCardinality, &ws)
@@ -34,7 +34,7 @@ func output(filename string, common []byte, n int, ws *sync.WaitGroup) {
 	if f, err := os.Create(filename); err == nil {
 		defer f.Close()
 		// exhaust out
-		for matchable := range emails.Mix(common, n) {
+		for matchable := range emails.Mix(common, n, emails.HashLen) {
 			// add \n
 			out := append(matchable, "\n"...)
 			// and write it

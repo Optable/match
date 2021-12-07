@@ -1,11 +1,9 @@
 package dhpsi
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/optable/match/internal/permutations"
 )
@@ -26,7 +24,7 @@ var (
 //
 
 // DeriveMultiplyShuffler contains the necessary
-// machineries to derive identifiers into ristretto point
+// machineries to derive identifiers into ristretto point,
 // multiply them with secret key and permute them.
 type DeriveMultiplyShuffler struct {
 	w              io.Writer
@@ -162,8 +160,8 @@ func NewMultiplyReader(r io.Reader, gr Ristretto) (*MultiplyReader, error) {
 	return &MultiplyReader{r: rr, gr: gr}, nil
 }
 
-// Read reads a point from the underlying reader, multiply it with ristretto
-// and write it into point. Returns io.EOF when
+// Read reads a point from the underlying reader, multiplies it with ristretto
+// and writes it into point. Returns io.EOF when
 // the sequence has been completely read.
 func (r *MultiplyReader) Read(point *[EncodedLen]byte) (err error) {
 	var b [EncodedLen]byte
@@ -192,7 +190,7 @@ func NewReader(r io.Reader) (*Reader, error) {
 }
 
 // Read reads a point from the underlying reader and
-// write it into p. Returns io.EOF when
+// writes it into p. Returns io.EOF when
 // the sequence has been completely read.
 func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 	// ignore any read past the max size
@@ -212,30 +210,4 @@ func (r *Reader) Read(point *[EncodedLen]byte) (err error) {
 // this decoder will receive
 func (r *Reader) Max() int64 {
 	return r.max
-}
-
-// init the permutations slice matrix
-func initP(n int64) []int64 {
-	var p = make([]int64, n)
-	var max = big.NewInt(n - 1)
-	// Chooses a uniform random int64
-	choose := func() int64 {
-		i, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			return 0
-		}
-		return i.Int64()
-	}
-	// Initialize a trivial permutation
-	for i := int64(0); i < n; i++ {
-		p[i] = i
-	}
-	// and then shuffle it by random swaps
-	for i := int64(0); i < n; i++ {
-		if j := choose(); j != i {
-			p[j], p[i] = p[i], p[j]
-		}
-	}
-
-	return p
 }

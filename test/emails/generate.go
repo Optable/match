@@ -8,13 +8,15 @@ import (
 )
 
 const (
-	Prefix  = "e:"
+	// Prefix is value to be prepended to each generated email
+	Prefix = "e:"
+	// HashLen is the number of bytes to generate
 	HashLen = 32
 )
 
 // Common generates the common matchable identifiers
-func Common(n int) (common []byte) {
-	common = make([]byte, n*HashLen)
+func Common(n, hashLen int) (common []byte) {
+	common = make([]byte, n*hashLen)
 	if _, err := rand.Read(common); err != nil {
 		log.Fatalf("could not generate %d hashes for the common portion", n)
 	}
@@ -22,20 +24,20 @@ func Common(n int) (common []byte) {
 }
 
 // Mix mixes identifiers from common and n new fresh matchables
-func Mix(common []byte, n int) <-chan []byte {
+func Mix(common []byte, n, hashLen int) <-chan []byte {
 	// setup the streams
-	c1 := commons(common)
-	c2 := freshes(n)
+	c1 := commons(common, hashLen)
+	c2 := freshes(n, hashLen)
 	return mixes(c1, c2)
 }
 
 // commons will write HashLen chunks from b to a channel and then close it
-func commons(b []byte) <-chan []byte {
+func commons(b []byte, hashLen int) <-chan []byte {
 	out := make(chan []byte)
 	go func() {
 		defer close(out)
-		for i := 0; i < len(b)/HashLen; i++ {
-			hash := b[i*HashLen : i*HashLen+HashLen]
+		for i := 0; i < len(b)/hashLen; i++ {
+			hash := b[i*hashLen : i*hashLen+hashLen]
 			out <- hash
 		}
 	}()
@@ -43,12 +45,12 @@ func commons(b []byte) <-chan []byte {
 }
 
 // freshes will write a total number of fresh hashes to a channel and then close it
-func freshes(total int) <-chan []byte {
+func freshes(total, hashLen int) <-chan []byte {
 	out := make(chan []byte)
 	go func() {
 		defer close(out)
 		for i := 0; i < total; i++ {
-			b := make([]byte, HashLen)
+			b := make([]byte, hashLen)
 			if _, err := rand.Read(b); err == nil {
 				out <- b
 			}

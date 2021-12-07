@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Sel runs a single stage for protocol
 func Sel(ctx context.Context, f func() error) error {
 	var d = make(chan error)
 	go func() {
@@ -18,6 +19,7 @@ func Sel(ctx context.Context, f func() error) error {
 	}
 }
 
+// Sels runs multiple stages for a protocol
 func Sels(fs ...func() error) chan error {
 	var d = make(chan error, len(fs))
 	for _, f := range fs {
