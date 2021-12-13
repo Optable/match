@@ -1,11 +1,12 @@
 package hash
 
 import (
+	"crypto/aes"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"testing"
 
-	"github.com/alecthomas/unsafeslice"
 	"github.com/twmb/murmur3"
 )
 
@@ -41,11 +42,13 @@ func BenchmarkMetro(b *testing.B) {
 	}
 }
 
-func BenchmarkMurmur316Unsafe(b *testing.B) {
+func BenchmarkMurmur316(b *testing.B) {
 	src := make([]byte, 66)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hi, lo := murmur3.SeedSum128(0, 2, src)
-		unsafeslice.ByteSliceFromUint64Slice([]uint64{hi, lo})
+		h := make([]byte, aes.BlockSize)
+		binary.LittleEndian.PutUint64(h, lo)
+		binary.LittleEndian.PutUint64(h[8:], hi)
 	}
 }
