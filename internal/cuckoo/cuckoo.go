@@ -2,8 +2,9 @@ package cuckoo
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
-	"math/rand"
 
 	"github.com/optable/match/internal/hash"
 )
@@ -181,7 +182,9 @@ func (c *Cuckoo) tryAdd(idx uint64, bucketIndices [Nhash]uint64, ignore bool, ex
 func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLessItem uint64, added bool) {
 	for i := 1; i < ReInsertLimit; i++ {
 		// select a random slot to be evicted
-		evictedHIdx := rand.Int31n(Nhash)
+		evictedHIdxByte := make([]byte, 8)
+		rand.Read(evictedHIdxByte)
+		evictedHIdx := binary.BigEndian.Uint64(evictedHIdxByte) % Nhash
 		evictedBIdx := bucketIndices[evictedHIdx]
 		evictedIdx := c.bucketLookup[evictedBIdx]
 		// insert the item in the evicted slot
