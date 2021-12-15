@@ -2,6 +2,8 @@ package cuckoo
 
 import (
 	"bytes"
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math/rand"
 
@@ -79,9 +81,22 @@ type Cuckoo struct {
 }
 
 // NewCuckoo instantiates a Cuckoo struct with a bucket of size Factor * size,
-// and a CuckooHasher for the 3-way cuckoo hashing.
+// seeds math/rand with a random seed, returns a CuckooHasher for the 3-way
+// cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	cuckooHasher := NewCuckooHasher(size, seeds)
+
+	// get randombyte from crypto/rand
+	var rb [8]byte
+	if _, err := crand.Read(rb[:]); err != nil {
+		panic(err)
+	}
+
+	// WARNING: math/rand is not concurrency-safe
+	// replace with crypto/rand if that's what you want
+
+	// seed math/rand with crypto/rand
+	rand.Seed(int64(binary.LittleEndian.Uint64(rb[:])))
 
 	return &Cuckoo{
 		// extra element is "keeper" to which the bucketLookup can be directed
@@ -181,7 +196,8 @@ func (c *Cuckoo) tryAdd(idx uint64, bucketIndices [Nhash]uint64, ignore bool, ex
 func (c *Cuckoo) tryGreedyAdd(idx uint64, bucketIndices [Nhash]uint64) (homeLessItem uint64, added bool) {
 	for i := 1; i < ReInsertLimit; i++ {
 		// select a random slot to be evicted
-		evictedHIdx := rand.Int31n(Nhash)
+		// replace me with crypto/rand for concurrent safety
+		evictedHIdx := rand.Intn(Nhash)
 		evictedBIdx := bucketIndices[evictedHIdx]
 		evictedIdx := c.bucketLookup[evictedBIdx]
 		// insert the item in the evicted slot
