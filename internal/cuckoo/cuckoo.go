@@ -35,18 +35,6 @@ type CuckooHasher struct {
 
 // NewCuckooHasher instantiates a CuckooHasher struct.
 func NewCuckooHasher(size uint64, seeds [Nhash][]byte) *CuckooHasher {
-	// get randombyte from crypto/rand
-	var rb [8]byte
-	if _, err := crand.Read(rb[:]); err != nil {
-		panic(err)
-	}
-
-	// WARNING: math/rand is not concurrency-safe
-	// replace with crypto/rand if that's what you want
-
-	// seed math/rand with crypto/rand
-	rand.Seed(int64(binary.LittleEndian.Uint64(rb[:])))
-
 	bSize := max(1, uint64(Factor*float64(size)))
 	var hashers [Nhash]hash.Hasher
 	var err error
@@ -93,9 +81,22 @@ type Cuckoo struct {
 }
 
 // NewCuckoo instantiates a Cuckoo struct with a bucket of size Factor * size,
-// and a CuckooHasher for the 3-way cuckoo hashing.
+// seeds math/rand with a random seed, returns a CuckooHasher for the 3-way
+// cuckoo hashing.
 func NewCuckoo(size uint64, seeds [Nhash][]byte) *Cuckoo {
 	cuckooHasher := NewCuckooHasher(size, seeds)
+
+	// get randombyte from crypto/rand
+	var rb [8]byte
+	if _, err := crand.Read(rb[:]); err != nil {
+		panic(err)
+	}
+
+	// WARNING: math/rand is not concurrency-safe
+	// replace with crypto/rand if that's what you want
+
+	// seed math/rand with crypto/rand
+	rand.Seed(int64(binary.LittleEndian.Uint64(rb[:])))
 
 	return &Cuckoo{
 		// extra element is "keeper" to which the bucketLookup can be directed
