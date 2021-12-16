@@ -154,7 +154,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) (
 		logger.V(1).Info("Starting stage 2")
 
 		// instantiate OPRF sender with agreed parameters
-		oprfKey, err = oprf.NewOPRF(oprfInputSize).Send(s.rw)
+		oprfKey, err = oprf.NewOPRF(oprfInputSize, logger).Send(s.rw)
 		if err != nil {
 			return err
 		}

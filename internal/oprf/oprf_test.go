@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/hash"
@@ -77,6 +78,7 @@ func testEncodings(encodedHashMap []map[uint64]uint64, key *Key, sk []byte, seed
 }
 
 func TestOPRF(t *testing.T) {
+	logger := logr.Discard()
 	outBus := make(chan []map[uint64]uint64, cuckoo.Nhash)
 	keyBus := make(chan *Key)
 	errs := make(chan error, 1)
@@ -111,7 +113,7 @@ func TestOPRF(t *testing.T) {
 	go func() {
 		defer close(errs)
 		defer close(keyBus)
-		keys, err := NewOPRF(oprfInputSize).Send(senderConn)
+		keys, err := NewOPRF(oprfInputSize, logger).Send(senderConn)
 		if err != nil {
 			errs <- fmt.Errorf("Send encountered error: %s", err)
 			close(outBus)
@@ -123,7 +125,7 @@ func TestOPRF(t *testing.T) {
 	// receiver
 	go func() {
 		defer close(outBus)
-		out, err := NewOPRF(oprfInputSize).Receive(choicesCuckoo, sk, receiverConn)
+		out, err := NewOPRF(oprfInputSize, logger).Receive(choicesCuckoo, sk, receiverConn)
 		if err != nil {
 			errs <- err
 		}

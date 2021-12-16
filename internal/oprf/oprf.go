@@ -26,6 +26,7 @@ import (
 	"math/rand"
 	"runtime"
 
+	"github.com/go-logr/logr"
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
 	"github.com/optable/match/internal/ot"
@@ -53,33 +54,38 @@ type Key struct {
 type OPRF struct {
 	baseOT ot.OT // base OT under the hood
 	m      int   // number of message tuples
+	logger logr.Logger
 }
 
 // NewOPRF returns an OPRF where m specifies the number
 // of message tuples being exchanged.
-func NewOPRF(m int) *OPRF {
+func NewOPRF(m int, logger logr.Logger) *OPRF {
 	// send k columns of messages of length k/8 (64 bytes)
 	baseMsgLens := make([]int, baseOTCount)
 	for i := range baseMsgLens {
 		baseMsgLens[i] = baseOTCountBitmapWidth // 64 bytes
 	}
 
-	return &OPRF{baseOT: ot.NewNaorPinkas(baseMsgLens), m: m}
+	return &OPRF{baseOT: ot.NewNaorPinkas(baseMsgLens), m: m, logger: logger}
 }
 
 // Send returns the OPRF keys
 func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
+	ext.logger.V(2).Info("TRACE", "start sample choice bits for baseOT")
 	// sample choice bits for baseOT
 	choices := make([]byte, baseOTCountBitmapWidth)
 	if _, err := rand.Read(choices); err != nil {
 		return nil, err
 	}
+	ext.logger.V(2).Info("TRACE", "stop sample choice bits for baseOT")
 
+	ext.logger.V(2).Info("TRACE", "start acting as receiver to receive k x k seeds")
 	// act as receiver in baseOT to receive k x k seeds for the pseudorandom generator
 	seeds := make([][]byte, baseOTCount)
 	if err := ext.baseOT.Receive(choices, seeds, rw); err != nil {
 		return nil, err
 	}
+	ext.logger.V(2).Info("TRACE", "stop acting as receiver to receive k x k seeds")
 
 	// receive masked columns oprfMask
 	paddedLen := util.PadBitMap(ext.m, baseOTCount)
@@ -104,9 +110,16 @@ func (ext *OPRF) Send(rw io.ReadWriter) (*Key, error) {
 		if util.IsBitSet(choices, col) {
 			util.ConcurrentBitOp(util.Xor, oprfKeys[col], oprfMask)
 		}
+		if (col+1)%64 == 0 {
+			ext.logger.V(2).Info("TRACE", "received column", col)
+		}
 	}
+	ext.logger.V(2).Info("TRACE", "start GC")
 	runtime.GC()
+	ext.logger.V(2).Info("TRACE", "stop GC")
+	ext.logger.V(2).Info("TRACE", "start transpose wide")
 	oprfKeys = util.ConcurrentTransposeWide(oprfKeys)[:ext.m]
+	ext.logger.V(2).Info("TRACE", "stop transpose wide")
 
 	// store oprf keys
 	return &Key{secret: choices, oprfKeys: oprfKeys}, nil
@@ -127,6 +140,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		defer close(pseudorandomChan)
+		ext.logger.V(1).Info("TRACE", "start worker to compute code word using PseudorandomCode")
 		bitMapLen := util.Pad(ext.m, baseOTCount)
 		pseudorandomEncoding := make([][]byte, bitMapLen)
 		i := 0
@@ -140,18 +154,23 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 			pseudorandomEncoding[i] = make([]byte, baseOTCountBitmapWidth)
 		}
 		pseudorandomChan <- util.ConcurrentTransposeTall(pseudorandomEncoding)
+		ext.logger.V(1).Info("TRACE", "stop worker to compute code word using PseudorandomCode")
 	}()
 
+	ext.logger.V(1).Info("TRACE", "start sampling random OT messages")
 	// sample random OT messages
 	baseMsgs, err := sampleRandomOTMessages()
 	if err != nil {
 		return nil, err
 	}
+	ext.logger.V(1).Info("TRACE", "done sampling random OT messages")
 
+	ext.logger.V(1).Info("TRACE", "start acting as sender in baseOT to send k columns")
 	// act as sender in baseOT to send k columns
 	if err = ext.baseOT.Send(baseMsgs, rw); err != nil {
 		return nil, err
 	}
+	ext.logger.V(1).Info("TRACE", "stop acting as sender in baseOT to send k columns")
 
 	// read pseudorandomEncodings
 	pseudorandomEncoding := <-pseudorandomChan
@@ -180,11 +199,19 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 		if _, err = rw.Write(oprfMask); err != nil {
 			return nil, err
 		}
+		if (col+1)%64 == 0 {
+			ext.logger.V(1).Info("TRACE", "sent column", col)
+		}
 	}
 
+	ext.logger.V(1).Info("TRACE", "start GC")
 	runtime.GC()
+	ext.logger.V(1).Info("TRACE", "stop GC")
+	ext.logger.V(1).Info("TRACE", "start transpose wide")
 	oprfEncodings = util.ConcurrentTransposeWide(oprfEncodings)[:ext.m]
+	ext.logger.V(1).Info("TRACE", "stop transpose wide")
 
+	ext.logger.V(1).Info("TRACE", "start hash and index all local encodings")
 	// Hash and index all local encodings
 	// the hash value of the oprfEncodings is the key
 	// the index of the corresponding ID in the cuckoo hash table is the value
@@ -202,6 +229,7 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 			encodings[hIdx][hasher.Hash64(oprfEncodings[bIdx])] = idx
 		}
 	}
+	ext.logger.V(1).Info("TRACE", "stop hash and index all local encodings")
 
 	return encodings, nil
 }
