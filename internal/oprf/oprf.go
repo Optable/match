@@ -20,8 +20,10 @@ References:
 
 import (
 	"crypto/aes"
-	"crypto/rand"
+	crand "crypto/rand"
+	"encoding/binary"
 	"io"
+	"math/rand"
 	"runtime"
 
 	"github.com/optable/match/internal/crypto"
@@ -213,6 +215,11 @@ func (k Key) Encode(rowIdx uint64, pseudorandomEncoding []byte) {
 // Extra elements are added to each column to be a multiple of 512. Every slice is filled with pseudorandom bytes
 // values from a rand reader.
 func sampleRandomOTMessages() ([]ot.OTMessage, error) {
+	var seed int64
+	if err := binary.Read(crand.Reader, binary.LittleEndian, &seed); err != nil {
+		return nil, err
+	}
+	rand.Seed(seed)
 	// instantiate matrix
 	matrix := make([]ot.OTMessage, baseOTCount)
 	for row := range matrix {
