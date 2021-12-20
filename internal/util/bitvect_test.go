@@ -1,29 +1,13 @@
 package util
 
 import (
-	"crypto/rand"
+	"math/rand"
+	"reflect"
 	"testing"
+	"testing/quick"
 )
 
-var (
-	nmsg = 1 << 20
-)
-
-// genZebraBlock creates a 512x512 bit block where every bit position
-// alternates between 0 and 1. When transposed, this block should
-// consists of rows of all 0s alternating with rows of all 1s.
-func genZebraBlock() BitVect {
-	zebraBlock2D := make([][]byte, 512)
-	var b BitVect
-	for row := range zebraBlock2D {
-		zebraBlock2D[row] = make([]byte, 64)
-		for c := 0; c < 64; c++ {
-			zebraBlock2D[row][c] = 0b01010101
-		}
-	}
-	b.unravelTall(zebraBlock2D, 0)
-	return b
-}
+const benchmarkMatrixLength = 1 << 20
 
 // sampleRandomTall fills an m by 64 byte matrix (512 bits wide) with
 // pseudorandom bytes.
@@ -53,80 +37,228 @@ func sampleRandomWide(n int) [][]byte {
 	return matrix
 }
 
-func TestUnReRavelingTall(t *testing.T) {
-	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
+// sampleZebraBlock creates a 512x512 bit block where every bit position
+// alternates between 0 and 1. When transposed, this block should
+// consists of rows of all 0s alternating with rows of all 1s.
+func sampleZebraBlock() BitVect {
+	zebraBlock2D := make([][]byte, 512)
 	var b BitVect
-	for _, a := range trange {
-		matrix := sampleRandomTall(a)
+	for row := range zebraBlock2D {
+		zebraBlock2D[row] = make([]byte, 64)
+		for c := 0; c < 64; c++ {
+			zebraBlock2D[row][c] = 0b01010101
+		}
+	}
+	b.unravelTall(zebraBlock2D, 0)
+	return b
+}
+
+// Property-based tests
+
+type tallMatrix struct {
+	matrix [][]byte
+}
+
+// Generate creates a struct containing two duplicate
+// copies of a pseudorandom tall matrix which has 512
+// columns and a multiple of 512 rows.
+func (tallMatrix) Generate(r *rand.Rand, size int) reflect.Value {
+	var tall tallMatrix
+	tall.matrix = sampleRandomTall(Pad(size, 512))
+	return reflect.ValueOf(tall)
+}
+
+func TestUnReRavelTall(t *testing.T) {
+	unravel := func(t tallMatrix) bool {
+		var b BitVect
 		// determine number of blocks to split original matrix (m x 64)
-		nblks := len(matrix) / 512
-
-		rerav := make([][]byte, len(matrix))
-		for r := range rerav {
-			rerav[r] = make([]byte, len(matrix[0]))
+		nblks := len(t.matrix) / 512
+		for i := 0; i < nblks; i++ {
+			b.unravelTall(t.matrix, i)
 		}
 
-		for id := 0; id < nblks; id++ {
-			b.unravelTall(matrix, id)
-			b.ravelToTall(rerav, id)
-		}
-
-		// check
-		for k := range rerav {
-			for l := range rerav[k] {
-				if rerav[k][l] != matrix[k][l] {
-					t.Fatal("Unraveled and reraveled tall (", a, ") matrix did not match with original at row", k, ".")
+		for r := range t.matrix {
+			for i := 0; i < 512; i++ {
+				if IsBitSet(t.matrix[r], i) != IsBitSetUint64(b.set[:], (r*512)+i) {
+					return false
 				}
 			}
 		}
+		return true
+	}
+
+	if err := quick.Check(unravel, nil); err != nil {
+		t.Errorf("unraveling of a tall matrix was incorrect: %v", err)
+	}
+
+	ravel := func(t tallMatrix) bool {
+		var b BitVect
+		// determine number of blocks to split original matrix (m x 64)
+		nblks := len(t.matrix) / 512
+		// create empty matrix to ravel into
+		scratch := make([][]byte, len(t.matrix))
+		for r := range scratch {
+			scratch[r] = make([]byte, 512)
+		}
+
+		for i := 0; i < nblks; i++ {
+			b.unravelTall(t.matrix, i)
+			b.ravelToTall(scratch, i)
+		}
+
+		for r := range t.matrix {
+			for i := 0; i < 512; i++ {
+				if IsBitSet(t.matrix[r], i) != IsBitSet(scratch[r], i) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(ravel, nil); err != nil {
+		t.Errorf("raveling of a tall matrix was incorrect: %v", err)
 	}
 }
 
-func TestUnReRavelingWide(t *testing.T) {
-	trange := []int{64, 128, 512}
-	var b BitVect
-	for _, a := range trange {
-		matrix := sampleRandomWide(a)
+func TestTransposeTall(t *testing.T) {
+	correct := func(t tallMatrix) bool {
+		tr := ConcurrentTransposeTall(t.matrix)
+		for r := range t.matrix {
+			for i := 0; i < 512; i++ {
+				if IsBitSet(t.matrix[r], i) != IsBitSet(tr[i], r) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(correct, nil); err != nil {
+		t.Errorf("transpose of a tall matrix was incorrect: %v", err)
+	}
+
+	involutory := func(t tallMatrix) bool {
+		tr := ConcurrentTransposeTall(t.matrix)
+		dtr := ConcurrentTransposeTall(tr)
+		for r := range t.matrix {
+			for i := 0; i < 512; i++ {
+				if IsBitSet(t.matrix[r], i) != IsBitSet(dtr[r], i) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(involutory, nil); err != nil {
+		t.Errorf("double transpose of a tall matrix did not result in original matrix: %v", err)
+	}
+}
+
+type wideMatrix struct {
+	matrix [][]byte
+}
+
+// Generate creates a struct containing two duplicate
+// copies of a pseudorandom wide matrix which has 512
+// rows and a multiple of 512 columns.
+func (wideMatrix) Generate(r *rand.Rand, size int) reflect.Value {
+	var wide wideMatrix
+	wide.matrix = sampleRandomWide(Pad(size, 512))
+	return reflect.ValueOf(wide)
+}
+
+func TestUnReRavelWide(t *testing.T) {
+	unravel := func(t wideMatrix) bool {
+		var b BitVect
 		// determine number of blocks to split original matrix (512 x n)
-		nblks := len(matrix[0]) / 64
-
-		trans := make([][]byte, len(matrix))
-		for r := range trans {
-			trans[r] = make([]byte, len(matrix[0]))
+		nblks := len(t.matrix[0]) / 512
+		for i := 0; i < nblks; i++ {
+			b.unravelWide(t.matrix, i)
 		}
 
-		for id := 0; id < nblks; id++ {
-			b.unravelWide(matrix, id)
-			b.ravelToWide(trans, id)
-		}
-
-		// check
-		for k := range trans {
-			for l := range trans[k] {
-				if trans[k][l] != matrix[k][l] {
-					t.Fatal("Unraveled and reraveled wide (", a, ") matrix did not match with original at row", k, ".")
+		for r := 0; r < 512; r++ {
+			for i := range t.matrix[r] {
+				if IsBitSet(t.matrix[r], i) != IsBitSetUint64(b.set[:], (r*512)+i) {
+					return false
 				}
 			}
 		}
+		return true
+	}
+
+	if err := quick.Check(unravel, nil); err != nil {
+		t.Errorf("unraveling of a wide matrix was incorrect: %v", err)
+	}
+
+	ravel := func(t wideMatrix) bool {
+		var b BitVect
+		// determine number of blocks to split original matrix (512 x n)
+		nblks := len(t.matrix[0]) / 512
+		// create empty matrix to ravel into
+		scratch := make([][]byte, 512)
+		for r := range scratch {
+			scratch[r] = make([]byte, len(t.matrix[r]))
+		}
+
+		for i := 0; i < nblks; i++ {
+			b.unravelWide(t.matrix, i)
+			b.ravelToWide(scratch, i)
+		}
+
+		for r := 0; r < 512; r++ {
+			for i := range t.matrix[r] {
+				if IsBitSet(t.matrix[r], i) != IsBitSet(scratch[r], i) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(ravel, nil); err != nil {
+		t.Errorf("raveling of a wide matrix was incorrect: %v", err)
 	}
 }
 
-// Test single block transposition
-func TestTranspose512x512(t *testing.T) {
-	var tr BitVect
-	tr.unravelTall(sampleRandomTall(nmsg), 0)
-	orig := BitVect{tr.set} // copy to check after
+func TestTransposeWide(t *testing.T) {
+	correct := func(t wideMatrix) bool {
+		tr := ConcurrentTransposeWide(t.matrix)
+		for r, row := range t.matrix {
+			for i := 0; i < 512; i++ {
+				if IsBitSet(row, i) != IsBitSet(tr[i], r) {
+					return false
+				}
+			}
+		}
+		return true
+	}
 
-	tr.transpose()
-	tr.transpose()
-	// check if transpose is correct
-	if tr != orig {
-		t.Fatalf("Block incorrectly transposed.")
+	if err := quick.Check(correct, nil); err != nil {
+		t.Errorf("transpose of a wide matrix was incorrect: %v", err)
+	}
+
+	involutory := func(t wideMatrix) bool {
+		tr := ConcurrentTransposeWide(t.matrix)
+		dtr := ConcurrentTransposeWide(tr)
+		for r := 0; r < 512; r++ {
+			for i := range t.matrix[r] {
+				if IsBitSet(t.matrix[r], i) != IsBitSet(dtr[r], i) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(involutory, nil); err != nil {
+		t.Errorf("double transpose of a wide matrix did not result in original matrix: %v", err)
 	}
 }
 
 func TestIfLittleEndianTranspose(t *testing.T) {
-	tr := genZebraBlock()
+	tr := sampleZebraBlock()
 	// 0101....
 	// 0101....
 	// 0101....
@@ -140,68 +272,28 @@ func TestIfLittleEndianTranspose(t *testing.T) {
 	for i := 0; i < 512; i++ {
 		if i%2 == 1 { // odd
 			if tr.set[i*8] != 0 {
-				t.Fatalf("transpose appears to be Big Endian")
+				t.Fatalf("error: transpose is Big Endian")
 			}
 		} else {
 			if tr.set[i*8] != 0xFFFFFFFFFFFFFFFF {
-				t.Fatalf("transpose appears to be Big Endian")
+				t.Fatalf("error: transpose is Big Endian")
 			}
 		}
 	}
 }
 
-func TestConcurrentTransposeTall(t *testing.T) {
-	trange := []int{512, 512 * 2, 512 * 3, 512 * 4}
-	for _, m := range trange {
-		orig := sampleRandomTall(m)
-		tr := ConcurrentTransposeTall(orig)
-		dtr := ConcurrentTransposeWide(tr)
-		// test
-		for k := range orig {
-			for l := range orig[k] {
-				if orig[k][l] != dtr[k][l] {
-					t.Fatal("Doubly-transposed tall (", m, ") matrix did not match with original at row", k, ".")
-				}
-			}
-		}
-	}
-}
-
-func TestConcurrentTransposeWide(t *testing.T) {
-	trange := []int{64, 64 * 2, 64 * 3, 64 * 4}
-	for _, m := range trange {
-		orig := sampleRandomWide(m)
-		tr := ConcurrentTransposeWide(orig)
-		dtr := ConcurrentTransposeTall(tr)
-		//test
-		for k := range dtr {
-			for l := range dtr[k] {
-				if dtr[k][l] != orig[k][l] {
-					t.Fatal("Doubly-transposed wide (", m, ") matrix did not match with original at row", k, ".")
-				}
-			}
-		}
-	}
-}
-
-// BenchmarkTranspose512x512 benchmarks transposing a single
-// BitVect block.
-func BenchmarkTranspose512x512(b *testing.B) {
-	var tr BitVect
-	tr.unravelTall(sampleRandomTall(nmsg), 0)
+func BenchmarkConcurrentTransposeTall(b *testing.B) {
+	matrix := sampleRandomTall(benchmarkMatrixLength)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tr.transpose()
+		ConcurrentTransposeTall(matrix)
 	}
 }
 
-// BenchmarkConcurrentTranspose tests the BitVect transpose with the
-// overhead of having to pull the blocks out of a larger matrix and
-// write to a new transposed matrix.
-func BenchmarkConcurrentTranspose(b *testing.B) {
-	byteBlock := sampleRandomTall(nmsg)
+func BenchmarkConcurrentTransposeWide(b *testing.B) {
+	matrix := sampleRandomWide(benchmarkMatrixLength)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ConcurrentTransposeTall(byteBlock)
+		ConcurrentTransposeWide(matrix)
 	}
 }

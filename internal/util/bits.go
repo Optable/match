@@ -200,6 +200,13 @@ func BitExtract(b []byte, i int) byte {
 	return 0
 }
 
+// IsBitSetUint64 returns true if bit i is set in a uint64 slice.
+// It extracts bits from the least significant bit (i = 0) to the
+// most significant bit (i = 63).
+func IsBitSetUint64(u []uint64, i int) bool {
+	return u[i/64]&(1<<(i%64)) > 0
+}
+
 // SampleRandomBitMatrix allocates a 2D byte matrix of dimension row x col,
 // and adds extra rows of 0s to have the number of rows be a multiple of 512,
 // fills each entry in the byte matrix with pseudorandom byte values from a rand reader.
