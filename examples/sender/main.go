@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"io"
 	"log"
-	"net"
 	"os"
 
 	"github.com/go-logr/logr"
@@ -72,14 +72,12 @@ func main() {
 	// rewind
 	f.Seek(0, io.SeekStart)
 
-	c, err := net.Dial("tcp", *addr)
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	c, err := tls.Dial("tcp", *addr, conf)
 	format.ExitOnErr(slog, err, "failed to dial")
 	defer c.Close()
-	// enable nagle
-	switch v := c.(type) {
-	case *net.TCPConn:
-		v.SetNoDelay(false)
-	}
 
 	s, err := psi.NewSender(psiType, c)
 	format.ExitOnErr(slog, err, "failed to create sender")

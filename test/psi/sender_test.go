@@ -3,6 +3,7 @@ package psi_test
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"testing"
@@ -18,7 +19,12 @@ func initTestDataSource(common []byte, bodyLen, hashLen int) <-chan []byte {
 
 // test receiver and return the addr string
 func s_receiverInit(protocol psi.Protocol, common []byte, commonLen, receiverLen, hashLen int, errs chan<- error) (addr string, err error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:")
+	cert, err := tls.X509KeyPair(exampleCert, exampleKey)
+	if err != nil {
+		return "", err
+	}
+	conf := &tls.Config{Certificates: []tls.Certificate{cert}}
+	ln, err := tls.Listen("tcp", "127.0.0.1:", conf)
 	if err != nil {
 		return "", err
 	}
@@ -48,7 +54,10 @@ func s_receiverHandle(protocol psi.Protocol, common []byte, commonLen, receiverL
 func testSender(protocol psi.Protocol, addr string, common []byte, commonLen, senderLen, hashLen int) error {
 	// test sender
 	r := initTestDataSource(common, senderLen-commonLen, hashLen)
-	conn, err := net.Dial("tcp", addr)
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := tls.Dial("tcp", addr, conf)
 	if err != nil {
 		return err
 	}
