@@ -70,7 +70,7 @@ type tallMatrix struct {
 // 512 rows.
 func (tallMatrix) Generate(r *rand.Rand, unusedSizeHint int) reflect.Value {
 	var tall tallMatrix
-	size := 1 + r.Intn(5*bitVectWidth) // a max of 5 blocks
+	size := 1 + r.Intn(5*bitVectWidth) // a max of 6 blocks
 	tall.matrix = sampleRandomTall(Pad(size, bitVectWidth), r)
 	return reflect.ValueOf(tall)
 }
@@ -174,7 +174,7 @@ type wideMatrix struct {
 // 512 columns.
 func (wideMatrix) Generate(r *rand.Rand, unusedSizeHint int) reflect.Value {
 	var wide wideMatrix
-	size := 1 + r.Intn(5*bitVectWidth) // a max of 5 blocks
+	size := 1 + r.Intn(5*bitVectWidth) // a max of 6 blocks
 	wide.matrix = sampleRandomWide(Pad(size, bitVectWidth), r)
 	return reflect.ValueOf(wide)
 }
