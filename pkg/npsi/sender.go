@@ -1,6 +1,7 @@
 package npsi
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -16,13 +17,13 @@ import (
 
 // Sender represents sender side of the NPSI protocol
 type Sender struct {
-	rw io.ReadWriter
+	rw *bufio.ReadWriter
 }
 
 // NewSender returns a sender initialized to
-// use rw as the communication layer
+// use rw as a buffered communication layer
 func NewSender(rw io.ReadWriter) *Sender {
-	return &Sender{rw: rw}
+	return &Sender{rw: bufio.NewReadWriter(bufio.NewReader(rw), bufio.NewWriter(rw))}
 }
 
 // Send initiates a NPSI exchange
@@ -71,6 +72,7 @@ func (s *Sender) Send(ctx context.Context, n int64, identifiers <-chan []byte) e
 				return fmt.Errorf("stage2: %v", err)
 			}
 		}
+		s.rw.Flush()
 
 		logger.V(1).Info("Finished stage 2")
 		return nil
