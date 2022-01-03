@@ -128,7 +128,6 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	var maxProcs = runtime.GOMAXPROCS(0)
 
 	var stepSize = ext.m / maxProcs
-	//var leftOver = ext.m - (stepSize * maxProcs)
 
 	go func() {
 		defer close(pseudorandomChan)
