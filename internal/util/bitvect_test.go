@@ -68,9 +68,9 @@ type tallMatrix struct {
 // Generate creates a struct containing a pseudorandom
 // tall matrix which has 512 columns and a multiple of
 // 512 rows.
-func (tallMatrix) Generate(r *rand.Rand, unusedSizeHint int) reflect.Value {
+func (tallMatrix) Generate(r *rand.Rand, sizeHint int) reflect.Value {
 	var tall tallMatrix
-	size := 1 + r.Intn(5*bitVectWidth) // a max of 6 blocks
+	size := r.Intn(sizeHint*bitVectWidth) // max 32 blocks
 	tall.matrix = sampleRandomTall(Pad(size, bitVectWidth), r)
 	return reflect.ValueOf(tall)
 }
@@ -172,9 +172,9 @@ type wideMatrix struct {
 // Generate creates a struct containing a pseudorandom
 // wide matrix which has 512 rows and a multiple of
 // 512 columns.
-func (wideMatrix) Generate(r *rand.Rand, unusedSizeHint int) reflect.Value {
+func (wideMatrix) Generate(r *rand.Rand, sizeHint int) reflect.Value {
 	var wide wideMatrix
-	size := 1 + r.Intn(5*bitVectWidth) // a max of 6 blocks
+	size := r.Intn(sizeHint*bitVectWidth) // max 32 blocks
 	wide.matrix = sampleRandomWide(Pad(size, bitVectWidth), r)
 	return reflect.ValueOf(wide)
 }
@@ -238,7 +238,7 @@ func TestTransposeWide(t *testing.T) {
 	correct := func(m wideMatrix) bool {
 		tr := ConcurrentTransposeWide(m.matrix)
 		for r, row := range m.matrix {
-			for i := 0; i < bitVectWidth; i++ {
+			for i := 0; i < len(row); i++ {
 				if IsBitSet(row, i) != IsBitSet(tr[i], r) {
 					return false
 				}
