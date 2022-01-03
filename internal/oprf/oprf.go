@@ -23,6 +23,7 @@ import (
 	"crypto/rand"
 	"io"
 	"runtime"
+	"sync"
 
 	"github.com/optable/match/internal/crypto"
 	"github.com/optable/match/internal/cuckoo"
@@ -122,19 +123,40 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 	if err != nil {
 		return nil, err
 	}
+
 	var pseudorandomChan = make(chan [][]byte)
 	go func() {
 		defer close(pseudorandomChan)
+
+		var maxProcs = runtime.GOMAXPROCS(0)
+		var stepSize = ext.m / maxProcs
+
 		bitMapLen := util.Pad(ext.m, baseOTCount)
 		pseudorandomEncoding := make([][]byte, bitMapLen)
-		i := 0
-		for ; i < ext.m; i++ {
-			idx := choices.GetBucket(uint64(i))
-			item, hIdx := choices.GetItemWithHash(idx)
-			pseudorandomEncoding[i] = crypto.PseudorandomCode(aesBlock, item, hIdx)
+
+		var wg sync.WaitGroup
+		wg.Add(maxProcs)
+		for j := 0; j < maxProcs; j++ {
+			go func(j int) {
+				defer wg.Done()
+				for offset := 0; offset < stepSize; offset++ {
+					step := stepSize*j + offset
+					idx := choices.GetBucket(uint64(step))
+					item, hIdx := choices.GetItemWithHash(idx)
+					pseudorandomEncoding[step] = crypto.PseudorandomCode(aesBlock, item, hIdx)
+				}
+			}(j)
 		}
+
+		wg.Wait()
+		for remaining := stepSize * maxProcs; remaining < ext.m; remaining++ {
+			idx := choices.GetBucket(uint64(remaining))
+			item, hIdx := choices.GetItemWithHash(idx)
+			pseudorandomEncoding[remaining] = crypto.PseudorandomCode(aesBlock, item, hIdx)
+		}
+
 		// pad matrix to ensure the number of rows is divisible by baseOTCount for transposition
-		for ; i < len(pseudorandomEncoding); i++ {
+		for i := ext.m; i < len(pseudorandomEncoding); i++ {
 			pseudorandomEncoding[i] = make([]byte, baseOTCountBitmapWidth)
 		}
 		pseudorandomChan <- util.ConcurrentTransposeTall(pseudorandomEncoding)
