@@ -150,10 +150,10 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 		}
 
 		wg.Wait()
-		for k := stepSize * maxProcs; k < ext.m; k++ {
-			idx := choices.GetBucket(uint64(k))
+		for remaining := stepSize * maxProcs; remaining < ext.m; remaining++ {
+			idx := choices.GetBucket(uint64(remaining))
 			item, hIdx := choices.GetItemWithHash(idx)
-			pseudorandomEncoding[k] = crypto.PseudorandomCode(aesBlock, item, hIdx)
+			pseudorandomEncoding[remaining] = crypto.PseudorandomCode(aesBlock, item, hIdx)
 		}
 
 		// pad matrix to ensure the number of rows is divisible by baseOTCount for transposition
