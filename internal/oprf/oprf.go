@@ -124,8 +124,8 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 		return nil, err
 	}
 
+    var pseudorandomChan = make(chan [][]byte)
 	go func() {
-        var pseudorandomChan = make(chan [][]byte)
 		defer close(pseudorandomChan)
 
         var maxProcs = runtime.GOMAXPROCS(0)
