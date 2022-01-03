@@ -5,13 +5,14 @@ import (
 	"reflect"
 	"testing"
 	"testing/quick"
+	"time"
 )
 
 const benchmarkBytes = 1000000
 
-func genBytes(size int) []byte {
+func genBytes(size int, r *rand.Rand) []byte {
 	bytes := make([]byte, size)
-	if _, err := rand.Read(bytes); err != nil {
+	if _, err := r.Read(bytes); err != nil {
 		panic("error generating random bytes")
 	}
 
@@ -27,12 +28,13 @@ type bitSets struct {
 
 // Generate creates a bitSets struct with three byte slices of
 // equal length
-func (bitSets) Generate(r *rand.Rand, size int) reflect.Value {
+func (bitSets) Generate(r *rand.Rand, unusedSizeHint int) reflect.Value {
 	var sets bitSets
+	size := r.Intn(benchmarkBytes)
 	sets.Scratch = make([]byte, size)
-	sets.A = genBytes(size)
-	sets.B = genBytes(size)
-	sets.C = genBytes(size)
+	sets.A = genBytes(size, r)
+	sets.B = genBytes(size, r)
+	sets.C = genBytes(size, r)
 	return reflect.ValueOf(sets)
 }
 
@@ -381,8 +383,9 @@ func TestTestBitSetInByte(t *testing.T) {
 }
 
 func BenchmarkXor(b *testing.B) {
-	src := genBytes(benchmarkBytes)
-	dst := genBytes(benchmarkBytes)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	src := genBytes(benchmarkBytes, r)
+	dst := genBytes(benchmarkBytes, r)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Xor(dst, src)
@@ -390,8 +393,9 @@ func BenchmarkXor(b *testing.B) {
 }
 
 func BenchmarkAnd(b *testing.B) {
-	src := genBytes(benchmarkBytes)
-	dst := genBytes(benchmarkBytes)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	src := genBytes(benchmarkBytes, r)
+	dst := genBytes(benchmarkBytes, r)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		And(dst, src)
@@ -399,9 +403,10 @@ func BenchmarkAnd(b *testing.B) {
 }
 
 func BenchmarkDoubleXor(b *testing.B) {
-	src := genBytes(benchmarkBytes)
-	src2 := genBytes(benchmarkBytes)
-	dst := genBytes(benchmarkBytes)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	src := genBytes(benchmarkBytes, r)
+	src2 := genBytes(benchmarkBytes, r)
+	dst := genBytes(benchmarkBytes, r)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		DoubleXor(dst, src, src2)
@@ -409,9 +414,10 @@ func BenchmarkDoubleXor(b *testing.B) {
 }
 
 func BenchmarkAndXor(b *testing.B) {
-	src := genBytes(benchmarkBytes)
-	src2 := genBytes(benchmarkBytes)
-	dst := genBytes(benchmarkBytes)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	src := genBytes(benchmarkBytes, r)
+	src2 := genBytes(benchmarkBytes, r)
+	dst := genBytes(benchmarkBytes, r)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		AndXor(dst, src, src2)
@@ -419,8 +425,9 @@ func BenchmarkAndXor(b *testing.B) {
 }
 
 func BenchmarkConcurrentBitOp(b *testing.B) {
-	src := genBytes(benchmarkBytes)
-	dst := genBytes(benchmarkBytes)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	src := genBytes(benchmarkBytes, r)
+	dst := genBytes(benchmarkBytes, r)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentBitOp(Xor, dst, src)
@@ -428,9 +435,10 @@ func BenchmarkConcurrentBitOp(b *testing.B) {
 }
 
 func BenchmarkConcurrentDoubleBitOp(b *testing.B) {
-	src := genBytes(benchmarkBytes)
-	src2 := genBytes(benchmarkBytes)
-	dst := genBytes(benchmarkBytes)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	src := genBytes(benchmarkBytes, r)
+	src2 := genBytes(benchmarkBytes, r)
+	dst := genBytes(benchmarkBytes, r)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConcurrentDoubleBitOp(AndXor, dst, src, src2)

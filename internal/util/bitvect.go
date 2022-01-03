@@ -7,18 +7,20 @@ import (
 	"github.com/alecthomas/unsafeslice"
 )
 
+const bitVectWidth = 512
+
 // A BitVect is a matrix of 512 by 512 bits encoded into a contiguous slice of
 // uint64 elements.
 type BitVect struct {
-	set [512 * 8]uint64
+	set [bitVectWidth * 8]uint64
 }
 
 // unravelTall populates a BitVect from a 2D matrix of bytes. The matrix
 // must have 64 columns and a multiple of 512 rows. idx is the block target.
 // Only tested on x86-64.
 func (b *BitVect) unravelTall(matrix [][]byte, idx int) {
-	for i := 0; i < 512; i++ {
-		copy(b.set[(i)*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[(512*idx)+i]))
+	for i := 0; i < bitVectWidth; i++ {
+		copy(b.set[(i)*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[(bitVectWidth*idx)+i]))
 	}
 }
 
@@ -26,7 +28,7 @@ func (b *BitVect) unravelTall(matrix [][]byte, idx int) {
 // must have a multiple of 64 columns and 512 rows. idx is the block target.
 // Only tested on x86-64.
 func (b *BitVect) unravelWide(matrix [][]byte, idx int) {
-	for i := 0; i < 512; i++ {
+	for i := 0; i < bitVectWidth; i++ {
 		copy(b.set[i*8:(i+1)*8], unsafeslice.Uint64SliceFromByteSlice(matrix[i][idx*64:(64*idx)+64]))
 	}
 }
@@ -34,15 +36,15 @@ func (b *BitVect) unravelWide(matrix [][]byte, idx int) {
 // ravelToTall reconstructs a subsection of a tall (mx64) matrix from a BitVect.
 // Only tested on x86-64.
 func (b *BitVect) ravelToTall(matrix [][]byte, idx int) {
-	for i := 0; i < 512; i++ {
-		copy(matrix[(idx*512)+i][:], unsafeslice.ByteSliceFromUint64Slice(b.set[i*8:(i+1)*8]))
+	for i := 0; i < bitVectWidth; i++ {
+		copy(matrix[(idx*bitVectWidth)+i][:], unsafeslice.ByteSliceFromUint64Slice(b.set[i*8:(i+1)*8]))
 	}
 }
 
 // ravelToWide reconstructs a subsection of a wide (512xn) matrix from a BitVect.
 // Only tested on x86-64.
 func (b *BitVect) ravelToWide(matrix [][]byte, idx int) {
-	for i := 0; i < 512; i++ {
+	for i := 0; i < bitVectWidth; i++ {
 		copy(matrix[i][idx*64:(idx+1)*64], unsafeslice.ByteSliceFromUint64Slice(b.set[(i*8):(i+1)*8]))
 	}
 }
@@ -62,20 +64,20 @@ func (b *BitVect) ravelToWide(matrix [][]byte, idx int) {
 // worker is responsible for any excess blocks which were not evenly divisible
 // into the number of workers.
 func ConcurrentTransposeTall(matrix [][]byte) [][]byte {
-	if len(matrix)%512 != 0 {
+	if len(matrix)%bitVectWidth != 0 {
 		panic("rows of input matrix not a multiple of 512")
 	}
 
 	nworkers := runtime.GOMAXPROCS(0)
 
 	// number of blocks to split original matrix
-	nblks := len(matrix) / 512
+	nblks := len(matrix) / bitVectWidth
 
 	// how many blocks each worker is responsible for
 	workerResp := nblks / nworkers
 
 	// build output matrix
-	trans := make([][]byte, 512)
+	trans := make([][]byte, bitVectWidth)
 	for r := range trans {
 		trans[r] = make([]byte, len(matrix)/8)
 	}

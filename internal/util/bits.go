@@ -207,7 +207,7 @@ func SampleRandomBitMatrix(row, col int) ([][]uint8, error) {
 	// instantiate matrix
 	matrix := make([][]uint8, row)
 	for row := range matrix {
-		matrix[row] = make([]uint8, (col+Pad(col, 512))/8)
+		matrix[row] = make([]uint8, (col+Pad(col, bitVectWidth))/8)
 	}
 	// fill matrix
 	for row := range matrix {
