@@ -1,6 +1,7 @@
 package npsi
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -17,13 +18,13 @@ import (
 
 // Receiver represents the receiver side of the NPSI protocol
 type Receiver struct {
-	rw io.ReadWriter
+	rw *bufio.ReadWriter
 }
 
 // NewReceiver returns a receiver initialized to
-// use rw as the communication layer
+// use rw as a buffered communication layer
 func NewReceiver(rw io.ReadWriter) *Receiver {
-	return &Receiver{rw: rw}
+	return &Receiver{rw: bufio.NewReadWriter(bufio.NewReader(rw), bufio.NewWriter(rw))}
 }
 
 // Intersect intersects on matchables read from the identifiers channel,
@@ -49,6 +50,7 @@ func (r *Receiver) Intersect(ctx context.Context, n int64, identifiers <-chan []
 		if _, err := r.rw.Write(k); err != nil {
 			return err
 		}
+		r.rw.Flush()
 
 		logger.V(1).Info("Finished stage 1")
 		return nil
