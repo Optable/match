@@ -141,10 +141,10 @@ func (ext *OPRF) Receive(choices *cuckoo.Cuckoo, secretKey []byte, rw io.ReadWri
 			go func(j int) {
 				defer wg.Done()
 				for offset := 0; offset < stepSize; offset++ {
-					k := stepSize*j + offset
-					idx := choices.GetBucket(uint64(k))
+					step := stepSize*j + offset
+					idx := choices.GetBucket(uint64(step))
 					item, hIdx := choices.GetItemWithHash(idx)
-					pseudorandomEncoding[k] = crypto.PseudorandomCode(aesBlock, item, hIdx)
+					pseudorandomEncoding[step] = crypto.PseudorandomCode(aesBlock, item, hIdx)
 				}
 			}(j)
 		}
