@@ -212,7 +212,7 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 				// r.Max()
 				err := r.Read(&b.batch[j])
 				if err != nil {
-					log.Printf("error in reading encoded ristretto points: %w, cancelling", err)
+					log.Printf("error in reading encoded ristretto points: %s, cancelling", err.Error())
 					// cancel everything
 					close(batches)
 					close(closed)
