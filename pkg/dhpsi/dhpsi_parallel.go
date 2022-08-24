@@ -3,6 +3,7 @@ package dhpsi
 import (
 	"encoding/binary"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/optable/match/internal/permutations"
@@ -211,6 +212,7 @@ func fill(r *Reader, gr Ristretto) <-chan [EncodedLen]byte {
 				// r.Max()
 				err := r.Read(&b.batch[j])
 				if err != nil {
+					log.Printf("error in reading encoded ristretto points: %w, cancelling", err)
 					// cancel everything
 					close(batches)
 					close(closed)
