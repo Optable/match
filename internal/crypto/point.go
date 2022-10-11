@@ -68,8 +68,13 @@ func (p *Point) ScalarMult(scalar []byte) *Point {
 
 // Sub substracts point p from q
 func (p *Point) Sub(q *Point) *Point {
+	// in order to do point subtraction, we need to make sure
+	// the negative point is still mapped properly in the field elements.
+	negQy := new(big.Int).Neg(q.y)
+	negQy = negQy.Mod(negQy, curve.Params().P) // here P is the order of the curve field
+
 	// p - q = p.x + q.x, p.y - q.y
-	x, y := curve.Add(p.x, p.y, q.x, new(big.Int).Neg(q.y))
+	x, y := curve.Add(p.x, p.y, q.x, negQy)
 	return &Point{x: x, y: y}
 }
 
