@@ -1,6 +1,6 @@
 module github.com/optable/match
 
-go 1.16
+go 1.21
 
 require (
 	github.com/alecthomas/unsafeslice v0.1.0
@@ -15,4 +15,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
-require golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
+require (
+	github.com/bits-and-blooms/bitset v1.2.0 // indirect
+	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
+)
