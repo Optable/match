@@ -1,7 +1,7 @@
 # Publisher Advertiser Identity Reconciliation (PAIR)
 
 ## Overview
-Publisher Advertiser Identity Reconciliation (PAIR) [1] is a privacy-centric protocol that leverages commutative encryptions like the [Diffie-Hellman](https://github.com/Optable/match/blob/main/pkg/dhpsi/README.md) PSI to reconcile the first party identitfiers of the publisher and the advertiser, and allows a secure programmatic activation for the advertiser following a PAIR match.
+Publisher Advertiser Identity Reconciliation (PAIR) [1] is a privacy-centric protocol that leverages commutative encryptions like the [Diffie-Hellman PSI](https://github.com/Optable/match/blob/main/pkg/dhpsi/README.md) to reconcile the first party identitfiers of the publisher and the advertiser, and allows a secure programmatic activation for the advertiser following a PAIR match.
 
 This package provides a reference implementation of core utility functions required to run the PAIR protocol.
 
@@ -11,7 +11,7 @@ The PAIR protocol in the dual clean room scenario involves two clean room operat
 ### Key generation and management
 1. the publisher clean room operator __Pub__ and the advertiser clean room operator __Adv__ agree on a hashing function (SHA256) and a preset elliptic curve (Curve25519).
 2. __Pub__ generates a random hash salt _s_, and a private key (*scalar*) _p_, and rotates them periodically. _s_ is rotated every 30 days, and _p_ is rotated every 180 days.
-2. __Adv__ generates a private key _a_, and rotates it every 180 days.
+2. __Adv__ generates a private key (*scalar*) _a_, and rotates it every 180 days.
 
 ### offline matching
 1. __Pub__ shares the hash salt _s_ with __Adv__.

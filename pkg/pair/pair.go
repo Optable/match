@@ -12,8 +12,8 @@ import (
 type PAIRMode uint8
 
 const (
-	// PAIRSHA256Ristretto25519 is PAIR with SHA256 as hash function and Ristretto255 as the group.
-	PAIRSHA256Ristretto25519 PAIRMode = 0x01
+	// PAIRSHA256Ristretto255 is PAIR with SHA256 as hash function and Ristretto255 as the group.
+	PAIRSHA256Ristretto255 PAIRMode = 0x01
 )
 
 const (
@@ -43,7 +43,7 @@ func (p PAIRMode) New(salt []byte, scalar []byte) (*PrivateKey, error) {
 	pk := new(PrivateKey)
 
 	switch p {
-	case PAIRSHA256Ristretto25519:
+	case PAIRSHA256Ristretto255:
 		pk.h = crypto.SHA256.New()
 		if len(salt) != sha256SaltSize {
 			return nil, ErrInvalidSaltSize

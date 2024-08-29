@@ -28,7 +28,7 @@ func TestPAIR(t *testing.T) {
 	}
 
 	// Create a new PAIR instance
-	pairID := PAIRSHA256Ristretto25519
+	pairID := PAIRSHA256Ristretto255
 
 	pair, err := pairID.New(salt, sk)
 	if err != nil {
