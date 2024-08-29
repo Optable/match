@@ -9,7 +9,7 @@ This package provides a reference implementation of core utility functions requi
 The PAIR protocol in the dual clean room scenario involves two clean room operators, one responsible for the publisher and the other for the advertiser. The protocol consists of the following steps:
 
 ### Key generation and management
-1. the publisher clean room operator __Pub__ and the advertiser clean room operator __Adv__ agree on a hashing function (SHA256) and a preset elliptic curve _E_ (Curve25519).
+1. the publisher clean room operator __Pub__ and the advertiser clean room operator __Adv__ agree on a hashing function (SHA256) and a preset elliptic curve (Curve25519).
 2. __Pub__ generates a random hash salt _s_, and a private key (*scalar*) _p_, and rotates them periodically. _s_ is rotated every 30 days, and _p_ is rotated every 180 days.
 2. __Adv__ generates a private key _a_, and rotates it every 180 days.
 
