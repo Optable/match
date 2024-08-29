@@ -32,5 +32,3 @@ The PAIR protocol in the dual clean room scenario involves two clean room operat
 5. The DSP looks up the Publisher ID in the list of intersected Publisher ID sent by __Adv__ and decides the outcome of the bid request.
 
 ## References
-
-[1] https://docs.google.com/document/d/1sPw1MT0NxO3xTI4Rp5zyA1G7eAtOJBpgj5x5x87OP-w/edit?usp=sharing
