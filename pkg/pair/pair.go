@@ -122,9 +122,10 @@ func (pk *PrivateKey) Decrypt(ciphertext []byte) ([]byte, error) {
 }
 
 // Shuffle shuffles the data in place by using the Fisher-Yates algorithm.
-// Note that it should be called with less than 2^32-1 (4 billion)  elements.
+// Note that ideally, it should be called with less than 2^32-1 (4 billion) elements.
 func Shuffle(data [][]byte) {
-	// note that since go 1.20, math.Rand seeds the global random number generator.
+	// NOTE: since go 1.20, math.Rand seeds the global random number generator.
+	// V2 uses ChaCha8 generator as the global one.
 	mrandv2.Shuffle(len(data), func(i, j int) {
 		data[i], data[j] = data[j], data[i]
 	})
