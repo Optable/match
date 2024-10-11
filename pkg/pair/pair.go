@@ -28,8 +28,7 @@ var (
 
 // PrivateKey represents a PAIR private key.
 type PrivateKey struct {
-	// h is the hash function used to hash the data
-	h hash.Hash
+	mode PAIRMode
 
 	// salt for h
 	salt []byte
@@ -41,11 +40,12 @@ type PrivateKey struct {
 // New instantiates a new private key with the given salt and scalar.
 // It expects the scalar to be base64 encoded.
 func (p PAIRMode) New(salt []byte, scalar []byte) (*PrivateKey, error) {
-	pk := new(PrivateKey)
+	pk := &PrivateKey{
+		mode: p,
+	}
 
 	switch p {
 	case PAIRSHA256Ristretto255:
-		pk.h = crypto.SHA256.New()
 		if len(salt) != sha256SaltSize {
 			return nil, ErrInvalidSaltSize
 		}
@@ -64,11 +64,19 @@ func (p PAIRMode) New(salt []byte, scalar []byte) (*PrivateKey, error) {
 
 // hash hashes the data using the private key's hash function with the salt.
 func (pk *PrivateKey) hash(data []byte) []byte {
+	var h hash.Hash
+
+	switch pk.mode {
+	case PAIRSHA256Ristretto255:
+		h = crypto.SHA256.New()
+	default:
+	}
+
 	// salt the hash function
-	pk.h.Write(pk.salt)
+	h.Write(pk.salt)
 	// hash the data
-	pk.h.Write(data)
-	return pk.h.Sum(nil)
+	h.Write(data)
+	return h.Sum(nil)
 }
 
 // Encrypt first hashes the data with a salted hash function,
