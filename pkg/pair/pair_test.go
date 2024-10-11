@@ -62,6 +62,73 @@ func TestPAIR(t *testing.T) {
 	}
 }
 
+func TestDeterministicEncryption(t *testing.T) {
+	var (
+		salt   = make([]byte, sha256SaltSize)
+		scalar = ristretto255.NewScalar()
+	)
+
+	if _, err := rand.Read(salt); err != nil {
+		t.Fatal(err)
+	}
+
+	// sha512 produces a 64-byte psuedo-uniformized data
+	src := sha512.Sum512(salt)
+	scalar.FromUniformBytes(src[:])
+	sk, err := scalar.MarshalText()
+	if err != nil {
+		t.Fatalf("failed to marshal the scalar: %s", err.Error())
+	}
+
+	// Create a new PAIR instance
+	pairID := PAIRSHA256Ristretto255
+
+	pair, err := pairID.New(salt, sk)
+	if err != nil {
+		t.Fatalf("failed to instantiate a new PAIR instance: %s", err.Error())
+	}
+
+	var (
+		id1 = []byte("alice@hello.com")
+		id2 = []byte("bob@hello.com")
+	)
+
+	// Encrypt the data
+	ciphertext1, err := pair.Encrypt(id1)
+	if err != nil {
+		t.Fatalf("failed to encrypt the data: %s", err.Error())
+	}
+
+	ciphertext2, err := pair.Encrypt(id2)
+	if err != nil {
+		t.Fatalf("failed to encrypt the data: %s", err.Error())
+	}
+
+	// reverse order
+	reversePair, err := pairID.New(salt, sk)
+	if err != nil {
+		t.Fatalf("failed to instantiate a new PAIR instance: %s", err.Error())
+	}
+
+	ciphertext3, err := reversePair.Encrypt(id2)
+	if err != nil {
+		t.Fatalf("failed to encrypt the data: %s", err.Error())
+	}
+
+	ciphertext4, err := reversePair.Encrypt(id1)
+	if err != nil {
+		t.Fatalf("failed to encrypt the data: %s", err.Error())
+	}
+
+	if strings.Compare(string(ciphertext1), string(ciphertext4)) != 0 {
+		t.Fatalf("want: %s, got: %s", string(ciphertext1), string(ciphertext4))
+	}
+
+	if strings.Compare(string(ciphertext2), string(ciphertext3)) != 0 {
+		t.Fatalf("want: %s, got: %s", string(ciphertext2), string(ciphertext3))
+	}
+}
+
 func genData(n int) [][]byte {
 	data := make([][]byte, n)
 	for i := 0; i < n; i++ {
