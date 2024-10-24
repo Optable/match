@@ -1,5 +1,5 @@
 # match
-[![CircleCI](https://circleci.com/gh/Optable/match/tree/main.svg?style=svg)](https://circleci.com/gh/Optable/match/tree/main)
+[![match CI](https://github.com/Optable/match/actions/workflows/match-ci.yml/badge.svg?branch=main)](https://github.com/Optable/match/actions/workflows/match-ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/optable/match)](https://goreportcard.com/report/github.com/optable/match)
 [![GoDoc](https://godoc.org/github.com/optable/match?status.svg)](https://godoc.org/github.com/optable/match)
 

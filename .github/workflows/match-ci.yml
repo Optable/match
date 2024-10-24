@@ -1,4 +1,4 @@
-name: match-ci
+name: match CI
 
 on: [pull_request]
 
